@@ -29,6 +29,9 @@ EMAIL_HOST_USER = "u00024284@sise.com.pe"
 EMAIL_HOST_PASSWORD = "qxoddksgldbenhaa"  # 🔹 clave de aplicación de Gmail
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+TIME_ZONE = 'America/Lima'
+USE_TZ = True
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 

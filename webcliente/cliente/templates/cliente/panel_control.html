@@ -8,7 +8,13 @@
 </head>
 <body>
 <div class="container mt-5">
-    <h1 class="h3 mb-4">Panel de Control de Correos</h1>
+    <center><h1 class="h3 mb-4">PANEL DE CONTROL</h1></center>
+
+    <div style="margin-bottom: 20px; text-align:right;">
+        <a href="{% url 'exportar_excel_control' %}" class="btn btn-success">📊 Exportar a Excel</a>
+        <a href="{% url 'exportar_pdf' %}" class="btn btn-danger">📄 Exportar a PDF</a>
+    </div>
+
 
     <table class="table table-striped table-hover align-middle">
         <thead class="table-dark">
@@ -27,7 +33,10 @@
                 <td>{{ r.participante.nombres }} {{ r.participante.apellidos }}</td>
                 <td>{{ r.participante.correo }}</td>
                 <td>{{ r.participante.tipo_entrada }}</td>
-                <td>{{ r.fecha_envio }}</td>
+                <td>
+                        {{ r.fecha_envio|date:"d/m/Y" }}
+                </td>
+
                 <td>
                     {% if r.enviado %}
                         ✅ Sí

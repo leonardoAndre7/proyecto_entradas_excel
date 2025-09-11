@@ -1,6 +1,7 @@
 from django.views.generic import CreateView, UpdateView, DeleteView, ListView
 from .models import Participante,RegistroCorreo
 import pandas as pd
+import openpyxl
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import HttpResponse
 from django.urls import reverse_lazy
@@ -8,7 +9,12 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 from .utils import enviar_correo_participante, enviar_correo_participante
 from django.db.models import Q
-
+from django.utils import timezone
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+import io
 
 def confirmar_pago(request, pk):
     # Obtener el participante
@@ -49,7 +55,8 @@ def enviar_correo_participante(participante):
     RegistroCorreo.objects.create(
         participante=participante,
         enviado=True,
-        mensaje="Correo con QR enviado."
+        mensaje="Correo con QR enviado.",
+        fecha_envio=timezone.now()
     )
 
     # 🔹 Segundo correo con el tipo de entrada
@@ -73,7 +80,8 @@ def enviar_correo_participante(participante):
     RegistroCorreo.objects.create(
         participante=participante,
         enviado=True,
-        mensaje="Correo de confirmación enviado."
+        mensaje="Correo de confirmación enviado.",
+        fecha_envio=timezone.now()
     )
 
 
@@ -131,3 +139,71 @@ def reenviar_correo(request, pk):
     participante = registro.participante
     enviar_correo_participante(participante)
     return redirect('panel_control')
+
+def exportar_excel_control(request):
+    registros = RegistroCorreo.objects.all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Registros"
+
+    # Encabezados
+    columnas = ["Nombres", "Correo", "Tipo Entrada", "Fecha Envío", "Enviado"]
+    ws.append(columnas)
+
+    # Datos
+    for r in registros:
+        ws.append([
+            f"{r.participante.nombres} {r.participante.apellidos}",
+            r.participante.correo,
+            r.participante.tipo_entrada,
+            r.fecha_envio.strftime("%d/%m/%Y %H:%M") if r.fecha_envio else "",
+            "Sí" if r.enviado else "No"
+        ])
+
+    # Respuesta HTTP con archivo
+    response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = 'attachment; filename="control.xlsx"'
+    wb.save(response)
+    return response
+
+def exportar_pdf_control(request):
+    registros = RegistroCorreo.objects.all()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    elements = []
+
+    # Encabezado
+    styles = getSampleStyleSheet()
+    elements.append(Paragraph("Reporte de Registros", styles["Heading1"]))
+
+    # Tabla
+    data = [["Nombres", "Correo", "Tipo Entrada", "Fecha Envío", "Enviado"]]
+    for r in registros:
+        data.append([
+            f"{r.participante.nombres} {r.participante.apellidos}",
+            r.participante.correo,
+            r.participante.tipo_entrada,
+            r.fecha_envio.strftime("%d/%m/%Y") if r.fecha_envio else "",
+            "Sí" if r.enviado else "No"
+        ])
+
+    table = Table(data)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.gray),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.whitesmoke),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("GRID", (0,0), (-1,-1), 1, colors.black),
+    ]))
+    elements.append(table)
+
+    # Generar PDF
+    doc.build(elements)
+    pdf = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="control.pdf"'
+    response.write(pdf)
+    return response

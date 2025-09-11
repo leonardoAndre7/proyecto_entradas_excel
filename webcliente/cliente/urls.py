@@ -13,4 +13,6 @@ urlpatterns = [
     path('confirmar-pago/<int:pk>/', confirmar_pago, name='confirmar_pago'),
     path('panel-control/', panel_control, name='panel_control'),
     path('reenviar/<int:registro_id>/', reenviar_correo, name='reenviar_correo'),
+    path("exportar-excel_control/", views.exportar_excel_control, name="exportar_excel_control"),
+    path("exportar-pdf/", views.exportar_pdf_control, name="exportar_pdf"),
 ]

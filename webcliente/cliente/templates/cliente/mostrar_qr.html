@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>QR de {{ participante.nombres }} {{ participante.apellidos }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f8f9fa;
+            text-align: center;
+            padding: 50px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .qr-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: inline-block;
+        }
+        .qr-container img {
+            width: 300px;   /* 🔹 Ajusta el tamaño del QR */
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        .qr-img {
+        width: 350px;   /* 🔹 tamaño forzado del QR */
+        height: 350px;
+        border: 3px solid #444;
+        border-radius: 15px;
+        padding: 10px;
+        background: #fff;
+        box-shadow: 0px 4px 8px rgba(0,0,0,0.3);
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #007bff;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>QR de {{ participante.nombres }} {{ participante.apellidos }}</h1>
+
+    <div class="qr-container">
+    {% if participante.qr %}
+        <img src="{{ participante.qr.url }}" alt="QR de {{ participante.nombres }}" class="qr-img">
+    {% else %}
+        <p>No hay QR generado.</p>
+    {% endif %}
+    <br>
+    <a href="{% url 'participante_lista' %}" class="btn">⬅ Volver a la lista</a>
+    </div>
+
+</body>
+</html>

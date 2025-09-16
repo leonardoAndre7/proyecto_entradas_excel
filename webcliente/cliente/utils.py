@@ -11,14 +11,14 @@ def enviar_correo_participante(participante):
     # ==============================
     # 📌 Primer correo: Entrada con QR
     # ==============================
-    asunto1 = f"¡{participante.nombres}, tu entrada para EL DESPERTAR DEL EMPRENDEDOR!"
+    asunto1 = f"¡{participante.nombres}, tu entrada para EL DESPERTAR DEL EMPRENDEDOR! 🎉​🎉​🎉​"
     
     mensaje1_texto = f"""
     Hola {participante.nombres},
 
     Adjunto encontrarás tu entrada personalizada.
 
-    = No olvides guardarla y mostrarla el día del evento.
+    👉​👉​👉​ No olvides guardarla y mostrarla el día del evento.
 
     Según tu paquete ({participante.tipo_entrada}), aquí tienes las indicaciones específicas.
 
@@ -29,10 +29,16 @@ def enviar_correo_participante(participante):
     """
 
     mensaje1_html = f"""
+    <p><b>TU ENTRADA A EL DESPERTAR DEL EMPRENDEDOR🎉​🎉​🎉</b></p>
+    <br>
+
+    
+    
     <p>Hola <b>{participante.nombres}</b>,</p>
+    <p>¡Gracias por unirte a <b>EL DESPERTAR DEL EMPRENDEDOR!</b></p>
 
     <p>Adjunto encontrarás tu entrada personalizada:</p>
-    <p><b>= No olvides guardarla y mostrarla el día del evento.</b></p>
+    <p><b>👉​👉​👉 No olvides guardarla y mostrarla el día del evento.</b></p>
     <br>
 
     <p>Según tu paquete <b>{participante.tipo_entrada}</b>, aquí tienes las indicaciones específicas:</p>
@@ -47,7 +53,15 @@ def enviar_correo_participante(participante):
     <br>
     <p>Un abrazo,<br>
     <b>EQUIPO EL DESPERTAR DEL EMPRENDEDOR</b></p>
+    <br>
+    <p>--------------------------------------------------------</p>
+    <br>
+    <p>Quedo a la espera de tu confirmación y propuesta de desarrollo</p>
+    <br>
+    <p>Saludos Cordiales</p>
+    <p><b>Camila Simon</b></p>
     """
+
 
     email1 = EmailMultiAlternatives(
         asunto1,

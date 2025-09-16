@@ -34,6 +34,10 @@ class Participante(models.Model):
     total_pagar = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     qr = models.ImageField(upload_to='qr/', null=True, blank=True)
     pago_confirmado = models.BooleanField(default=False)
+    usado = models.BooleanField(default=False)
+
+
+    entrada_usada = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
 

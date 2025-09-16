@@ -2,12 +2,15 @@ from django.views.generic import CreateView, UpdateView, DeleteView, ListView
 from .models import Participante,RegistroCorreo
 import pandas as pd
 import openpyxl
+import qrcode
+from django.urls import reverse
 from django.shortcuts import get_object_or_404, render, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.urls import reverse_lazy
+from PIL import Image, ImageDraw, ImageFont
 from django.core.mail import EmailMessage
 from django.conf import settings
-from .utils import enviar_correo_participante, enviar_correo_participante
+from .utils import enviar_correo_participante
 from django.db.models import Q
 from django.utils import timezone
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
@@ -15,74 +18,30 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 import io
+import os
 
 def confirmar_pago(request, pk):
-    # Obtener el participante
     participante = get_object_or_404(Participante, pk=pk)
-    
-    # Marcar como pagado
+
+    # Confirmar pago
     participante.pago_confirmado = True
     participante.save()
-    
-    # Enviar correo de confirmación
+
+    # Enviar correo
     enviar_correo_participante(participante)
-    
-    # Redirigir a la lista de participantes
-    return redirect('participante_lista')
 
-from django.db import models
-
-def enviar_correo_participante(participante):
-    """
-    Envía dos correos:
-    1. Con el QR adjunto como entrada
-    2. Confirmación del tipo de entrada adquirida
-    """
-    # 🔹 Primer correo con el QR adjunto
-    asunto1 = "🎟️ Tu entrada al evento"
-    mensaje1 = f"Hola {participante.nombres},\n\nAdjunto encontrarás tu entrada con el código QR."
-    email1 = EmailMessage(
-        asunto1,
-        mensaje1,
-        settings.DEFAULT_FROM_EMAIL,
-        [participante.correo],
-    )
-    if participante.qr:
-        email1.attach_file(participante.qr.path)  # Adjuntar QR
-    email1.send(fail_silently=False)
-
-    # Registrar el primer correo
-    RegistroCorreo.objects.create(
+    # Crear o actualizar registro de correo
+    registro, created = RegistroCorreo.objects.get_or_create(
         participante=participante,
-        enviado=True,
-        mensaje="Correo con QR enviado.",
-        fecha_envio=timezone.now()
+        defaults={"enviado": True, "fecha_envio": timezone.now()}
     )
 
-    # 🔹 Segundo correo con el tipo de entrada
-    asunto2 = "✅ Confirmación de tu compra"
-    mensaje2 = (
-        f"Hola {participante.nombres},\n\n"
-        f"Has adquirido la entrada: {participante.tipo_entrada}\n"
-        f"Cantidad: {participante.cantidad}\n"
-        f"Total pagado: {participante.total_pagar}\n\n"
-        "¡Gracias por tu compra!"
-    )
-    email2 = EmailMessage(
-        asunto2,
-        mensaje2,
-        settings.DEFAULT_FROM_EMAIL,
-        [participante.correo],
-    )
-    email2.send(fail_silently=False)
+    if not created:
+        registro.enviado = True
+        registro.fecha_envio = timezone.now()
+        registro.save()
 
-    # Registrar el segundo correo
-    RegistroCorreo.objects.create(
-        participante=participante,
-        enviado=True,
-        mensaje="Correo de confirmación enviado.",
-        fecha_envio=timezone.now()
-    )
+    return redirect("participante_lista")
 
 
 class ParticipanteCreateView(CreateView):
@@ -116,9 +75,60 @@ class ParticipanteListView(ListView):
             )
         return queryset
 
+def generar_qr(request, pk):
+    participante = get_object_or_404(Participante, pk=pk)
+
+    # Construir la URL que se abrirá al escanear
+    url = request.build_absolute_uri(
+        reverse("validar_entrada", args=[participante.pk])
+    )
+
+    # 👇 Esto te lo mostrará en consola al momento de generar el QR
+    print("👉 URL del QR generado:", url)
+
+    # Crear el QR con esa URL
+    qr = qrcode.make(url)
+
+    response = HttpResponse(content_type="image/png")
+    qr.save(response, "PNG")
+    return response
+
+
 def mostrar_qr(request, pk):
     participante = get_object_or_404(Participante, pk=pk)
-    return render(request, "cliente/mostrar_qr.html", {"participante": participante})
+
+    # Ruta de la imagen de fondo
+    fondo_path = os.path.join(settings.BASE_DIR, 'cliente', 'static', 'cliente', 'img', 'exponentes.png')
+    img = Image.open(fondo_path).convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    # Escribir los datos encima
+    font = ImageFont.truetype("arial.ttf", 24)
+    draw.text((20, 50), f"Código: {participante.cod_cliente}", fill="black", font=font)
+    draw.text((20, 100), f"DNI: {participante.dni}", fill="black", font=font)
+
+    # Respuesta como imagen
+    response = HttpResponse(content_type="image/png")
+    img.save(response, "PNG")
+    return response
+
+def validar_entrada(request, pk):
+    participante = get_object_or_404(Participante, pk=pk)
+
+    if not participante.usado:
+        participante.usado = True
+        participante.save()
+        return render(request, "cliente/entrada_valida.html", {"participante": participante})
+    else:
+        return render(request, "cliente/entrada_usada.html", {"participante": participante})
+
+
+def marcar_ingreso(request, pk):
+    participante = get_object_or_404(Participante, pk=pk)
+    if not participante.entrada_usada:  # solo marcar si aún no entró
+        participante.entrada_usada = True
+        participante.save()
+    return redirect('lista')  # Ajusta al nombre de tu lista
 
 def exportar_excel(request):
     participantes = Participante.objects.all().values()
@@ -135,10 +145,18 @@ def panel_control(request):
     return render(request, 'cliente/panel_control.html', {'registros': registros})
 
 def reenviar_correo(request, pk):
-    registro = RegistroCorreo.objects.get(pk=pk)
+    registro = get_object_or_404(RegistroCorreo, pk=pk)
     participante = registro.participante
+
+    # Reenviar correo
     enviar_correo_participante(participante)
-    return redirect('panel_control')
+
+    # Actualizar registro
+    registro.enviado = True
+    registro.fecha_envio = timezone.now()
+    registro.save()
+
+    return redirect("panel_control")
 
 def exportar_excel_control(request):
     registros = RegistroCorreo.objects.all()
@@ -166,6 +184,23 @@ def exportar_excel_control(request):
     response["Content-Disposition"] = 'attachment; filename="control.xlsx"'
     wb.save(response)
     return response
+
+def registros_json(request):
+    registros = RegistroCorreo.objects.select_related("participante").order_by("-fecha_envio")
+    data = {
+        "registros": [
+            {
+                "id": r.id,
+                "nombre": f"{r.participante.nombres} {r.participante.apellidos}",
+                "correo": r.participante.correo,
+                "entrada": r.participante.tipo_entrada,
+                "fecha": r.fecha_envio.strftime("%d/%m/%Y") if r.fecha_envio else "",
+                "estado": r.enviado,
+            }
+            for r in registros
+        ]
+    }
+    return JsonResponse(data)
 
 def exportar_pdf_control(request):
     registros = RegistroCorreo.objects.all()

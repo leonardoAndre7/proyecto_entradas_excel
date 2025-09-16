@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Entrada Válida</title>
+    <style>
+        body { background: #d4edda; color: #155724; font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: inline-block; }
+        h1 { color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>✅ Entrada Válida</h1>
+        <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
+        <p>DNI: {{ participante.dni }}</p>
+        <p>Entrada: {{ participante.tipo_entrada }}</p>
+        <p><b>¡Bienvenido al evento!</b></p>
+    </div>
+</body>
+</html>

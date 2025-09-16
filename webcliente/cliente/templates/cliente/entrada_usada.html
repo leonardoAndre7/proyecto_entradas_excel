@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Entrada Ya Usada</title>
+    <style>
+        body { background: #f8d7da; color: #721c24; font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: inline-block; }
+        h1 { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>❌ Entrada Ya Usada</h1>
+        <p>El código de esta entrada ya fue validado anteriormente.</p>
+        <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
+        <p>DNI: {{ participante.dni }}</p>
+    </div>
+</body>
+</html>

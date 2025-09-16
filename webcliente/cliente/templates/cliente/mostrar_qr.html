@@ -1,67 +1,98 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>QR de {{ participante.nombres }} {{ participante.apellidos }}</title>
     <style>
+        /* Fondo con imagen de personas */
         body {
             font-family: Arial, sans-serif;
-            background: #f8f9fa;
+            background: url("{% static 'img/exponentes.png' %}") no-repeat center center fixed;
+            background-size: cover;
+            color: #f0f0f0;
             text-align: center;
             padding: 50px;
+            min-height: 100vh;
+            position: relative;
         }
+
+        /* Overlay oscuro */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 0;
+        }
+
+        /* Contenedor del contenido encima del overlay */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+
         h1 {
-            color: #333;
-            margin-bottom: 20px;
+            color: #ff99ff;
+            margin-bottom: 30px;
+            text-shadow: 1px 1px 5px #000;
         }
+
         .qr-container {
-            background: #fff;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            background: rgba(30,0,60,0.7); /* más transparente para ver el fondo */
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
             display: inline-block;
         }
+
         .qr-container img {
-            width: 300px;   /* 🔹 Ajusta el tamaño del QR */
-            height: 300px;
+            width: 350px;
+            height: 350px;
+            border: 4px solid #6a0dad;
+            border-radius: 15px;
+            padding: 10px;
+            background: #fff;
+            box-shadow: 0px 4px 12px rgba(0,0,0,0.5);
             margin-bottom: 20px;
         }
-        .qr-img {
-        width: 350px;   /* 🔹 tamaño forzado del QR */
-        height: 350px;
-        border: 3px solid #444;
-        border-radius: 15px;
-        padding: 10px;
-        background: #fff;
-        box-shadow: 0px 4px 8px rgba(0,0,0,0.3);
-        }
+
         .btn {
             display: inline-block;
-            padding: 10px 20px;
-            background: #007bff;
+            padding: 12px 24px;
+            background: #6a0dad;
             color: #fff;
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 16px;
-            transition: background 0.3s ease;
+            transition: background 0.3s ease, box-shadow 0.3s ease;
         }
+
         .btn:hover {
-            background: #0056b3;
+            background: #8000ff;
+            box-shadow: 0 0 15px #c100ff;
+        }
+
+        p {
+            color: #f0f0f0;
         }
     </style>
 </head>
 <body>
+<div class="content">
     <h1>QR de {{ participante.nombres }} {{ participante.apellidos }}</h1>
 
     <div class="qr-container">
-    {% if participante.qr %}
-        <img src="{{ participante.qr.url }}" alt="QR de {{ participante.nombres }}" class="qr-img">
-    {% else %}
-        <p>No hay QR generado.</p>
-    {% endif %}
-    <br>
-    <a href="{% url 'participante_lista' %}" class="btn">⬅ Volver a la lista</a>
+        {% if participante.qr %}
+            <img src="{{ participante.qr.url }}" alt="QR de {{ participante.nombres }}">
+        {% else %}
+            <p>No hay QR generado.</p>
+        {% endif %}
+        <br>
+        <a href="{% url 'participante_lista' %}" class="btn">⬅ Volver a la lista</a>
     </div>
+</div>
 
 </body>
 </html>

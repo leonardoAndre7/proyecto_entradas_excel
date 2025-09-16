@@ -4,91 +4,189 @@
 <head>
     <meta charset="UTF-8">
     <title>Lista de Participantes</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        /* Fondo de toda la página */
+        body {
+            background: url("{% static 'img/exponentes.png' %}") no-repeat center center fixed;
+            background-size: cover;
+            color: #f8f9fa;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Overlay para suavizar la imagen */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5); /* oscurece la imagen para que el formulario resalte */
+            z-index: 0;
+        }
+
+        /* Contenedor principal para que quede encima del overlay */
+        .container-md {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Banner superior */
+        .header-banner {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .header-banner h1 {
+            color: #fff;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+            font-size: 1.6rem;
+            text-align: center;
+        }
+
+        /* Formulario minimalista */
+        .card-minimal {
+            background-color: rgba(255, 255, 255, 0.1); /* más transparente para ver la imagen */
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .card-minimal .btn {
+            font-size: 0.9rem;
+        }
+
+        /* Tabla compacta con scroll */
+        .card-table {
+            background-color: rgba(0,0,0,0.6);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* Botones y inputs */
+        .btn-primary { background-color: #7b1fa2; border-color: #7b1fa2; }
+        .btn-primary:hover { background-color: #9c27b0; border-color: #9c27b0; }
+        .btn-success { background-color: #4caf50; border-color: #4caf50; }
+        .btn-warning { background-color: #ff9800; border-color: #ff9800; }
+        .btn-outline-info { color: #9c27b0; border-color: #9c27b0; }
+        .btn-outline-info:hover { background-color: #9c27b0; color: #fff; }
+        .form-control { background-color: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+        .form-control::placeholder { color: #e0e0e0; }
+
+        /* Badges */
+        .badge-info { background-color: #9c27b0; color: #fff; }
+        .badge-success { background-color: #4caf50; }
+        .badge-danger { background-color: #f44336; }
+    </style>
 </head>
 <body>
-<div class="container mt-5">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h3">Lista de Participantes</h1>
-        <a href="{% url 'participante_agregar' %}" class="btn btn-primary">Agregar Participante</a>
+<div class="container-md mt-4">
+
+    <!-- Banner -->
+    <div class="header-banner">
+        <h1><i class="bi bi-people-fill"></i> Lista de Participantes</h1>
     </div>
 
-    <div class="table-responsive">
-
-        <a href="{% url 'exportar_excel' %}" class="btn btn-success">
-            📥 Exportar a Excel
-        </a>
-        <a href="{% url 'panel_control' %}" class="btn btn-warning">🛠 Panel Control</a>
-        <form method="get" class="mb-3 d-flex" role="search">
+    <!-- Formulario minimalista -->
+    <div class="card-minimal">
+        <a href="{% url 'participante_agregar' %}" class="btn btn-primary"><i class="bi bi-person-plus-fill"></i> Agregar</a>
+        <a href="{% url 'exportar_excel' %}" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Exportar Excel</a>
+        <a href="{% url 'panel_control' %}" class="btn btn-warning"><i class="bi bi-gear-fill"></i> Panel Control</a>
+        <form method="get" class="d-flex ms-auto" role="search">
             <input type="text" name="q" class="form-control me-2" placeholder="Buscar por nombre o DNI" value="{{ request.GET.q }}">
-            <button type="submit" class="btn btn-primary">Buscar</button>
+            <button type="submit" class="btn btn-outline-info"><i class="bi bi-search"></i> Buscar</button>
         </form>
+    </div>
+<br>
+<br>
 
-
-        <table class="table table-striped table-hover align-middle">
+<br><br><br><br>
+    <!-- Tabla estilizada -->
+<div class="card shadow-lg border-0 rounded-3">
+    <div class="card-body table-container p-3">
+        <table class="table table-bordered table-hover table-sm align-middle text-center mb-0">
             <thead class="table-dark">
                 <tr>
-                    <th>id</th>
-                    <th>Código</th>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>DNI</th>
-                    <th>CELULAR</th>
-                    <th>CORREO</th>
-                    <th>Tipo Entrada</th>
-                    <th>Cantidad</th>
-                    <th>Precio</th>
-                    <th>Total</th>
-                    <th>Pago</th>
-                    <th>Confirmacion de pago</th>
-                    <th>Acciones</th>
+                    <th>#</th>
+                    <th><i class="bi bi-person-badge"></i> Código</th>
+                    <th><i class="bi bi-person-fill"></i> Nombre</th>
+                    <th><i class="bi bi-person-fill"></i> Apellido</th>
+                    <th><i class="bi bi-credit-card-2-front"></i> DNI</th>
+                    <th><i class="bi bi-telephone-fill"></i> Celular</th>
+                    <th><i class="bi bi-envelope-fill"></i> Correo</th>
+                    <th><i class="bi bi-ticket-perforated-fill"></i> Tipo Entrada</th>
+                    <th><i class="bi bi-hash"></i> Cant.</th>
+                    <th><i class="bi bi-currency-dollar"></i> Precio</th>
+                    <th><i class="bi bi-cash-stack"></i> Total</th>
+                    <th><i class="bi bi-credit-card-fill"></i> Pago</th>
+                    <th><i class="bi bi-check2-circle"></i> Confirm.</th>
+                    <th><i class="bi bi-door-open-fill"></i> Ingreso</th> 
+                    <th><i class="bi bi-gear-fill"></i> Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in object_list %}
                 <tr>
-                    <td>{{ p.id }}</td>
-                    <td>{{ p.cod_cliente }}</td>
+                    <td class="fw-bold text-secondary">{{ p.id }}</td>
+                    <td class="text-primary">{{ p.cod_cliente }}</td>
                     <td>{{ p.nombres }}</td>
                     <td>{{ p.apellidos }}</td>
                     <td>{{ p.dni }}</td>
                     <td>{{ p.celular }}</td>
                     <td>{{ p.correo }}</td>
-                    <td>{{ p.tipo_entrada }}</td>
+                    <td><span class="badge bg-gradient bg-info text-dark px-3 py-2">{{ p.tipo_entrada }}</span></td>
                     <td>{{ p.cantidad }}</td>
-                    <td>{{ p.precio }}</td>
-                    <td>S/ {{ p.total_pagar }}</td>
+                    <td>S/ {{ p.precio }}</td>
+                    <td class="fw-bold text-success">S/ {{ p.total_pagar }}</td>
                     <td>
                         {% if p.pago_confirmado %}
-                            ✅ Confirmado
+                            <span class="badge bg-success"><i class="bi bi-check-circle"></i></span>
                         {% else %}
-                            ❌ Pendiente
+                            <span class="badge bg-danger"><i class="bi bi-x-circle"></i></span>
                         {% endif %}
                     </td>
-
                     <td>
                         {% if not p.pago_confirmado %}
-                            <a href="{% url 'confirmar_pago' p.pk %}" class="btn btn-success">
-                                Confirmar pago
-                            </a>
+                            <a href="{% url 'confirmar_pago' p.pk %}" class="btn btn-sm btn-outline-success"><i class="bi bi-cash-stack"></i></a>
                         {% else %}
-                            <span class="badge bg-success">✔ Pagado</span>
+                            <span class="text-success"><i class="bi bi-check2-circle"></i></span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.entrada_usada %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Entró</span>
+                        {% else %}
+                            <a href="{% url 'marcar_ingreso' p.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-door-open"></i> Marcar Ingreso
+                            </a>
                         {% endif %}
                     </td>
 
                     <td>
-                        <a href="{% url 'participante_editar' p.pk %}" class="btn btn-sm btn-warning">Editar</a>
-                        <a href="{% url 'participante_eliminar' p.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
-
-                        <a href="{% url 'mostrar_qr' p.pk %}" class="btn btn-info">
-                            📷 Ver QR
-                        </a>
+                        <a href="{% url 'participante_editar' p.pk %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-square"></i></a>
+                        <a href="{% url 'participante_eliminar' p.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                        <a href="{% url 'generar_qr' p.pk %}" class="btn btn-sm btn-outline-info"><i class="bi bi-qr-code-scan"></i></a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="10" class="text-center">No hay participantes registrados.</td>
+                    <td colspan="14" class="text-center text-muted py-3">
+                        <i class="bi bi-exclamation-circle"></i> No hay participantes registrados.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -96,7 +194,34 @@
     </div>
 </div>
 
-<!-- Bootstrap JS (opcional si necesitas componentes interactivos) -->
+<!-- Estilos extra -->
+<style>
+    .table-container {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .table thead th {
+        vertical-align: middle;
+        background: linear-gradient(90deg, #212529, #343a40);
+        color: #fff;
+        border-bottom: 2px solid #495057;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+        transition: background-color 0.3s ease;
+    }
+
+    .badge.bg-gradient {
+        background: linear-gradient(90deg, #0dcaf0, #0d6efd);
+        color: white !important;
+        border-radius: 8px;
+    }
+</style>
+
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

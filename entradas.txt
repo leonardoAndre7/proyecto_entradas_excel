@@ -21,10 +21,15 @@ FULL ACCES PREVENTA1 1050
 EMPRESARIAL PREVENTA1 525
             PREVENTA2 750
             PREVENTA3 1050
-            PRECIO EN PUERTA 1800
+            PRECIO EN  PUERTA 1800
 
 EMPRENDEDOR PREVENTA1 105
             PREVENTA2 150
             PREVENTA3 210
             PRECIO EN PUERTA 750
+
+
+contador de días
+adjuntar código en imagen 
+
 

@@ -1,0 +1,64 @@
+
+{% load static %}
+
+{% block content %}
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: url("{% static 'img/exponentes.jpeg' %}") no-repeat center center fixed;
+    background-size: cover; /* ocupa toda la pantalla */
+    font-family: Arial, sans-serif;
+  }
+
+  .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5); /* oscurece la imagen */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    color: white;
+    text-align: center;
+  }
+
+  .overlay h1 {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+  }
+
+  .overlay p {
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .btn-login {
+    background-color: #9c27b0;
+    border: none;
+    padding: 1rem 2.5rem;
+    border-radius: 30px;
+    color: white;
+    font-size: 1.2rem;
+    text-decoration: none;
+    transition: 0.3s;
+  }
+
+  .btn-login:hover {
+    background-color: #7b1fa2;
+    transform: scale(1.05);
+  }
+</style>
+
+<div class="overlay">
+  <h1>El Despertar del Emprendedor</h1>
+  <p>Bienvenido al sistema de registro y control de entradas.</p>
+  <a href="{% url 'login' %}" class="btn-login">Iniciar Sesión</a>
+</div>
+{% endblock %}

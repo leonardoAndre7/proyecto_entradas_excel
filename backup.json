@@ -1,0 +1,98 @@
+[
+{
+    "model": "cliente.participante",
+    "pk": 27,
+    "fields": {
+        "cod_cliente": "EMPRENDEDOR001",
+        "nombres": "Leonardo Andre",
+        "apellidos": "Bravo",
+        "dni": "71769700",
+        "celular": "902935521",
+        "correo": "leo283441@gmail.com",
+        "tipo_entrada": "EMPRENDEDOR",
+        "paquete": null,
+        "cantidad": 2,
+        "precio": "105.00",
+        "total_pagar": "210.00",
+        "qr": "qr/71769700_ficSGrZ.png",
+        "pago_confirmado": true,
+        "usado": true,
+        "entrada_usada": true,
+        "token": "ebb03696b9af451ba0f9616875a430b8"
+    }
+},
+{
+    "model": "cliente.participante",
+    "pk": 28,
+    "fields": {
+        "cod_cliente": "FULLACCES001",
+        "nombres": "Maya",
+        "apellidos": "Rodriguez",
+        "dni": "23454534",
+        "celular": "987899675",
+        "correo": "mayarodriguezmacedo@gmail.com",
+        "tipo_entrada": "FULL ACCES",
+        "paquete": null,
+        "cantidad": 4,
+        "precio": "1050.00",
+        "total_pagar": "4200.00",
+        "qr": "qr/23454534_s3yf9H4.png",
+        "pago_confirmado": true,
+        "usado": true,
+        "entrada_usada": false,
+        "token": "bb2202fb5986405191e9f014bf4e39c5"
+    }
+},
+{
+    "model": "cliente.participante",
+    "pk": 29,
+    "fields": {
+        "cod_cliente": "FULLACCES002",
+        "nombres": "Maya",
+        "apellidos": "Rodriguez",
+        "dni": "76278660",
+        "celular": "906664909",
+        "correo": "mayarodriguezmacedo@gmail.com",
+        "tipo_entrada": "FULL ACCES",
+        "paquete": null,
+        "cantidad": 3,
+        "precio": "1050.00",
+        "total_pagar": "3150.00",
+        "qr": "qr/76278660_escz0bz.png",
+        "pago_confirmado": true,
+        "usado": true,
+        "entrada_usada": false,
+        "token": "85252b9aef9f4940ba3372994655a113"
+    }
+},
+{
+    "model": "cliente.registrocorreo",
+    "pk": 12,
+    "fields": {
+        "participante": 27,
+        "fecha_envio": "2025-10-06T15:34:30.806Z",
+        "enviado": true,
+        "mensaje": ""
+    }
+},
+{
+    "model": "cliente.registrocorreo",
+    "pk": 13,
+    "fields": {
+        "participante": 28,
+        "fecha_envio": "2025-10-06T15:44:12.782Z",
+        "enviado": true,
+        "mensaje": ""
+    }
+},
+{
+    "model": "cliente.registrocorreo",
+    "pk": 14,
+    "fields": {
+        "participante": 29,
+        "fecha_envio": "2025-10-06T15:50:56.106Z",
+        "enviado": true,
+        "mensaje": ""
+    }
+}
+]

@@ -1,0 +1,254 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{% if object %}Editar{% else %}Agregar{% endif %} Participante</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        /* Fondo con imagen */
+        body {
+            background: url("{% static 'img/exponentes.png' %}") no-repeat center center fixed;
+            background-size: cover;
+            color: #f0f0f0;
+            min-height: 100vh;
+            position: relative;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Overlay oscuro */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 0;
+        }
+
+        /* Contenido sobre overlay */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Cards */
+        .card {
+            background-color: rgba(30, 0, 60, 0.6); /* más transparente */
+            border-radius: 15px;
+            color: #ffffff;
+        }
+
+        .card-header {
+            background-color: rgba(106, 13, 173, 0.8);
+            color: #fff;
+            font-weight: bold;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+        }
+
+        /* Formulario */
+        .form-label { color: #e0c3fc; }
+        .form-control {
+            background-color: rgba(42,0,51,0.7);
+            border: 1px solid rgba(106,13,173,0.7);
+            color: #fff;
+        }
+        .form-control:focus {
+            background-color: rgba(59,0,77,0.8);
+            border-color: #c100ff;
+            box-shadow: 0 0 10px #c100ff;
+            color: #fff;
+        }
+
+        /* Botones */
+        .btn-primary { background-color: #6a0dad; border-color: #4b0082; }
+        .btn-primary:hover { background-color: #8000ff; border-color: #4b0082; }
+        .btn-outline-secondary { color: #fff; border-color: #c100ff; }
+        .btn-outline-secondary:hover { background-color: #4b0082; border-color: #c100ff; }
+
+        /* Tabla transparente */
+        table.table {
+            background-color: rgba(0,0,0,0.4);
+            color: #fff;
+        }
+        table.table th {
+            background-color: rgba(75, 0, 130, 0.7);
+            color: #fff;
+        }
+        table.table td {
+            border-color: rgba(106, 13, 173, 0.5);
+        }
+
+        /* Badges */
+        .badge { font-weight: bold; }
+    </style>
+    <br><br><br><br><br><br><br><br>
+</head>
+<body>
+<div class="container py-5 content">
+
+    <!-- RELOJ Y AVISO PREVENTA -->
+    <div class="mb-4 text-center">
+        <h4 id="reloj" class="fw-bold"></h4>
+        <div id="mensaje-preventa" class="fw-semibold"></div>
+    </div>
+  
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">
+            {% if object %}
+                <i class="bi bi-pencil-square"></i> Editar Participante
+            {% else %}
+                <i class="bi bi-person-plus-fill"></i> Agregar Participante
+            {% endif %}
+        </h2> 
+        <a href="{% url 'lista' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left-circle"></i> Volver a la lista
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Formulario -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm p-3">
+                <div class="card-body">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            {% for field in form %}
+                                <div class="col-md-12">
+                                    <label class="form-label fw-semibold">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.help_text %}
+                                        <div class="form-text text-light">{{ field.help_text }}</div>
+                                    {% endif %}
+                                    {% for error in field.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+
+                            <!-- Precio automático -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-semibold">Precio</label>
+                                <input type="text" id="precio" class="form-control" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="mt-4 text-end">
+                            <button type="submit" class="btn btn-primary">
+                                {% if object %}
+                                    <i class="bi bi-save-fill"></i> Actualizar
+                                {% else %}
+                                    <i class="bi bi-check-circle-fill"></i> Agregar
+                                {% endif %}
+                            </button>
+                            <a href="{% url 'lista' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de precios -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-primary">
+                <div class="card-header">
+                    <i class="bi bi-ticket-perforated-fill"></i> Tarifas de Entradas
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-bordered text-center align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Preventa 1</th>
+                                <th>Preventa 2</th>
+                                <th>Preventa 3</th>
+                                <th>Puerta</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-bold">FULL ACCES</td>
+                                <td>1050</td>
+                                <td>1500</td>
+                                <td>2100</td>
+                                <td class="text-danger fw-bold">3000</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">EMPRESARIAL</td>
+                                <td>525</td>
+                                <td>750</td>
+                                <td>1050</td>
+                                <td class="text-danger fw-bold">1800</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">EMPRENDEDOR</td>
+                                <td>105</td>
+                                <td>150</td>
+                                <td>210</td>
+                                <td class="text-danger fw-bold">750</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const precios = {
+    "FULL ACCES": { pre1: 1050, pre2: 1500, pre3: 2100, puerta: 3000 },
+    "EMPRESARIAL": { pre1: 525, pre2: 750, pre3: 1050, puerta: 1800 },
+    "EMPRENDEDOR": { pre1: 105, pre2: 150, pre3: 210, puerta: 750 }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    const tipoEntrada = document.querySelector('[name="tipo_entrada"]');
+    const precio = document.getElementById("precio");
+
+    function actualizarPrecio() {
+        const ahora = new Date();
+        const fecha = ahora.getTime();
+        const preventa1 = new Date('2025-09-30T23:59:59').getTime();
+        const preventa2 = new Date('2025-10-30T23:59:59').getTime();
+        const preventa3 = new Date('2025-10-20T23:59:59').getTime();
+
+        let etapa;
+        if (fecha <= preventa1) etapa = "pre1";
+        else if (fecha <= preventa3) etapa = "pre3";
+        else if (fecha <= preventa2) etapa = "pre2";
+        else etapa = "puerta";
+
+        if (tipoEntrada.value && precios[tipoEntrada.value]) {
+            precio.value = precios[tipoEntrada.value][etapa];
+        } else {
+            precio.value = "";
+        }
+
+        // Actualizar mensaje preventa
+        const mensaje = document.getElementById('mensaje-preventa');
+        if (fecha <= preventa1) mensaje.textContent = "⚠️ PREVENTA 1 activa hasta el 30 de septiembre";
+        else if (fecha <= preventa3) mensaje.textContent = "⚠️ PREVENTA 3 activa hasta el 20 de octubre";
+        else if (fecha <= preventa2) mensaje.textContent = "⚠️ PREVENTA 2 activa hasta el 30 de octubre";
+        else mensaje.textContent = "⏰ Las preventas han finalizado. Precio en puerta aplicable.";
+
+        // Actualizar reloj
+        const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('reloj').textContent = ahora.toLocaleTimeString() + " - " + ahora.toLocaleDateString('es-ES', opciones);
+    }
+
+    tipoEntrada.addEventListener("change", actualizarPrecio);
+    setInterval(actualizarPrecio, 1000);
+});
+</script>
+</body>
+</html>

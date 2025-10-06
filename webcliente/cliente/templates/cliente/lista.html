@@ -7,52 +7,48 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        /* Fondo de toda la página */
+        /* Fondo y overlay */
         body {
-            background: url("{% static 'img/exponentes.png' %}") no-repeat center center fixed;
+            background: url("{% static 'img/exponentes.jpeg' %}") no-repeat center center fixed;
             background-size: cover;
+            font-family: 'Arial', sans-serif;
             color: #f8f9fa;
-            min-height: 100vh;
-            font-family: Arial, sans-serif;
         }
-
-        /* Overlay para suavizar la imagen */
         body::before {
             content: "";
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.5); /* oscurece la imagen para que el formulario resalte */
+            background-color: rgba(0,0,0,0.6);
             z-index: 0;
         }
 
-        /* Contenedor principal para que quede encima del overlay */
+        /* Contenedor principal */
         .container-md {
             position: relative;
             z-index: 1;
+            padding-bottom: 50px;
         }
 
-        /* Banner superior */
+        /* Banner */
         .header-banner {
-            background: rgba(0,0,0,0.3);
+            background: rgba(0,0,0,0.4);
             border-radius: 15px;
-            height: 150px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
         .header-banner h1 {
             color: #fff;
             text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
-            font-size: 1.6rem;
-            text-align: center;
+            font-size: 1.8rem;
         }
 
         /* Formulario minimalista */
         .card-minimal {
-            background-color: rgba(255, 255, 255, 0.1); /* más transparente para ver la imagen */
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
             border-radius: 12px;
             padding: 1rem;
             margin-bottom: 20px;
@@ -61,39 +57,72 @@
             gap: 0.5rem;
             align-items: center;
         }
-
         .card-minimal .btn {
             font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        .card-minimal .btn:hover {
+            transform: translateY(-2px);
         }
 
-        /* Tabla compacta con scroll */
+        /* Tabla con efecto glass */
         .card-table {
-            background-color: rgba(0,0,0,0.6);
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
             border-radius: 12px;
             overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
         }
         .table-container {
-            max-height: 400px;
+            max-height: 500px;
             overflow-y: auto;
         }
 
-        /* Botones y inputs */
+        .table thead th {
+            vertical-align: middle;
+            background: linear-gradient(90deg, #4b1979, #7b1fa2);
+            color: #fff;
+            border-bottom: 2px solid #5c1d99;
+        }
+
+        .table tbody tr {
+            transition: all 0.3s ease;
+        }
+        .table tbody tr:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+
+        /* Badges modernos */
+        .badge-info {
+            background: linear-gradient(90deg, #0dcaf0, #0d6efd);
+            color: #fff;
+            border-radius: 10px;
+            padding: 0.35em 0.6em;
+        }
+        .badge-success { background-color: #4caf50; border-radius: 10px; }
+        .badge-danger { background-color: #f44336; border-radius: 10px; }
+
+        /* Botones */
         .btn-primary { background-color: #7b1fa2; border-color: #7b1fa2; }
         .btn-primary:hover { background-color: #9c27b0; border-color: #9c27b0; }
         .btn-success { background-color: #4caf50; border-color: #4caf50; }
         .btn-warning { background-color: #ff9800; border-color: #ff9800; }
         .btn-outline-info { color: #9c27b0; border-color: #9c27b0; }
         .btn-outline-info:hover { background-color: #9c27b0; color: #fff; }
-        .form-control { background-color: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+
+        /* Inputs */
+        .form-control {
+            background-color: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
         .form-control::placeholder { color: #e0e0e0; }
 
-        /* Badges */
-        .badge-info { background-color: #9c27b0; color: #fff; }
-        .badge-success { background-color: #4caf50; }
-        .badge-danger { background-color: #f44336; }
     </style>
 </head>
 <body>
+    <br><br><br><br><br><br><br><br><b><br><br></b>
 <div class="container-md mt-4">
 
     <!-- Banner -->
@@ -111,114 +140,86 @@
             <button type="submit" class="btn btn-outline-info"><i class="bi bi-search"></i> Buscar</button>
         </form>
     </div>
-<br>
-<br>
 
-<br><br><br><br>
     <!-- Tabla estilizada -->
-<div class="card shadow-lg border-0 rounded-3">
-    <div class="card-body table-container p-3">
-        <table class="table table-bordered table-hover table-sm align-middle text-center mb-0">
-            <thead class="table-dark">
-                <tr>
-                    <th>#</th>
-                    <th><i class="bi bi-person-badge"></i> Código</th>
-                    <th><i class="bi bi-person-fill"></i> Nombre</th>
-                    <th><i class="bi bi-person-fill"></i> Apellido</th>
-                    <th><i class="bi bi-credit-card-2-front"></i> DNI</th>
-                    <th><i class="bi bi-telephone-fill"></i> Celular</th>
-                    <th><i class="bi bi-envelope-fill"></i> Correo</th>
-                    <th><i class="bi bi-ticket-perforated-fill"></i> Tipo Entrada</th>
-                    <th><i class="bi bi-hash"></i> Cant.</th>
-                    <th><i class="bi bi-currency-dollar"></i> Precio</th>
-                    <th><i class="bi bi-cash-stack"></i> Total</th>
-                    <th><i class="bi bi-credit-card-fill"></i> Pago</th>
-                    <th><i class="bi bi-check2-circle"></i> Confirm.</th>
-                    <th><i class="bi bi-door-open-fill"></i> Ingreso</th> 
-                    <th><i class="bi bi-gear-fill"></i> Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in object_list %}
-                <tr>
-                    <td class="fw-bold text-secondary">{{ p.id }}</td>
-                    <td class="text-primary">{{ p.cod_cliente }}</td>
-                    <td>{{ p.nombres }}</td>
-                    <td>{{ p.apellidos }}</td>
-                    <td>{{ p.dni }}</td>
-                    <td>{{ p.celular }}</td>
-                    <td>{{ p.correo }}</td>
-                    <td><span class="badge bg-gradient bg-info text-dark px-3 py-2">{{ p.tipo_entrada }}</span></td>
-                    <td>{{ p.cantidad }}</td>
-                    <td>S/ {{ p.precio }}</td>
-                    <td class="fw-bold text-success">S/ {{ p.total_pagar }}</td>
-                    <td>
-                        {% if p.pago_confirmado %}
-                            <span class="badge bg-success"><i class="bi bi-check-circle"></i></span>
-                        {% else %}
-                            <span class="badge bg-danger"><i class="bi bi-x-circle"></i></span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if not p.pago_confirmado %}
-                            <a href="{% url 'confirmar_pago' p.pk %}" class="btn btn-sm btn-outline-success"><i class="bi bi-cash-stack"></i></a>
-                        {% else %}
-                            <span class="text-success"><i class="bi bi-check2-circle"></i></span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if p.entrada_usada %}
-                            <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Entró</span>
-                        {% else %}
-                            <a href="{% url 'marcar_ingreso' p.pk %}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-door-open"></i> Marcar Ingreso
-                            </a>
-                        {% endif %}
-                    </td>
-
-                    <td>
-                        <a href="{% url 'participante_editar' p.pk %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-square"></i></a>
-                        <a href="{% url 'participante_eliminar' p.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
-                        <a href="{% url 'generar_qr' p.pk %}" class="btn btn-sm btn-outline-info"><i class="bi bi-qr-code-scan"></i></a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="14" class="text-center text-muted py-3">
-                        <i class="bi bi-exclamation-circle"></i> No hay participantes registrados.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card-table shadow-lg border-0 rounded-3 mt-3">
+        <div class="card-body table-container p-3">
+            <table class="table table-bordered table-hover table-sm align-middle text-center mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th><i class="bi bi-person-badge"></i> Código</th>
+                        <th><i class="bi bi-person-fill"></i> Nombre</th>
+                        <th><i class="bi bi-person-fill"></i> Apellido</th>
+                        <th><i class="bi bi-credit-card-2-front"></i> DNI</th>
+                        <th><i class="bi bi-telephone-fill"></i> Celular</th>
+                        <th><i class="bi bi-envelope-fill"></i> Correo</th>
+                        <th><i class="bi bi-ticket-perforated-fill"></i> Tipo Entrada</th>
+                        <th><i class="bi bi-hash"></i> Cant.</th>
+                        <th><i class="bi bi-currency-dollar"></i> Precio</th>
+                        <th><i class="bi bi-cash-stack"></i> Total</th>
+                        <th><i class="bi bi-credit-card-fill"></i> Pago</th>
+                        <th><i class="bi bi-check2-circle"></i> Confirm.</th>
+                        <th><i class="bi bi-door-open-fill"></i> Ingreso</th> 
+                        <th><i class="bi bi-gear-fill"></i> Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in object_list %}
+                    <tr>
+                        <td class="fw-bold text-secondary">{{ p.id }}</td>
+                        <td class="text-primary">{{ p.cod_cliente }}</td>
+                        <td>{{ p.nombres }}</td>
+                        <td>{{ p.apellidos }}</td>
+                        <td>{{ p.dni }}</td>
+                        <td>{{ p.celular }}</td>
+                        <td>{{ p.correo }}</td>
+                        <td><span class="badge badge-info">{{ p.tipo_entrada }}</span></td>
+                        <td>{{ p.cantidad }}</td>
+                        <td>S/ {{ p.precio }}</td>
+                        <td class="fw-bold text-success">S/ {{ p.total_pagar }}</td>
+                        <td>
+                            {% if p.pago_confirmado %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i></span>
+                            {% else %}
+                                <span class="badge bg-danger"><i class="bi bi-x-circle"></i></span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not p.pago_confirmado %}
+                                <a href="{% url 'confirmar_pago' p.pk %}" class="btn btn-sm btn-outline-success"><i class="bi bi-cash-stack"></i></a>
+                            {% else %}
+                                <span class="text-success"><i class="bi bi-check2-circle"></i></span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.entrada_usada %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Entró</span>
+                            {% else %}
+                                <a href="{% url 'marcar_ingreso' p.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-door-open"></i> Marcar Ingreso
+                                </a>
+                            {% endif %}
+                        </td> 
+                        <td>
+                            <a href="{% url 'participante_editar' p.pk %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-square"></i></a>
+                            <a href="{% url 'participante_eliminar' p.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            <a href="{% url 'generar_qr' p.token %}" class="btn btn-sm btn-outline-info"><i class="bi bi-qr-code-scan"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="15" class="text-center text-muted py-3">
+                            <i class="bi bi-exclamation-circle"></i> No hay participantes registrados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-</div>
 
-<!-- Estilos extra -->
-<style>
-    .table-container {
-        max-height: 500px;
-        overflow-y: auto;
-    }
-
-    .table thead th {
-        vertical-align: middle;
-        background: linear-gradient(90deg, #212529, #343a40);
-        color: #fff;
-        border-bottom: 2px solid #495057;
-    }
-
-    .table tbody tr:hover {
-        background-color: #f8f9fa;
-        transition: background-color 0.3s ease;
-    }
-
-    .badge.bg-gradient {
-        background: linear-gradient(90deg, #0dcaf0, #0d6efd);
-        color: white !important;
-        border-radius: 8px;
-    }
-</style>
+    <a href="{% url 'preview_imagen' %}" class="btn btn-success" style="display: none;">Ver Preview de la Entrada</a>
 
 </div>
 

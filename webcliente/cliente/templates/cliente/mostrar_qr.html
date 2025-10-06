@@ -3,96 +3,91 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>QR de {{ participante.nombres }} {{ participante.apellidos }}</title>
+    <title>Entrada Válida</title>
+    {% load static %}
     <style>
-        /* Fondo con imagen de personas */
+        /* Ocupa toda la pantalla */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial Black', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+
+        /* Fondo que ocupa toda la web */
         body {
-            font-family: Arial, sans-serif;
-            background: url("{% static 'img/exponentes.png' %}") no-repeat center center fixed;
-            background-size: cover;
-            color: #f0f0f0;
+            background-image: url("{% static 'img/exponentes.jpeg' %}");
+            background-size: 100% 100%; /* Estira la imagen completamente */
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* Diseño del ticket */
+        .ticket {
+            background: linear-gradient(135deg, #2c003e, #000000); /* Negro + Morado */
+            width: 90%;
+            max-width: 900px;
+            padding: 60px 40px;
+            border-radius: 25px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.7);
             text-align: center;
-            padding: 50px;
-            min-height: 100vh;
-            position: relative;
-        }
-
-        /* Overlay oscuro */
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            z-index: 0;
-        }
-
-        /* Contenedor del contenido encima del overlay */
-        .content {
-            position: relative;
-            z-index: 1;
+            border: 5px solid #9b59b6; /* borde morado */
+            animation: pulse 1.5s infinite alternate;
         }
 
         h1 {
-            color: #ff99ff;
-            margin-bottom: 30px;
-            text-shadow: 1px 1px 5px #000;
-        }
-
-        .qr-container {
-            background: rgba(30,0,60,0.7); /* más transparente para ver el fondo */
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
-            display: inline-block;
-        }
-
-        .qr-container img {
-            width: 350px;
-            height: 350px;
-            border: 4px solid #6a0dad;
-            border-radius: 15px;
-            padding: 10px;
-            background: #fff;
-            box-shadow: 0px 4px 12px rgba(0,0,0,0.5);
-            margin-bottom: 20px;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #6a0dad;
-            color: #fff;
-            text-decoration: none;
-            border-radius: 12px;
-            font-size: 16px;
-            transition: background 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .btn:hover {
-            background: #8000ff;
-            box-shadow: 0 0 15px #c100ff;
+            color: #28ff96; /* Verde brillante */
+            font-size: 4em;
+            margin-bottom: 25px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
         }
 
         p {
-            color: #f0f0f0;
+            font-size: 1.8em;
+            margin: 15px 0;
+        }
+
+        b {
+            font-weight: bold;
+            color: #e0b3ff;
+        }
+
+        /* Animación sutil del ticket */
+        @keyframes pulse {
+            0% { box-shadow: 0 12px 30px rgba(155, 89, 182, 0.7); }
+            100% { box-shadow: 0 12px 30px rgba(155, 89, 182, 1); }
+        }
+
+        /* Responsivo */
+        @media (max-width: 768px) {
+            .ticket {
+                padding: 40px 20px;
+            }
+            h1 {
+                font-size: 2.5em;
+            }
+            p {
+                font-size: 1.2em;
+            }
         }
     </style>
 </head>
 <body>
-<div class="content">
-    <h1>QR de {{ participante.nombres }} {{ participante.apellidos }}</h1>
-
-    <div class="qr-container">
-        {% if participante.qr %}
-            <img src="{{ participante.qr.url }}" alt="QR de {{ participante.nombres }}">
-        {% else %}
-            <p>No hay QR generado.</p>
+    <div class="ticket">
+        <h1>✅ Entrada Válida</h1>
+        <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
+        <p>DNI: {{ participante.dni }}</p>
+        <p>Entrada: {{ participante.tipo_entrada }}</p>
+        <p><b>¡Bienvenido al evento!</b></p>
+        {% if qr_image_url %}
+        <div class="qr">
+            <img src="{{ qr_image_url }}" alt="QR de entrada" style="width:200px; height:200px;">
+        </div>
         {% endif %}
-        <br>
-        <a href="{% url 'participante_lista' %}" class="btn">⬅ Volver a la lista</a>
     </div>
-</div>
-
 </body>
 </html>

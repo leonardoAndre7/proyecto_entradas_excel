@@ -5,7 +5,16 @@ from io import BytesIO
 from django.core.files import File
 from django.core.mail import EmailMultiAlternatives, EmailMessage
 from django.conf import settings
-
+import pandas as pd
+import qrcode
+from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
+from django.core.files import File
+from django.core.mail import EmailMessage
+from django.conf import settings
+import os
+from PIL import Image
+from django.contrib.staticfiles import finders
 
 def enviar_correo_participante(participante):
     # ==============================
@@ -117,6 +126,97 @@ def sincronizar_excel_local():
                 'pago_confirmado': str(fila['Pagado']).strip().lower() == 'sí'  # columna "Pagado"
             }
         )
+
+
+
+
+def generar_imagen_final(participante, partes_path_list, tipo_fuente="arial.ttf"):
+    """
+    Combina varias imágenes, coloca QR y texto según tipo de entrada.
+    
+    participante: objeto Participante
+    partes_path_list: lista de rutas de imágenes a combinar
+    tipo_fuente: fuente para el texto
+    """
+    # --- Cargar y combinar imágenes ---
+    imagenes = [Image.open(p) for p in partes_path_list]
+    
+    # Calcular tamaño final: altura = suma de todas, ancho = máximo ancho
+    ancho_final = max(img.width for img in imagenes)
+    alto_final = sum(img.height for img in imagenes)
+    
+    imagen_final = Image.new('RGB', (ancho_final, alto_final), (255, 255, 255))
+    
+    # Pegar imágenes una sobre otra
+    y_offset = 0
+    for img in imagenes:
+        imagen_final.paste(img, (0, y_offset))
+        y_offset += img.height
+    
+    # --- Generar QR ---
+    qr_content = f"{participante.cod_cliente}-{participante.dni}"
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(qr_content)
+    qr.make(fit=True)
+    
+    img_qr = qr.make_image(fill_color="darkblue", back_color="white").convert('RGB')
+    qr_size = 150
+    img_qr = img_qr.resize((qr_size, qr_size))
+    
+    # Pegar QR en esquina inferior derecha
+    posicion_qr = (ancho_final - qr_size - 50, alto_final - qr_size - 50)
+    imagen_final.paste(img_qr, posicion_qr)
+    
+    # --- Agregar texto tipo de entrada ---
+    draw = ImageDraw.Draw(imagen_final)
+    try:
+        font = ImageFont.truetype(tipo_fuente, 60)
+    except:
+        font = ImageFont.load_default()
+    
+    texto = f"Entrada {participante.tipo_entrada.upper()}"
+    ancho_texto, alto_texto = draw.textsize(texto, font=font)
+    
+    # Pegar texto en la parte superior central
+    posicion_texto = ((ancho_final - ancho_texto) // 2, 50)
+    draw.text(posicion_texto, texto, font=font, fill=(255, 0, 0))
+    
+    # --- Guardar en buffer ---
+    buffer = BytesIO()
+    imagen_final.save(buffer, format='PNG')
+    buffer.seek(0)
+    
+    return buffer
+
+
+def preview_imagen_final():
+    # Construir rutas de las imágenes
+    base_path = os.path.join(settings.STATIC_ROOT, 'img')
+    partes = [os.path.join(base_path, f"parte0{i}.jpg") for i in range(1, 8)]
+
+    # Abrir imágenes
+    imagenes = [Image.open(p) for p in partes]
+
+    # Calcular tamaño final
+    ancho = max(img.width for img in imagenes)
+    alto_total = sum(img.height for img in imagenes)
+    imagen_final = Image.new('RGB', (ancho, alto_total), (255, 255, 255))
+
+    # Combinar imágenes verticalmente
+    y_offset = 0
+    for img in imagenes:
+        imagen_final.paste(img, (0, y_offset))
+        y_offset += img.height
+
+    # Mostrar preview (abre la imagen en el visor de imágenes de tu sistema)
+    imagen_final.show()
+
+
 def generar_qr(participante, logo_path='ruta/logo.png'):
     qr_content = f"{participante.cod_cliente}-{participante.dni}"
     qr = qrcode.QRCode(

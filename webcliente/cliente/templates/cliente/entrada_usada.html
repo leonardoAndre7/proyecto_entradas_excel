@@ -1,20 +1,94 @@
+
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>Entrada Ya Usada</title>
+    {% load static %}
     <style>
-        body { background: #f8d7da; color: #721c24; font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: inline-block; }
-        h1 { color: #dc3545; }
+        /* Ocupa toda la pantalla */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial Black', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+
+        /* Fondo que ocupa toda la web */
+        body {
+            background-image: url("{% static 'img/exponentes.jpeg' %}");
+            background-size: 100% 100%; /* Estira la imagen completamente */
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* Diseño del ticket */
+        .ticket {
+            background: linear-gradient(135deg, #2c003e, #000000); /* Negro + Morado */
+            width: 90%;
+            max-width: 900px;
+            padding: 60px 40px;
+            border-radius: 25px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+            text-align: center;
+            border: 5px solid #9b59b6; /* borde morado */
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        h1 {
+            color: #ff4d94;
+            font-size: 4em;
+            margin-bottom: 25px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
+        }
+
+        p {
+            font-size: 1.8em;
+            margin: 15px 0;
+        }
+
+        b {
+            font-weight: bold;
+            color: #e0b3ff;
+        }
+
+        /* Animación sutil del ticket */
+        @keyframes pulse {
+            0% { box-shadow: 0 12px 30px rgba(155, 89, 182, 0.7); }
+            100% { box-shadow: 0 12px 30px rgba(155, 89, 182, 1); }
+        }
+
+        /* Responsivo */
+        @media (max-width: 768px) {
+            .ticket {
+                padding: 40px 20px;
+            }
+            h1 {
+                font-size: 2.5em;
+            }
+            p {
+                font-size: 1.2em;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="card">
+    <div class="ticket">
         <h1>❌ Entrada Ya Usada</h1>
         <p>El código de esta entrada ya fue validado anteriormente.</p>
         <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
         <p>DNI: {{ participante.dni }}</p>
+        {% if qr_image_url %}
+        <div class="qr">
+            <img src="{{ qr_image_url }}" alt="QR de entrada" style="width:200px; height:200px;">
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>

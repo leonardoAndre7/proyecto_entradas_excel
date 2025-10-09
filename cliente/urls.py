@@ -29,4 +29,6 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(next_page='index'), name='logout'),
 
 
+     path("importar_excel/", views.importar_excel, name="importar_excel"),
+
 ]

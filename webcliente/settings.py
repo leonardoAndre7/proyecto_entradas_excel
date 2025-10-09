@@ -27,8 +27,6 @@ def get_local_ip():
     except:
         return "127.0.0.1"
 BASE_URL = f"http://{get_local_ip()}:8000"
-
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -45,12 +43,6 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 TIME_ZONE = 'America/Lima'
 USE_TZ = True
 
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'lista'
-LOGOUT_REDIRECT_URL = 'index'
-
-
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -58,9 +50,9 @@ LOGOUT_REDIRECT_URL = 'index'
 SECRET_KEY = 'django-insecure-8t&(un3js0!2x+4yl(-8$=fm9sq#h67nvvreyo^n!a&zp2#mnj'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["*","192.168.100.202", "localhost", "127.0.0.1"]
 
 
 
@@ -111,15 +103,10 @@ WSGI_APPLICATION = 'webcliente.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'bd_evento',
-        'USER': 'postgres',
-        'PASSWORD': 'leo123',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 
 
 # Password validation
@@ -144,9 +131,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'es-pe'
+LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'America/Lima'
+TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
@@ -158,7 +145,8 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'),]
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # para collectstatic
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

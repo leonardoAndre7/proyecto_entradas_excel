@@ -17,3 +17,8 @@ reportlab==4.4.4
 six==1.17.0
 sqlparse==0.5.3
 tzdata==2025.2
+Django==5.2.7
+gunicorn
+psycopg2-binary   # si usas PostgreSQL
+whitenoise         # para servir archivos estáticos
+

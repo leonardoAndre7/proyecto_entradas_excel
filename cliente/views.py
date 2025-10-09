@@ -36,7 +36,7 @@ def formulario_clientes(request):
     return render(request, "cliente/lista.html")
 
 
-
+ 
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -48,6 +48,18 @@ def get_local_ip():
         s.close()
     return ip
 
+import pywhatkit
+from io import BytesIO
+from django.core.mail import EmailMultiAlternatives
+from django.utils import timezone
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.urls import reverse
+from email.mime.image import MIMEImage
+import qrcode
+import tempfile
+import datetime
+from twilio.rest import Client
 
 def confirmar_pago(request, pk):
     participante = get_object_or_404(Participante, pk=pk)
@@ -56,60 +68,103 @@ def confirmar_pago(request, pk):
     participante.pago_confirmado = True
     participante.save()
 
-    # ✅ Generar el QR como PIL.Image
+    # Generar el QR
     ip_local = get_local_ip()
     url = f"http://{ip_local}:8000{reverse('validar_entrada', args=[participante.token])}"
-
     qr_img = qrcode.make(url).convert("RGB")
 
-    # ✅ Generar la imagen final personalizada
-    buffer = BytesIO()
+    # Generar imagen final personalizada
     imagen_final = generar_imagen_personalizada(
         nombre_cliente=participante.nombres,
         paquete=participante.tipo_entrada,
         qr_img=qr_img
     )
 
+    if imagen_final is None:
+        messages.error(request, "❌ No se pudo generar la imagen de la entrada.")
+        return redirect("participante_lista")
+
+    # Guardar imagen en buffer
+    buffer = BytesIO()
     imagen_final.save(buffer, format='PNG')
     buffer.seek(0)
 
-    # ✅ Crear el correo con adjunto
+    # Crear correo HTML
     asunto = "🎟️ Confirmación de tu entrada - El Despertar del Emprendedor"
-    mensaje = f"""
-    Hola {participante.nombres},
-
-    Gracias por tu compra. Adjunto encontrarás tu entrada personalizada 
-    para el evento "El Despertar del Emprendedor".
-
-    No olvides guardarla y mostrarla el día del evento.
-
-    ¡Nos vemos pronto!
+    html_mensaje = f"""
+    <html>
+    <body>
+        <p>Hola {participante.nombres},</p>
+        <p>Gracias por tu compra. Adjunto encontrarás tu entrada personalizada
+        para el evento <strong>El Despertar del Emprendedor</strong>.</p>
+        <p>No olvides guardarla y mostrarla el día del evento.</p>
+        <p>¡Nos vemos pronto!</p>
+        <br>
+        <img src="cid:entrada" alt="Entrada personalizada" style="max-width:100%; height:auto; display:block;">
+    </body>
+    </html>
     """
 
-    email = EmailMessage(
-        asunto,
-        mensaje,
-        settings.DEFAULT_FROM_EMAIL,
-        [participante.correo],  # destinatario
+    email = EmailMultiAlternatives(
+        subject=asunto,
+        body="Tu correo no soporta HTML",  # texto plano
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[participante.correo],
     )
+    email.attach_alternative(html_mensaje, "text/html")
 
-    # Adjuntar imagen generada como PNG
-    email.attach("entrada.png", buffer.getvalue(), "image/png")
+    # Adjuntar imagen como inline
+    img = MIMEImage(buffer.getvalue())
+    img.add_header('Content-ID', '<entrada>')
+    img.add_header('Content-Disposition', 'inline', filename='entrada.png')
+    email.attach(img)
+
+    # Enviar correo
     email.send()
 
-    # ✅ Crear o actualizar registro de correo
+
+    # --- WHATSAPP LOCAL ---
+    # Guardar imagen en archivo temporal
+    # Guardar imagen en archivo temporal para WhatsApp con tamaño optimizado
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
+        # Crear copia para WhatsApp y redimensionar para evitar pixelado
+        imagen_para_whatsapp = imagen_final.copy()
+        imagen_para_whatsapp.thumbnail((1080, 1440))  # Ajusta si quieres otra resolución
+        imagen_para_whatsapp.save(tmp_file, format="JPEG", quality=95)
+        tmp_path = tmp_file.name
+
+
+    # Preparar número (solo dígitos)
+    numero = f"+51{''.join(filter(str.isdigit, participante.celular))}"
+
+    # Mensaj
+    mensaje_whatsapp = f"Hola {participante.nombres}, esta es tu entrada para 'El Despertar del Emprendedor'."
+
+    # Hora de envío (mínimo 1 minuto adelante)
+    ahora = datetime.datetime.now()
+    hora_envio = ahora.hour
+    minuto_envio = ahora.minute + 1
+
+    # Enviar imagen por WhatsApp Web
+    pywhatkit.sendwhats_image(
+        receiver=numero,
+        img_path=tmp_path,
+        caption=mensaje_whatsapp,
+        wait_time=7,
+        tab_close=True
+    )
+    # Registrar envío
     registro, created = RegistroCorreo.objects.get_or_create(
         participante=participante,
         defaults={"enviado": True, "fecha_envio": timezone.now()}
     )
-
     if not created:
         registro.enviado = True
         registro.fecha_envio = timezone.now()
         registro.save()
 
+    messages.success(request, f"✅ Entrada enviada correctamente a {participante.correo}")
     return redirect("participante_lista")
-
 
 
 def escalar_a_a4(imagen):
@@ -319,6 +374,15 @@ def generar_imagen_personalizada(nombre_cliente, qr_img=None, paquete=None):
     return imagen_final
 
 
+def limpiar_tipo_entrada(valor):
+    if not isinstance(valor, str):
+        return "EMPRENDEDOR"  # valor por defecto si es vacío
+    # Extrae la parte después del guion
+    tipo = valor.split('-')[-1].strip().upper()
+    # Validar que sea uno de los permitidos
+    if tipo not in ["FULL ACCES", "EMPRESARIAL", "EMPRENDEDOR"]:
+        tipo = "EMPRENDEDOR"  # default
+    return tipo
 
 
 
@@ -358,9 +422,63 @@ class ParticipanteListView(ListView):
 
 
 
+from django.shortcuts import redirect
+from django.contrib import messages
+import pandas as pd
+from .models import Participante
+
+def limpiar_tipo_entrada(valor):
+    if pd.isna(valor):
+        return "EMPRENDEDOR"
+    # Tomar solo la parte después del guion y convertir a mayúscula
+    return valor.split('-')[-1].strip().upper()
+
+def valor_seguro(x):
+    if pd.isna(x) or x == 0:
+        return ""
+    return str(x).strip()
 
 
+def importar_excel(request):
+    if request.method == "POST" and request.FILES.get('excel_file'):
+        archivo = request.FILES['excel_file']
+        try:
+            # Leer Excel
+            df = pd.read_excel(archivo)
+            print(df.columns)  # Verifica los nombres de columnas
 
+            # Asegúrate de que los nombres coincidan
+            df = df.rename(columns={
+                'Nombre': 'Nombre',
+                'DNI': 'DNI',
+                'TELEFONO': 'TELEFONO',
+                'Correo electrónico': 'Correo',
+                'Tipo de entrada': 'Tipo_Entrada'
+            })
+
+            # Extraer solo la parte después del guion
+            df['Tipo_Entrada'] = df['Tipo_Entrada'].astype(str).apply(lambda x: x.split('-')[-1].strip())
+
+            # Iterar y crear participantes
+            for _, row in df.iterrows():
+                if pd.isna(row['DNI']) or pd.isna(row['Nombre']):
+                    continue  # Ignora filas vacías críticas
+
+                Participante.objects.create(
+                    nombres=row['Nombre'],
+                    apellidos="",  # Puedes separar apellido si quieres
+                    dni=str(row['DNI']),
+                    celular=str(row['TELEFONO']) if not pd.isna(row['TELEFONO']) else '',
+                    correo=row['Correo'] if not pd.isna(row['Correo']) else '',
+                    tipo_entrada=row['Tipo_Entrada'],
+                    cantidad=1
+                )
+
+            messages.success(request, "✅ Participantes importados correctamente.")
+        except Exception as e:
+            messages.error(request, f"❌ Error al importar Excel: {e}")
+
+    return redirect('participante_lista')
 
 def generar_qr(request, token):
     """

@@ -23,8 +23,8 @@ class Participante(models.Model):
     cod_cliente = models.CharField(max_length=100, unique=True, editable=False)
     nombres = models.CharField(max_length=100)
     apellidos = models.CharField(max_length=100)
-    dni = models.CharField(max_length=20, unique=True)
-    celular = models.CharField(max_length=20)
+    dni = models.CharField(max_length=20, blank=True, null=True)
+    celular = models.CharField(max_length=20, blank=True, null=True)
     correo = models.CharField(max_length=50)
     tipo_entrada = models.CharField(
         max_length=20,
@@ -40,8 +40,7 @@ class Participante(models.Model):
     usado = models.BooleanField(default=False)
     entrada_usada = models.BooleanField(default=False)
     token = models.CharField(max_length=64, unique=True, editable=False, blank=True)
-
-
+    
     def save(self, *args, **kwargs):
 
         # 🔹 Asignar precio automáticamente según tipo_entrada

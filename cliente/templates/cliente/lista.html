@@ -144,7 +144,9 @@
         <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#importExcelModal">
             <i class="bi bi-file-earmark-arrow-up-fill"></i> Importar Excel
         </button>
-        <a href="{% url 'panel_control' %}" class="btn btn-warning"><i class="bi bi-gear-fill"></i> Panel Control</a>
+        <a href="{% url 'panel_control' %}" class="btn btn-warning" style="display: none;">
+        <i class="bi bi-gear-fill"></i> Panel Control
+        </a>
 
         <!-- Búsqueda -->
         <form method="get" class="d-flex ms-auto" role="search">

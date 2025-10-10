@@ -59,7 +59,6 @@ from email.mime.image import MIMEImage
 import qrcode
 import tempfile
 import datetime
-from twilio.rest import Client
 
 def confirmar_pago(request, pk):
     participante = get_object_or_404(Participante, pk=pk)
@@ -126,19 +125,24 @@ def confirmar_pago(request, pk):
     # --- WHATSAPP LOCAL ---
     # Guardar imagen en archivo temporal
     # Guardar imagen en archivo temporal para WhatsApp con tamaño optimizado
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
-        # Crear copia para WhatsApp y redimensionar para evitar pixelado
-        imagen_para_whatsapp = imagen_final.copy()
-        imagen_para_whatsapp.thumbnail((1080, 1440))  # Ajusta si quieres otra resolución
-        imagen_para_whatsapp.save(tmp_file, format="JPEG", quality=95)
-        tmp_path = tmp_file.name
+    tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{participante.id}.jpg")
+    imagen_para_whatsapp = imagen_final.copy()
+    imagen_para_whatsapp.thumbnail((1080, 1440))
+    imagen_para_whatsapp.save(tmp_path, format="JPEG", quality=95)
 
 
     # Preparar número (solo dígitos)
     numero = f"+51{''.join(filter(str.isdigit, participante.celular))}"
 
     # Mensaj
-    mensaje_whatsapp = f"Hola {participante.nombres}, esta es tu entrada para 'El Despertar del Emprendedor'."
+    mensaje_whatsapp = f"""¡Felicitaciones {participante.nombres}!
+
+    Estás dando un gran paso en tu vida profesional al adquirir tu entrada para "El despertar del emprendedor". 
+    Mantente pendiente de nuestras redes y de los grupos de WhatsApp donde compartiremos datos relevantes de este gran evento.
+
+    Grupo de WhatsApp: https://chat.whatsapp.com/HQjG9xkHsgyK5GW75qL8lM
+
+    ¡Te damos la bienvenida a la familia!"""
 
     # Hora de envío (mínimo 1 minuto adelante)
     ahora = datetime.datetime.now()
@@ -150,7 +154,7 @@ def confirmar_pago(request, pk):
         receiver=numero,
         img_path=tmp_path,
         caption=mensaje_whatsapp,
-        wait_time=7,
+        wait_time=8,
         tab_close=True
     )
     # Registrar envío
@@ -186,7 +190,6 @@ def escalar_a_a4(imagen):
 
 
 import qrcode
-from PIL import Image, ImageDraw, ImageFont
 from django.contrib.staticfiles import finders
 
 def generar_imagen_personalizada(nombre_cliente, qr_img=None, paquete=None):
@@ -826,15 +829,19 @@ def preview_imagen_final(request):
             # Escribir cuerpo del mensaje (varias líneas)
             y_text = 100
             lineas = [
-                f"Hola {nombre_cliente}",
-                "Gracias por unirte a EL DESPERTAR DEL",
-                "         EMPRENDEDOR",
-                "",
-                "Adjunto tu entrada personalizada:",
-                "",
-                "No olvides guardarla y mostrarla el",
-                "     dia del evento"
-            ]
+                    f"¡Felicitaciones {nombre_cliente}!",
+                    "",
+                    "Estás dando un gran paso en tu vida profesional al adquirir tu entrada para",
+                    "\"El despertar del emprendedor\".",
+                    "",
+                    "Mantente pendiente de nuestras redes y de los grupos de WhatsApp donde",
+                    "compartiremos datos relevantes de este gran evento.",
+                    "",
+                    "Grupo de WhatsApp: https://chat.whatsapp.com/HQjG9xkHsgyK5GW75qL8lM",
+                    "",
+                    "¡Te damos la bienvenida a la familia!"
+                ]
+
             for linea in lineas:
                 draw_centered(draw, y_text, linea, font_body)
                 y_text += int(ancho_img / 25) + 10  # espacio entre líneas proporcional

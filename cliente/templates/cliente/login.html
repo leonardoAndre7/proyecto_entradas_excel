@@ -118,9 +118,9 @@
 </style>
 
 <div class="overlay-login">
-  <div class="login-card">
+  <div class="login-card"> 
     <h3>🔒 Iniciar Sesión</h3>
-    <form method="post">
+    <form method="post" action="{% url 'login' %}">
       {% csrf_token %}
       <div class="form-group mb-3">
         <label>Usuario</label>

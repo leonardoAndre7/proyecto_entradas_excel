@@ -26,6 +26,26 @@ from django.contrib.staticfiles import finders
 import socket
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
+from django.contrib.auth import authenticate, login
+from django.contrib import messages
+
+
+def login_view(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            login(request, user)
+            return redirect('formulario_clientes')  # 👈 redirige aquí
+        else:
+            messages.error(request, 'Usuario o contraseña incorrectos.')
+
+    return render(request, 'login.html')
+
 
 def index(request):
     return render(request, "cliente/index.html")
@@ -176,7 +196,7 @@ def escalar_a_a4(imagen):
     ancho_a4 = 2480  # 8.27 pulgadas * 300dpi
     alto_a4 = 3508   # 11.69 pulgadas * 300dpi
 
-    ancho_img, alto_img = imagen.size
+    ancho_img, alto_img = imagen.size 
 
     # Escalar proporcionalmente
     factor = min(ancho_a4 / ancho_img, alto_a4 / alto_img)
@@ -394,14 +414,14 @@ def limpiar_tipo_entrada(valor):
 
 class ParticipanteCreateView(CreateView):
     model = Participante
-    fields = ['nombres','apellidos','dni','celular','correo','tipo_entrada','cantidad']
+    fields = ['nombres','apellidos','dni','celular','correo','vendedor','tipo_entrada','cantidad']
     template_name = 'cliente/participante_form.html'
     success_url = reverse_lazy('participante_lista')
 
 
 class ParticipanteUpdateView(UpdateView):
     model = Participante
-    fields = ['nombres','apellidos','dni','celular','correo','tipo_entrada','cantidad','precio']
+    fields = ['nombres','apellidos','dni','celular','correo','tipo_entrada','cantidad','precio', 'vendedor']
     template_name = 'cliente/participante_form.html'
     success_url = reverse_lazy('participante_lista')
 
@@ -456,6 +476,7 @@ def importar_excel(request):
                 'DNI': 'DNI',
                 'TELEFONO': 'TELEFONO',
                 'Correo electrónico': 'Correo',
+                'ASESOR QUE TE INVITO': 'Vendedor',
                 'Tipo de entrada': 'Tipo_Entrada'
             })
 
@@ -467,12 +488,18 @@ def importar_excel(request):
                 if pd.isna(row['DNI']) or pd.isna(row['Nombre']):
                     continue  # Ignora filas vacías críticas
 
+                telefono = ''
+                if not pd.isna(row['TELEFONO']):
+                    telefono = str(int(float(row['TELEFONO']))).strip()  # elimina .0 o decimales
+
+
                 Participante.objects.create(
                     nombres=row['Nombre'],
                     apellidos="",  # Puedes separar apellido si quieres
                     dni=str(row['DNI']),
-                    celular=str(row['TELEFONO']) if not pd.isna(row['TELEFONO']) else '',
+                    celular=telefono,
                     correo=row['Correo'] if not pd.isna(row['Correo']) else '',
+                    vendedor=row['Vendedor'] if not pd.isna(row['Vendedor']) else '',
                     tipo_entrada=row['Tipo_Entrada'],
                     cantidad=1
                 )

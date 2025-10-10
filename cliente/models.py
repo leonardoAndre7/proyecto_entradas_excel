@@ -21,11 +21,13 @@ class Participante(models.Model):
    }
 
     cod_cliente = models.CharField(max_length=100, unique=True, editable=False)
-    nombres = models.CharField(max_length=100)
-    apellidos = models.CharField(max_length=100)
+    nombres = models.CharField(max_length=100, blank=True, null=True)
+    apellidos = models.CharField(max_length=100, blank=True, null=True)
     dni = models.CharField(max_length=20, blank=True, null=True)
     celular = models.CharField(max_length=20, blank=True, null=True)
     correo = models.CharField(max_length=50)
+    vendedor = models.CharField(max_length=255, blank=True, null=True)
+
     tipo_entrada = models.CharField(
         max_length=20,
         choices=TIPO_ENTRADA_CHOICES,

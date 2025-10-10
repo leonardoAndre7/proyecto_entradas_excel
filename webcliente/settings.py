@@ -36,9 +36,13 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "u00024284@sise.com.pe"
-EMAIL_HOST_PASSWORD = "qxoddksgldbenhaa"  # 🔹 clave de aplicación de Gmail
+EMAIL_HOST_USER = "marketing@hilariogrp.com"
+EMAIL_HOST_PASSWORD = ""  # 🔹 clave de aplicación de Gmail
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+LOGIN_REDIRECT_URL = '/participantes/'
+
 
 TIME_ZONE = 'America/Lima'
 USE_TZ = True
@@ -54,7 +58,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*","192.168.100.202", "localhost", "127.0.0.1"]
 
-
+# Dominios confiables para peticiones POST
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://192.168.100.202:8000",
+    "https://tu-app.herokuapp.com",  # Cambia esto por el nombre real de tu app Heroku
+    "https://www.tu-dominio.com",    # Cambia esto por tu dominio de GoDaddy
+]
 
 # Application definition
 

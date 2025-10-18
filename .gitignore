@@ -1,0 +1,44 @@
+# --------------------
+# Archivos de entorno y virtualenv
+# --------------------
+entorno_web/
+*.env
+
+# --------------------
+# Archivos locales y de seguridad
+# --------------------
+Backup-codes-u00024284.txt
+CONFIGURACION DE IP.txt
+ngrok.txt
+
+# --------------------
+# Archivos de base de datos locales
+# --------------------
+*.sqlite3
+
+# --------------------
+# Archivos de PyCharm, VSCode u otros IDEs
+# --------------------
+.idea/
+.vscode/
+
+# --------------------
+# Archivos compilados o temporales
+# --------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+.DS_Store
+
+# --------------------
+# Archivos estáticos y media generados
+# --------------------
+staticfiles/
+media/
+
+# Archivos de seguridad y configuraciones locales
+*.txt
+*.env
+*.bak

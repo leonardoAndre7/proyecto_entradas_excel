@@ -14,6 +14,9 @@ from pathlib import Path
 import os
 from django.conf import settings
 import socket
+import dj_database_url
+from decouple import config
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -27,8 +30,6 @@ def get_local_ip():
     except:
         return "127.0.0.1"
 BASE_URL = f"http://{get_local_ip()}:8000"
-
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -38,18 +39,16 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "u00024284@sise.com.pe"
-EMAIL_HOST_PASSWORD = "qxoddksgldbenhaa"  # 🔹 clave de aplicación de Gmail
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+LOGIN_REDIRECT_URL = '/participantes/'
+
 
 TIME_ZONE = 'America/Lima'
 USE_TZ = True
-
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'lista'
-LOGOUT_REDIRECT_URL = 'index'
-
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -58,11 +57,21 @@ LOGOUT_REDIRECT_URL = 'index'
 SECRET_KEY = 'django-insecure-8t&(un3js0!2x+4yl(-8$=fm9sq#h67nvvreyo^n!a&zp2#mnj'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+#DEBUG = True
+DEBUG = 'RENDER' not in os.environ
 
-ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1"]
 
 
+#ALLOWED_HOSTS = ["*","192.168.100.202", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ['ede-evento.com', 'www.ede-evento.com']
+# Dominios confiables para peticiones POST
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://192.168.100.202:8000",
+    "https://tu-app.herokuapp.com",  # Cambia esto por el nombre real de tu app Heroku
+    "https://www.tu-dominio.com",    # Cambia esto por tu dominio de GoDaddy
+]
 
 # Application definition
 
@@ -78,6 +87,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -110,17 +120,10 @@ WSGI_APPLICATION = 'webcliente.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'bd_evento',
-        'USER': 'postgres',
-        'PASSWORD': 'leo123',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get("DATABASE_URL")
+    )
 }
-
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -144,9 +147,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'es-pe'
+LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'America/Lima'
+TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
@@ -160,7 +163,7 @@ STATIC_URL = '/static/'
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'),]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # para collectstatic
 
-
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

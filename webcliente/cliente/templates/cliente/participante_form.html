@@ -109,6 +109,8 @@
         </a>
     </div>
 
+    
+
     <div class="row g-4">
         <!-- Formulario -->
         <div class="col-lg-6">
@@ -135,6 +137,12 @@
                                 <label class="form-label fw-semibold">Precio</label>
                                 <input type="text" id="precio" class="form-control" readonly>
                             </div>
+                        </div>
+
+                        <!-- Campo Vendedor -->
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold">Vendedor</label>
+                            <input type="text" name="vendedor" class="form-control" value="{{ object.vendedor|default_if_none:'' }}">
                         </div>
 
                         <!-- Botones -->

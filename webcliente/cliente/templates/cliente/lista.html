@@ -19,7 +19,7 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.6);
+            background-color: rgba(0,0,0,0.65);
             z-index: 0;
         }
 
@@ -32,59 +32,58 @@
 
         /* Banner */
         .header-banner {
-            background: rgba(0,0,0,0.4);
+            background: rgba(0,0,0,0.5);
             border-radius: 15px;
             padding: 1.5rem;
             text-align: center;
             margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         }
         .header-banner h1 {
             color: #fff;
             text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
-            font-size: 1.8rem;
+            font-size: 2rem;
         }
 
-        /* Formulario minimalista */
-        .card-minimal {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 20px;
+        /* Toolbar de acciones */
+        .toolbar {
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
+            margin-bottom: 20px;
             align-items: center;
         }
-        .card-minimal .btn {
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
+        .toolbar .btn {
+            flex: 1 1 auto;
+            min-width: 150px;
+            font-size: 0.95rem;
+            transition: transform 0.2s;
         }
-        .card-minimal .btn:hover {
+        .toolbar .btn:hover {
             transform: translateY(-2px);
         }
+        .toolbar form {
+            flex: 1 1 300px;
+        }
 
-        /* Tabla con efecto glass */
+        /* Tabla estilizada */
         .card-table {
             background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(10px);
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
         }
         .table-container {
-            max-height: 500px;
+            max-height: 550px;
             overflow-y: auto;
         }
-
         .table thead th {
             vertical-align: middle;
             background: linear-gradient(90deg, #4b1979, #7b1fa2);
             color: #fff;
             border-bottom: 2px solid #5c1d99;
         }
-
         .table tbody tr {
             transition: all 0.3s ease;
         }
@@ -93,25 +92,17 @@
             color: #fff;
         }
 
-        /* Badges modernos */
+        /* Badges */
         .badge-info {
             background: linear-gradient(90deg, #0dcaf0, #0d6efd);
             color: #fff;
-            border-radius: 10px;
+            border-radius: 12px;
             padding: 0.35em 0.6em;
         }
-        .badge-success { background-color: #4caf50; border-radius: 10px; }
-        .badge-danger { background-color: #f44336; border-radius: 10px; }
+        .badge-success { background-color: #4caf50; border-radius: 12px; }
+        .badge-danger { background-color: #f44336; border-radius: 12px; }
 
-        /* Botones */
-        .btn-primary { background-color: #7b1fa2; border-color: #7b1fa2; }
-        .btn-primary:hover { background-color: #9c27b0; border-color: #9c27b0; }
-        .btn-success { background-color: #4caf50; border-color: #4caf50; }
-        .btn-warning { background-color: #ff9800; border-color: #ff9800; }
-        .btn-outline-info { color: #9c27b0; border-color: #9c27b0; }
-        .btn-outline-info:hover { background-color: #9c27b0; color: #fff; }
-
-        /* Inputs */
+        /* Inputs y búsqueda */
         .form-control {
             background-color: rgba(255,255,255,0.1);
             color: #fff;
@@ -119,29 +110,56 @@
         }
         .form-control::placeholder { color: #e0e0e0; }
 
+        /* Botones */
+        .btn-primary { background-color: #7b1fa2; border-color: #7b1fa2; }
+        .btn-primary:hover { background-color: #9c27b0; border-color: #9c27b0; }
+        .btn-success { background-color: #4caf50; border-color: #4caf50; }
+        .btn-warning { background-color: #ff9800; border-color: #ff9800; }
+        .btn-info { background-color: #0dcaf0; border-color: #0dcaf0; color: #fff; }
+        .btn-info:hover { background-color: #0bb8e0; }
+
+        /* Scroll tabla */
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: rgba(123,31,162,0.6);
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
-    <br><br><br><br><br><br><br><br><b><br><br></b>
-<div class="container-md mt-4">
+    <br><br><br><br><br><br><br><br><br><br>
+<div class="container-md mt-5">
 
     <!-- Banner -->
     <div class="header-banner">
         <h1><i class="bi bi-people-fill"></i> Lista de Participantes</h1>
     </div>
 
-    <!-- Formulario minimalista -->
-    <div class="card-minimal">
+    <!-- Toolbar de acciones -->
+    <div class="toolbar">
         <a href="{% url 'participante_agregar' %}" class="btn btn-primary"><i class="bi bi-person-plus-fill"></i> Agregar</a>
         <a href="{% url 'exportar_excel' %}" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Exportar Excel</a>
-        <a href="{% url 'panel_control' %}" class="btn btn-warning"><i class="bi bi-gear-fill"></i> Panel Control</a>
+        <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#importExcelModal">
+            <i class="bi bi-file-earmark-arrow-up-fill"></i> Importar Excel
+        </button>
+        <a href="{% url 'panel_control' %}" class="btn btn-warning" style="display: none;">
+        <i class="bi bi-gear-fill"></i> Panel Control
+        </a>
+        <a href="{% url 'registro_participante' %}" class="btn btn-secondary">
+            <i class="bi bi-journal-text"></i> Ir a Registro Participante
+        </a>
+
+
+        <!-- Búsqueda -->
         <form method="get" class="d-flex ms-auto" role="search">
             <input type="text" name="q" class="form-control me-2" placeholder="Buscar por nombre o DNI" value="{{ request.GET.q }}">
             <button type="submit" class="btn btn-outline-info"><i class="bi bi-search"></i> Buscar</button>
         </form>
     </div>
 
-    <!-- Tabla estilizada -->
+    <!-- Tabla de participantes -->
     <div class="card-table shadow-lg border-0 rounded-3 mt-3">
         <div class="card-body table-container p-3">
             <table class="table table-bordered table-hover table-sm align-middle text-center mb-0">
@@ -154,6 +172,7 @@
                         <th><i class="bi bi-credit-card-2-front"></i> DNI</th>
                         <th><i class="bi bi-telephone-fill"></i> Celular</th>
                         <th><i class="bi bi-envelope-fill"></i> Correo</th>
+                        <th><i class="bi bi-person-badge"></i> Vendedor</th>
                         <th><i class="bi bi-ticket-perforated-fill"></i> Tipo Entrada</th>
                         <th><i class="bi bi-hash"></i> Cant.</th>
                         <th><i class="bi bi-currency-dollar"></i> Precio</th>
@@ -174,6 +193,7 @@
                         <td>{{ p.dni }}</td>
                         <td>{{ p.celular }}</td>
                         <td>{{ p.correo }}</td>
+                        <td>{{ p.vendedor }}</td>
                         <td><span class="badge badge-info">{{ p.tipo_entrada }}</span></td>
                         <td>{{ p.cantidad }}</td>
                         <td>S/ {{ p.precio }}</td>
@@ -197,7 +217,7 @@
                                 <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> Entró</span>
                             {% else %}
                                 <a href="{% url 'marcar_ingreso' p.pk %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-door-open"></i> Marcar Ingreso
+                                    <i class="bi bi-door-open"></i> Marcar
                                 </a>
                             {% endif %}
                         </td> 
@@ -219,8 +239,29 @@
         </div>
     </div>
 
-    <a href="{% url 'preview_imagen' %}" class="btn btn-success" style="display: none;">Ver Preview de la Entrada</a>
+</div>
 
+<!-- Modal Importar Excel -->
+<div class="modal fade" id="importExcelModal" tabindex="-1" aria-labelledby="importExcelModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-md">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header bg-primary text-white rounded-top-4">
+        <h5 class="modal-title" id="importExcelModalLabel">Importar Excel de Participantes</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{% url 'importar_excel' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body py-4">
+          <p class="text-muted mb-3">Selecciona el archivo Excel que contiene la información de los participantes.</p>
+          <input class="form-control form-control-lg" type="file" id="excelFile" name="excel_file" accept=".xlsx,.xls" required>
+        </div>
+        <div class="modal-footer border-0 justify-content-between">
+          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary rounded-pill px-4">Importar</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

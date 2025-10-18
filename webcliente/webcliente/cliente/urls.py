@@ -1,0 +1,32 @@
+from django.urls import path
+from .views import ParticipanteListView, ParticipanteCreateView, ParticipanteUpdateView, ParticipanteDeleteView,panel_control, reenviar_correo, confirmar_pago
+from django.contrib.auth import views as auth_views
+from . import views
+
+urlpatterns = [
+    path('', ParticipanteListView.as_view(), name='participante_lista'),
+    path('participantes/', ParticipanteListView.as_view(), name='lista'),
+    path('participantes/agregar/', ParticipanteCreateView.as_view(), name='participante_agregar'),
+    path('participantes/editar/<int:pk>/editar', ParticipanteUpdateView.as_view(), name='participante_editar'),
+    path('participantes/eliminar/<int:pk>/eliminar', ParticipanteDeleteView.as_view(), name='participante_eliminar'),
+    path('exportar-excel/', views.exportar_excel, name='exportar_excel'),
+    path("participantes/validar/<str:token>/", views.validar_entrada, name="validar_entrada"),
+    path('qr/<str:token>/', views.generar_qr, name='generar_qr'),
+
+    path('qr/mostrar/<int:pk>/', views.mostrar_qr, name='mostrar_qr'),
+    path('confirmar-pago/<int:pk>/', confirmar_pago, name='confirmar_pago'),
+    path('panel-control/', panel_control, name='panel_control'),
+    path('participantes/reenviar/<int:pk>/', views.reenviar_correo, name='reenviar_correo'),
+    path("exportar-excel_control/", views.exportar_excel_control, name="exportar_excel_control"),
+    path("validar/<str:token>/", views.validar_entrada, name="validar_entrada"),
+
+    path("exportar-pdf/", views.exportar_pdf_control, name="exportar_pdf"),
+    path("registros/json/", views.registros_json, name="registros_json"),
+    path('participantes/<int:pk>/marcar-ingreso/', views.marcar_ingreso, name='marcar_ingreso'),
+    path('preview-imagen/', views.preview_imagen_final, name='preview_imagen'),
+
+    path('login/', auth_views.LoginView.as_view(template_name='cliente/login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='index'), name='logout'),
+
+
+]

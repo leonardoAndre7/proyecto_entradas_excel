@@ -14,6 +14,9 @@ from pathlib import Path
 import os
 from django.conf import settings
 import socket
+import dj_database_url
+
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -31,13 +34,14 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
+
 #CORREO DE DONDE SE ENVIARAN LOS QR, Y BIENVENIDAD
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "marketing@hilariogrp.com"
-EMAIL_HOST_PASSWORD = ""  # 🔹 clave de aplicación de Gmail
+EMAIL_HOST_USER = "u00024284@sise.com.pe"
+EMAIL_HOST_PASSWORD = "zzwo asxa pxlk knpe"  # 🔹 clave de aplicación de Gmail
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
@@ -54,10 +58,13 @@ USE_TZ = True
 SECRET_KEY = 'django-insecure-8t&(un3js0!2x+4yl(-8$=fm9sq#h67nvvreyo^n!a&zp2#mnj'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+#DEBUG = True
+DEBUG = 'RENDER' not in os.environ
 
-ALLOWED_HOSTS = ["*","192.168.100.202", "localhost", "127.0.0.1"]
 
+
+#ALLOWED_HOSTS = ["*","192.168.100.202", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ['ede-evento.com', 'www.ede-evento.com']
 # Dominios confiables para peticiones POST
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
@@ -81,6 +88,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -113,11 +121,9 @@ WSGI_APPLICATION = 'webcliente.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(default='sqlite:///db.sqlite3', conn_max_age=600)
 }
+
 
 
 # Password validation
@@ -158,7 +164,7 @@ STATIC_URL = '/static/'
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'),]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # para collectstatic
 
-
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

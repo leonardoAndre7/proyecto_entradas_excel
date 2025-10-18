@@ -1,8 +1,9 @@
 from django.views.generic import CreateView, UpdateView, DeleteView, ListView
-from .models import Participante,RegistroCorreo
+from .models import Participante, Voucher,RegistroCorreo, Previaparticipantes
 import pandas as pd
 import openpyxl
 import qrcode
+from django.db.models import Max
 from datetime import datetime
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
@@ -13,6 +14,10 @@ from django.urls import reverse_lazy
 from PIL import Image, ImageDraw, ImageFont
 from django.core.mail import EmailMessage
 from django.conf import settings
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
 from .utils import enviar_correo_participante
 from django.db.models import Q
 from django.utils import timezone
@@ -29,22 +34,389 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
+from .forms import ParticipanteForm
+from .forms import ExcelUploadForm
 
+####################################################
+###### PREVIA DEL DESPERTAR 
+##########################################
+#############################################
+##############################################
+
+from django.shortcuts import render, redirect
+from .models import Previaparticipantes
+
+
+
+import csv
+from django.contrib import messages
+
+import openpyxl
+from django.contrib import messages
+
+def registro_participante(request):
+    # Generar el nuevo código automáticamente
+    ultimo = Previaparticipantes.objects.order_by('-id').first()
+    if ultimo and ultimo.cod_part.startswith('PART'):
+        numero = int(ultimo.cod_part.replace('PART', '')) + 1
+    else:
+        numero = 1
+    nuevo_cod = f"PART{numero:03d}"
+
+    if request.method == 'POST':
+        # 1️⃣ Carga masiva desde Excel
+        excel_file = request.FILES.get('excel_file')
+        if excel_file:
+            wb = openpyxl.load_workbook(excel_file)
+            sheet = wb.active
+
+            # Suponiendo que la primera fila es encabezado: Nombres, DNI, Celular, Asesor
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                nombres, dni, celular, asesor = row[:4]
+
+                # Generar nuevo código
+                ultimo = Previaparticipantes.objects.order_by('-id').first()
+                numero = int(ultimo.cod_part.replace('PART', '')) + 1 if ultimo else 1
+                nuevo_cod_row = f"PART{numero:03d}"
+
+                Previaparticipantes.objects.create(
+                    cod_part=nuevo_cod_row,
+                    nombres=nombres,
+                    dni=dni,
+                    celular=celular,
+                    asesor=asesor
+                )
+
+            messages.success(request, "Participantes cargados desde Excel correctamente.")
+
+        else:
+            # 2️⃣ Registro individual
+            participante = Previaparticipantes.objects.create(
+                cod_part=nuevo_cod,
+                nombres=request.POST.get('nombres'),
+                dni=request.POST.get('dni'),
+                celular=request.POST.get('celular'),
+                asesor=request.POST.get('asesor')
+            )
+
+            # Guardar vouchers
+            for archivo in request.FILES.getlist('vouchers'):
+                Voucher.objects.create(participante=participante, imagen=archivo)
+
+            messages.success(request, f"Participante {participante.nombres} registrado correctamente.")
+
+        return redirect('registro_participante')
+
+    # Mostrar todos los participantes
+    participantes = Previaparticipantes.objects.prefetch_related('vouchers').all()
+    return render(request, 'cliente/registro_participante.html', {
+        'nuevo_cod': nuevo_cod,
+        'participantes': participantes
+    })
+
+
+
+
+def actualizar_participante_previa(request, pk):
+    participante = get_object_or_404(Previaparticipantes, pk=pk)
+
+    if request.method == 'POST':
+        participante.nombres = request.POST.get('nombres')
+        participante.dni = request.POST.get('dni')
+        participante.celular = request.POST.get('celular')
+        participante.asesor = request.POST.get('asesor')
+        participante.validado_contabilidad = 'validado_contabilidad' in request.POST
+        participante.validado_administracion = 'validado_administracion' in request.POST
+    
+        
+        participante.save()
+
+        # Subir nuevos vouchers si hay
+        for archivo in request.FILES.getlist('vouchers'):
+            Voucher.objects.create(participante=participante, imagen=archivo)
+
+        return redirect('registro_participante')  # 🔹 Volvemos a la página principal
+
+    return render(request, 'cliente/actualizar_participante_previo.html', {
+        'participante': participante
+    })
+
+
+
+def eliminar_participante_previa(request, pk):
+    participante = get_object_or_404(Previaparticipantes, pk=pk)
+    if request.method == "POST":
+        participante.delete()
+        return redirect('registro_participante') 
+
+
+
+
+
+def enviar_whatsapp_qr(request, cod_part):
+    # Obtener participante correcto
+    participante = get_object_or_404(Previaparticipantes, cod_part=cod_part)
+
+    # Obtener la ruta de la imagen QR
+    if not participante.qr_image:
+        messages.error(request, "❌ El participante no tiene QR generado.")
+        return redirect("registro_participante")
+
+    qr_path = participante.qr_image.path
+
+    try:
+        # Abrir imagen
+        img = Image.open(qr_path)
+
+        # Convertir a RGB si está en RGBA
+        if img.mode == "RGBA":
+            img = img.convert("RGB")
+
+        # Optimizar tamaño para WhatsApp
+        img.thumbnail((1080, 1440))
+
+        # Guardar imagen temporal
+        tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{participante.id}.jpg")
+        img.save(tmp_path, format="JPEG", quality=95)
+
+    except Exception as e:
+        messages.error(request, f"❌ Error al procesar la imagen: {e}")
+        return redirect("registro_participante")
+
+    # Preparar número (solo dígitos)
+    numero = f"+51{''.join(filter(str.isdigit, participante.celular or ''))}"
+
+    # Enviar solo la imagen
+    pywhatkit.sendwhats_image(
+        receiver=numero,
+        img_path=tmp_path,
+        wait_time=8,   # segundos de espera antes de enviar
+        tab_close=True
+    )
+    
+
+    messages.success(request, f"✅ Entrada enviada correctamente a {participante.nombres}")
+    return redirect("registro_participante")
+
+
+
+from django.http import HttpResponse
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+
+
+# Exportar a Excel
+def exportar_excel_previo(request):
+    try:
+        participantes = Previaparticipantes.objects.all()
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Participantes"
+
+        headers = ['Código', 'Nombre', 'DNI', 'Celular', 'Asesor', 'Validado Contabilidad', 'Validado Administración']
+        for col_num, column_title in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num, value=column_title)
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.fill = PatternFill(start_color='6A1B9A', end_color='6A1B9A', fill_type='solid')
+            cell.alignment = Alignment(horizontal='center')
+
+        for row_num, p in enumerate(participantes, start=2):
+            ws.cell(row=row_num, column=1, value=p.cod_part)
+            ws.cell(row=row_num, column=2, value=p.nombres)
+            ws.cell(row=row_num, column=3, value=p.dni)
+            ws.cell(row=row_num, column=4, value=p.celular)
+            ws.cell(row=row_num, column=5, value=p.asesor)
+
+            contabilidad = "Sí" if p.validado_contabilidad else "No"
+            administracion = "Sí" if p.validado_administracion else "No"
+
+            ws.cell(row=row_num, column=6, value=contabilidad)
+            ws.cell(row=row_num, column=7, value=administracion)
+
+        for col in ws.columns:
+            max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = max_length + 5
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename=participantes.xlsx'
+        wb.save(response)
+        return response
+    except Exception as e:
+        # Esto imprimirá el error real en consola y aún devolverá algo
+        print("Error exportando Excel:", e)
+        return HttpResponse("Ocurrió un error al generar el Excel.")
+
+# Exportar a PDF
+def exportar_pdf_previo(request):
+    participantes = Previaparticipantes.objects.all()
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="participantes.pdf"'
+
+    doc = SimpleDocTemplate(response, pagesize=A4)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    elements.append(Paragraph("📋 Lista de Participantes", styles['Title']))
+    elements.append(Spacer(1, 12))
+
+    # Datos de tabla
+    data = [['Código', 'Nombre', 'DNI', 'Celular', 'Asesor', 'Validado Contabilidad', 'Validado Administración']]
+    for p in participantes:
+        contabilidad = "Sí" if p.validado_contabilidad else "No"
+        administracion = "Sí" if p.validado_administracion else "No"
+        data.append([
+            p.cod_part,
+            p.nombres,
+            p.dni,
+            p.celular,
+            p.asesor,
+            contabilidad,
+            administracion
+        ])
+
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6A1B9A')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 8),
+        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f0e0ff')),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey)
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+    return response
+
+
+def validar_entrada_previo(request, token):
+    participante = get_object_or_404(Previaparticipantes, token=token)
+
+    if participante.validado_administracion and participante.validado_contabilidad:
+        # Ya se escaneó antes
+        return render(request, "cliente/entrada_repetida.html", {"participante": participante})
+
+    # Validación
+    participante.validado_administracion = True
+    participante.validado_contabilidad = True
+    participante.save()
+
+    return render(request, "cliente/entrada_validada.html", {"participante": participante})
+
+import openpyxl
+from .models import Previaparticipantes
+
+
+def leer_excel(archivo):
+    wb = openpyxl.load_workbook(archivo)
+    hoja = wb.active
+    datos = []
+
+    # Suponiendo que la primera fila es encabezado
+    encabezados = [celda.value for celda in hoja[1]]
+    
+    for fila in hoja.iter_rows(min_row=2, values_only=True):
+        fila_dict = dict(zip(encabezados, fila))
+        datos.append(fila_dict)
+    
+    return datos
+
+import pandas as pd
+import uuid
+import pywhatkit
+import time
+from django.shortcuts import redirect
+from django.contrib import messages
+from cliente.models import Previaparticipantes
+
+def enviar_todos_whatsapp(request):
+    if request.method == "POST":
+        participantes = Previaparticipantes.objects.exclude(celular__isnull=True).exclude(celular="")
+        enviados = 0
+
+        messages.info(request, "⏳ Enviando mensajes... no cierres el navegador ni la consola.")
+
+        for idx, p in enumerate(participantes, start=1):
+            try:
+                numero = str(p.celular).strip()
+
+                # Validar número
+                if not numero.isdigit():
+                    print(f"⚠️ Número inválido ({p.nombres}): {numero}")
+                    continue
+
+                if not numero.startswith("51"):  # Perú 🇵🇪
+                    numero = "51" + numero
+
+                mensaje = f"Hola {p.nombres}, te enviamos tu código QR para el evento 🎫. ¡Gracias por registrarte!"
+
+                # Log visual
+                print(f"📤 [{idx}/{len(participantes)}] Enviando a {p.nombres} -> {numero}")
+
+                # Enviar imagen si existe
+                if p.qr_image:
+                    pywhatkit.sendwhats_image(f"+{numero}", p.qr_image.path, caption=mensaje, wait_time=15, tab_close=True, close_time=3)
+                else:
+                    pywhatkit.sendwhatmsg_instantly(f"+{numero}", mensaje, wait_time=10, tab_close=True, close_time=3)
+
+                enviados += 1
+
+                # Esperar unos segundos entre envíos (WhatsApp puede bloquear si es muy rápido)
+                print("⏱ Esperando 7 segundos antes del siguiente envío...")
+                time.sleep(7)
+ 
+            except Exception as e:
+                print(f"❌ Error enviando a {p.nombres}: {e}")
+                continue
+
+        messages.success(request, f"✅ Se enviaron {enviados} mensajes correctamente.")
+        return redirect('registro_participante')
+
+    return redirect('registro_participante')
+
+####################################################
+#####################################################
+####################################################
+
+from django.shortcuts import render, redirect
+from django.contrib.auth import authenticate, login
+from django.contrib import messages
 
 def login_view(request):
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
 
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
             login(request, user)
-            return redirect('formulario_clientes')  # 👈 redirige aquí
+            print(f"Usuario autenticado: {user.username}")
+
+            # 👇 Redirección personalizada
+            if user.username.lower() == 'admin':
+                print("➡ Redirigiendo a registro_participante")
+                return redirect('registro_participante')
+            elif user.username.lower() == 'leo':
+                print("➡ Redirigiendo a formulario_clientes")
+                return redirect('formulario_clientes')
+            else:
+                print("➡ Usuario sin ruta definida")
+                messages.error(request, 'No tienes una ruta asignada.')
+                return redirect('login')
+
         else:
             messages.error(request, 'Usuario o contraseña incorrectos.')
 
     return render(request, 'login.html')
+
+
+#################################################################
+##############################################################3##
 
 
 def index(request):
@@ -205,6 +577,9 @@ def escalar_a_a4(imagen):
 
     imagen_redimensionada = imagen.resize((nuevo_ancho, nuevo_alto), Image.ANTIALIAS)
     return imagen_redimensionada
+
+
+
 
 
 

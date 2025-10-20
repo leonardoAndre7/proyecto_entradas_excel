@@ -39,8 +39,6 @@ PyScreeze==1.0.1
 python-dateutil==2.9.0.post0
 pytweening==1.2.0
 pytz==2025.2
-pywhatkit==5.4
-pywin32==311
 qrcode==8.2
 reportlab==4.4.4
 requests==2.32.5

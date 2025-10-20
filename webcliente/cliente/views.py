@@ -442,7 +442,11 @@ def get_local_ip():
 
 
 
-import pywhatkit
+try:
+    import pywhatkit
+except ImportError:
+    pywhatkit = None
+
 from io import BytesIO
 from django.core.mail import EmailMultiAlternatives
 from django.utils import timezone

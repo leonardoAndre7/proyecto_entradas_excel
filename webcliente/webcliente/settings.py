@@ -62,7 +62,7 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 
 #ALLOWED_HOSTS = ["*","192.168.100.202", "localhost", "127.0.0.1"]
-ALLOWED_HOSTS = ['https://proyecto-entradas-excel.onrender.com']
+ALLOWED_HOSTS = ["proyecto-entradas-excel-1.onrender.com", "127.0.0.1", "localhost"]
 # Dominios confiables para peticiones POST
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
@@ -100,7 +100,7 @@ ROOT_URLCONF = 'webcliente.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -164,6 +164,14 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # para collectstatic
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+# --- MEDIA FILES ---
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

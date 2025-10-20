@@ -16,7 +16,7 @@ from django.conf import settings
 import socket
 import dj_database_url
 from decouple import config
-
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -54,11 +54,10 @@ USE_TZ = True
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8t&(un3js0!2x+4yl(-8$=fm9sq#h67nvvreyo^n!a&zp2#mnj'
-
+SECRET_KEY = os.environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 #DEBUG = True
-DEBUG = 'RENDER' not in os.environ
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 
 
@@ -119,10 +118,11 @@ WSGI_APPLICATION = 'webcliente.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+load_dotenv()
+
+
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get("DATABASE_URL")
-    )
+    'default': dj_database_url.config(default=os.getenv('DATABASE_URL'), conn_max_age=600)
 }
 
 # Password validation

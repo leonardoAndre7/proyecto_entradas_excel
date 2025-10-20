@@ -381,6 +381,17 @@ def enviar_todos_whatsapp(request):
 ####################################################
 #####################################################
 ####################################################
+import sys
+
+if sys.platform == "win32":
+    import pywhatkit
+
+if sys.platform == "win32":
+    pywhatkit.sendwhatmsg_instantly("+519xxxxxxxx", "Hola")
+
+
+
+
 
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login

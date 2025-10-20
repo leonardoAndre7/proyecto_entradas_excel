@@ -327,7 +327,7 @@ def leer_excel(archivo):
 
 import pandas as pd
 import uuid
-import pywhatkit
+#import pywhatkit
 import time
 from django.shortcuts import redirect
 from django.contrib import messages
@@ -439,6 +439,8 @@ def get_local_ip():
     finally:
         s.close()
     return ip
+
+
 
 import pywhatkit
 from io import BytesIO

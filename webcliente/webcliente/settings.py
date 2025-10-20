@@ -62,7 +62,7 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 
 #ALLOWED_HOSTS = ["*","192.168.100.202", "localhost", "127.0.0.1"]
-ALLOWED_HOSTS = ['ede-evento.com', 'www.ede-evento.com']
+ALLOWED_HOSTS = ['https://proyecto-entradas-excel.onrender.com']
 # Dominios confiables para peticiones POST
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",

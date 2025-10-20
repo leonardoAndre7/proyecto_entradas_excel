@@ -40,5 +40,6 @@ media/
 
 # Archivos de seguridad y configuraciones locales
 *.txt
+!requirements.txt
 *.env
 *.bak

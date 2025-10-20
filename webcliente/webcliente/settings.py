@@ -57,20 +57,18 @@ USE_TZ = True
 SECRET_KEY = os.environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 #DEBUG = True
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
-
+DEBUG = True
 
 
 #ALLOWED_HOSTS = ["*","192.168.100.202", "localhost", "127.0.0.1"]
 ALLOWED_HOSTS = ["proyecto-entradas-excel-1.onrender.com", "127.0.0.1", "localhost"]
 # Dominios confiables para peticiones POST
 CSRF_TRUSTED_ORIGINS = [
+    "https://proyecto-entradas-excel-1.onrender.com",
     "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://192.168.100.202:8000",
-    "https://tu-app.herokuapp.com",  # Cambia esto por el nombre real de tu app Heroku
-    "https://www.tu-dominio.com",    # Cambia esto por tu dominio de GoDaddy
+    "http://127.0.0.1:8000"
 ]
+
 
 # Application definition
 

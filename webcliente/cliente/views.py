@@ -390,9 +390,6 @@ if sys.platform == "win32":
     pywhatkit.sendwhatmsg_instantly("+519xxxxxxxx", "Hola")
 
 
-
-
-
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages

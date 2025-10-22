@@ -130,6 +130,11 @@ class Participante(models.Model):
     entrada_usada = models.BooleanField(default=False)
     token = models.CharField(max_length=64, unique=True, editable=False, blank=True)
     
+    # ✅ Nuevos campos de validación
+    validado_admin = models.BooleanField(default=False)
+    validado_contabilidad = models.BooleanField(default=False)
+
+
     def save(self, *args, **kwargs):
 
         # 🔹 Asignar precio automáticamente según tipo_entrada

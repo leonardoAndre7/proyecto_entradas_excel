@@ -13,8 +13,8 @@
             background-size: cover;
             color: #f0f0f0;
             min-height: 100vh;
-            position: relative;
             font-family: Arial, sans-serif;
+            position: relative;
         }
 
         /* Overlay oscuro */
@@ -35,7 +35,7 @@
 
         /* Cards */
         .card {
-            background-color: rgba(30, 0, 60, 0.6); /* más transparente */
+            background-color: rgba(30, 0, 60, 0.6);
             border-radius: 15px;
             color: #ffffff;
         }
@@ -48,7 +48,7 @@
             border-top-right-radius: 15px;
         }
 
-        /* Formulario */
+        /* Formularios */
         .form-label { color: #e0c3fc; }
         .form-control {
             background-color: rgba(42,0,51,0.7);
@@ -80,21 +80,17 @@
         table.table td {
             border-color: rgba(106, 13, 173, 0.5);
         }
-
-        /* Badges */
-        .badge { font-weight: bold; }
     </style>
-    <br><br><br><br><br><br><br><br>
 </head>
 <body>
 <div class="container py-5 content">
 
-    <!-- RELOJ Y AVISO PREVENTA -->
+    <!-- Reloj y mensaje preventa -->
     <div class="mb-4 text-center">
         <h4 id="reloj" class="fw-bold"></h4>
         <div id="mensaje-preventa" class="fw-semibold"></div>
     </div>
-  
+
     <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold">
@@ -103,13 +99,11 @@
             {% else %}
                 <i class="bi bi-person-plus-fill"></i> Agregar Participante
             {% endif %}
-        </h2> 
+        </h2>
         <a href="{% url 'lista' %}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left-circle"></i> Volver a la lista
         </a>
     </div>
-
-    
 
     <div class="row g-4">
         <!-- Formulario -->
@@ -137,12 +131,7 @@
                                 <label class="form-label fw-semibold">Precio</label>
                                 <input type="text" id="precio" class="form-control" readonly>
                             </div>
-                        </div>
 
-                        <!-- Campo Vendedor -->
-                        <div class="col-md-12">
-                            <label class="form-label fw-semibold">Vendedor</label>
-                            <input type="text" name="vendedor" class="form-control" value="{{ object.vendedor|default_if_none:'' }}">
                         </div>
 
                         <!-- Botones -->
@@ -224,16 +213,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const precio = document.getElementById("precio");
 
     function actualizarPrecio() {
-        const ahora = new Date();
-        const fecha = ahora.getTime();
+        const ahora = new Date().getTime();
         const preventa1 = new Date('2025-09-30T23:59:59').getTime();
-        const preventa2 = new Date('2025-10-30T23:59:59').getTime();
-        const preventa3 = new Date('2025-10-20T23:59:59').getTime();
+        const preventa2 = new Date('2025-10-20T23:59:59').getTime();
+        const preventa3 = new Date('2025-10-30T23:59:59').getTime();
 
         let etapa;
-        if (fecha <= preventa1) etapa = "pre1";
-        else if (fecha <= preventa3) etapa = "pre3";
-        else if (fecha <= preventa2) etapa = "pre2";
+        if (ahora <= preventa1) etapa = "pre1";
+        else if (ahora <= preventa2) etapa = "pre2";
+        else if (ahora <= preventa3) etapa = "pre3";
         else etapa = "puerta";
 
         if (tipoEntrada.value && precios[tipoEntrada.value]) {
@@ -242,20 +230,23 @@ document.addEventListener("DOMContentLoaded", () => {
             precio.value = "";
         }
 
-        // Actualizar mensaje preventa
+        // Mensaje preventa
         const mensaje = document.getElementById('mensaje-preventa');
-        if (fecha <= preventa1) mensaje.textContent = "⚠️ PREVENTA 1 activa hasta el 30 de septiembre";
-        else if (fecha <= preventa3) mensaje.textContent = "⚠️ PREVENTA 3 activa hasta el 20 de octubre";
-        else if (fecha <= preventa2) mensaje.textContent = "⚠️ PREVENTA 2 activa hasta el 30 de octubre";
+        if (ahora <= preventa1) mensaje.textContent = "⚠️ PREVENTA 1 activa hasta el 30 de septiembre";
+        else if (ahora <= preventa2) mensaje.textContent = "⚠️ PREVENTA 2 activa hasta el 20 de octubre";
+        else if (ahora <= preventa3) mensaje.textContent = "⚠️ PREVENTA 3 activa hasta el 30 de octubre";
         else mensaje.textContent = "⏰ Las preventas han finalizado. Precio en puerta aplicable.";
 
-        // Actualizar reloj
+        // Reloj
+        const fecha = new Date();
         const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        document.getElementById('reloj').textContent = ahora.toLocaleTimeString() + " - " + ahora.toLocaleDateString('es-ES', opciones);
+        document.getElementById('reloj').textContent =
+            fecha.toLocaleTimeString('es-ES') + " - " + fecha.toLocaleDateString('es-ES', opciones);
     }
 
     tipoEntrada.addEventListener("change", actualizarPrecio);
     setInterval(actualizarPrecio, 1000);
+    actualizarPrecio();
 });
 </script>
 </body>

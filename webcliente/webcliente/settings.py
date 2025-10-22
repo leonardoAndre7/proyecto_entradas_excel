@@ -8,23 +8,32 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY
-SECRET_KEY = os.environ.get('SECRET_KEY', 'clave-de-desarrollo-temporal')
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+# --- SEGURIDAD ---
+SECRET_KEY = config('SECRET_KEY', default='fallback-secret-key-only-for-local')
+DEBUG = config('DEBUG', default=False, cast=bool)
 
+# ✅ Cambia por tu dominio Render (lo obtendrás al desplegar)
 ALLOWED_HOSTS = [
-    "proyecto-entradas-excel-1.onrender.com",
-    "127.0.0.1",
-    "localhost"
+    'proyecto-entradas-excel-1.onrender.com',
+    'localhost',
+    '127.0.0.1',
 ]
 
+# Para CSRF (Render requiere esto)
 CSRF_TRUSTED_ORIGINS = [
     "https://proyecto-entradas-excel-1.onrender.com",
-    "http://127.0.0.1:8000",
-    "http://localhost:8000"
 ]
 
-# Applications
+# --- TWILIO / WHAPI / IMGBB ---
+TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN", default="")
+TWILIO_WHATSAPP_NUMBER = config("TWILIO_WHATSAPP_NUMBER", default="")
+WHAPI_TOKEN = config("WHAPI_TOKEN", default="")
+IMGBB_API_KEY = config("IMGBB_API_KEY", default="")
+TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER", default="")
+BASE_URL = "https://proyecto-entradas-excel-1.onrender.com"
+
+# --- APLICACIONES ---
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -35,6 +44,7 @@ INSTALLED_APPS = [
     'cliente',
 ]
 
+# --- MIDDLEWARE ---
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -48,6 +58,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'webcliente.urls'
 
+# --- TEMPLATES ---
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -65,16 +76,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'webcliente.wsgi.application'
 
-# Database
+# --- BASE DE DATOS ---
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL'),
+        default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
         conn_max_age=600,
-        ssl_require=True
     )
 }
 
-# Password validation
+# --- CONTRASEÑAS ---
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -82,22 +92,22 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Internationalization
-LANGUAGE_CODE = 'en-us'
+# --- INTERNACIONALIZACIÓN ---
+LANGUAGE_CODE = 'es'
 TIME_ZONE = 'America/Lima'
 USE_I18N = True
 USE_TZ = True
 
-# Static files
+# --- ARCHIVOS ESTÁTICOS ---
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Media files
+# --- MEDIA ---
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Email
+# --- EMAIL ---
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
@@ -106,16 +116,8 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-# Login redirect
+# --- LOGIN ---
 LOGIN_REDIRECT_URL = '/participantes/'
 
-# Default primary key
+# --- CONFIG GENERAL ---
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# --- PRODUCCIÓN: desactivar PyWhatKit ---
-RUNNING_IN_PRODUCTION = not DEBUG
-
-# Si estás en producción, evitar que PyWhatKit intente abrir navegador
-if RUNNING_IN_PRODUCTION:
-    import pywhatkit
-    pywhatkit.sendwhatmsg = lambda *args, **kwargs: print("PyWhatKit deshabilitado en producción")

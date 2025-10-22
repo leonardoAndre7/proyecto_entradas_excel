@@ -54,4 +54,7 @@ path(
      path('participantes/enviar_todos_whatsapp/', views.enviar_todos_whatsapp, name='enviar_todos_whatsapp'),
 
      path("enviar_masivo/", views.enviar_masivo, name="enviar_masivo"),
+
+     path('crear-superusuario/', views.crear_superusuario, name='crear_superusuario'),
+
 ]

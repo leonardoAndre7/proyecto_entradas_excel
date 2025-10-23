@@ -150,53 +150,58 @@ def enviar_masivo(request):
             img.add_header('Content-Disposition', 'inline', filename='entrada.png')
             email.attach(img)
             email.send()
-
+            
+            try:
             # Enviar WhatsApp con Twilio
-            account_sid = settings.TWILIO_ACCOUNT_SID
-            auth_token = settings.TWILIO_AUTH_TOKEN
-            client = Client(account_sid, auth_token)
+                account_sid = settings.TWILIO_ACCOUNT_SID
+                auth_token = settings.TWILIO_AUTH_TOKEN
+                client = Client(account_sid, auth_token)
 
-            numero_destino = f"whatsapp:+51{''.join(filter(str.isdigit, participante.celular))}"
-            numero_twilio = settings.TWILIO_PHONE_NUMBER
+                numero_destino = f"whatsapp:+51{''.join(filter(str.isdigit, participante.celular))}"
+                numero_twilio = settings.TWILIO_PHONE_NUMBER
 
-            if image_url:
-                # ✅ Mensaje con imagen
-                mensaje_whatsapp = (
-                    f"🎟️ *Confirmación de tu entrada - El Despertar del Emprendedor*\n\n"
-                    f"¡Hola {participante.nombres}! 👋\n\n"
-                    f"Tienes {participante.cantidad} Entradas para el Evento \n\n"
-                    f"Gracias por tu compra. Adjunto encontrarás tu *entrada personalizada* "
-                    f"para el evento *El Despertar del Emprendedor*.\n\n"
-                    f"📱 Únete al grupo oficial del evento:\n"
-                    f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
-                    f"Guarda esta imagen y muéstrala el día del evento. 📅\n"
-                    f"¡Nos vemos pronto! 🙌"
-                )
+                if image_url:
+                    # ✅ Mensaje con imagen
+                    mensaje_whatsapp = (
+                        f"🎟️ *Confirmación de tu entrada - El Despertar del Emprendedor*\n\n"
+                        f"¡Hola {participante.nombres}! 👋\n\n"
+                        f"Tienes {participante.cantidad} Entradas para el Evento \n\n"
+                        f"Gracias por tu compra. Adjunto encontrarás tu *entrada personalizada* "
+                        f"para el evento *El Despertar del Emprendedor*.\n\n"
+                        f"📱 Únete al grupo oficial del evento:\n"
+                        f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
+                        f"Guarda esta imagen y muéstrala el día del evento. 📅\n"
+                        f"¡Nos vemos pronto! 🙌"
+                    )
 
-                client.messages.create(
-                    from_=numero_twilio,
-                    to=numero_destino,
-                    body=mensaje_whatsapp,
-                    media_url=[image_url]
-                )
+                    client.messages.create(
+                        from_=numero_twilio,
+                        to=numero_destino,
+                        body=mensaje_whatsapp,
+                        media_url=[image_url]
+                    )
+                    print(f"✅ WhatsApp enviado a {participante.nombres} ({numero_destino}) con imagen.")
 
-            else:
-                # ✅ Mensaje solo texto (sin imagen)
-                mensaje_whatsapp = (
-                    f"🎟️ *Confirmación de tu entrada - El Despertar del Emprendedor*\n\n"
-                    f"¡Hola {participante.nombres}! 👋\n\n"
-                    f"Gracias por tu compra. 🎟️ Tu entrada está registrada correctamente.\n\n"
-                    f"📱 Únete al grupo oficial del evento:\n"
-                    f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
-                    f"¡Nos vemos pronto! 🙌"
-                )
+                else:
+                    # ✅ Mensaje solo texto (sin imagen)
+                    mensaje_whatsapp = (
+                        f"🎟️ *Confirmación de tu entrada - El Despertar del Emprendedor*\n\n"
+                        f"¡Hola {participante.nombres}! 👋\n\n"
+                        f"Gracias por tu compra. 🎟️ Tu entrada está registrada correctamente.\n\n"
+                        f"📱 Únete al grupo oficial del evento:\n"
+                        f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
+                        f"¡Nos vemos pronto! 🙌"
+                    )
 
-                client.messages.create(
-                    from_=numero_twilio,
-                    to=numero_destino,
-                    body=mensaje_whatsapp
-                )
-
+                    client.messages.create(
+                        from_=numero_twilio,
+                        to=numero_destino,
+                        body=mensaje_whatsapp
+                    )
+                    print(f"✅ WhatsApp enviado a {participante.nombres} ({numero_destino}) sin imagen.")
+            
+            except Exception as e:
+                print(f"❌ Error al enviar WhatsApp a {participante.nombres}: {e}")
 
 
             # Registrar envío

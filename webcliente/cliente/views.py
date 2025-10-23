@@ -44,7 +44,7 @@ import tempfile
 import requests
 import json
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import   in_required
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
@@ -220,6 +220,8 @@ def enviar_masivo(request):
     print(f"✅ Enviados: {enviados} | ❌ Errores: {errores}")
     messages.success(request, f"✅ Se enviaron {enviados} entradas correctamente. ({errores} errores)")
     return redirect("participante_lista")
+
+
 
 
 def registro_participante(request):
@@ -878,7 +880,6 @@ def generar_imagen_personalizada(nombre_cliente, qr_img=None, paquete=None):
         if 'parte02.jpg' in filename:
             draw = ImageDraw.Draw(img)
             try:
-                from django.contrib.staticfiles import finders
                 font_black_path = finders.find('fonts/ariblk.ttf')
                 font_regular_path = finders.find('fonts/arial.ttf')
                 # Arial regular
@@ -1254,6 +1255,9 @@ def exportar_excel(request):
         return HttpResponse("No hay participantes para exportar.", content_type="text/plain")
 
     df = pd.DataFrame(participantes)
+
+    if 'paquete' in df.columns:
+       df = df.drop(columns=['paquete'])
 
     # Crear buffer en memoria
     output = BytesIO()

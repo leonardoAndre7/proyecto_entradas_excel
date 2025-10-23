@@ -96,8 +96,7 @@ def enviar_masivo(request):
             print(f"! Paquete recibido: {participante.tipo_entrada}")
 
             # Generar QR
-            ip_local = get_local_ip()
-            url = f"http://{ip_local}:8000/validar/{participante.token}/"
+            url = f"https://proyecto-entradas-excel-1.onrender.com/validar/{participante.token}/"
             qr_img = qrcode.make(url).convert("RGB")
 
             # Crear imagen personalizada

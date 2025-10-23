@@ -153,7 +153,6 @@ def enviar_masivo(request):
             email.send()
 
             # Enviar WhatsApp con Twilio
-            from twilio.rest import Client
             account_sid = settings.TWILIO_ACCOUNT_SID
             auth_token = settings.TWILIO_AUTH_TOKEN
             client = Client(account_sid, auth_token)
@@ -961,12 +960,10 @@ def generar_imagen_personalizada(nombre_cliente, qr_img=None, paquete=None):
             # --- Texto en la parte superior ---
             # -------------------------
 
-            try:
-                # Intentamos cargar una fuente personalizada (Arial Black) desde el sistema
-                font_pkg_path = "C:/Windows/Fonts/ariblk.ttf"
+            font_pkg_path = finders.find('fonts/ariblk.ttf')
+            if font_pkg_path:
                 font_pkg = ImageFont.truetype(font_pkg_path, size=max(16, int(qr_size * 0.14)))
-            except:
-                # Si no se puede cargar la fuente, usamos la fuente predeterminada de PIL
+            else:
                 font_pkg = ImageFont.load_default()
 
 
@@ -1167,8 +1164,8 @@ def generar_qr(request, token):
     # ---------- Construcción de la URL que queremos codificar ----------
     # Opción A: Forzar host con tu IP local (útil para pruebas cuando tu servidor corre en otra máquina)
     # 🔹 Construir la URL automáticamente (sin IP fija)
-    ip_local = get_local_ip()
-    url = f"{settings.BASE_URL}/validar/{participante.token}/"
+    BASE_URL = settings.BASE_URL  # definido en settings.py
+    url = f"{BASE_URL}/validar/{participante.token}/"
 
     # Opción B (recomendada si el host actual es el correcto):
     # url = request.build_absolute_uri(reverse('validar_entrada', args=[participante.token]))

@@ -12,6 +12,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='fallback-secret-key-only-for-local')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
+
+
 # ✅ Cambia por tu dominio Render (lo obtendrás al desplegar)
 ALLOWED_HOSTS = [
     'proyecto-entradas-excel-1.onrender.com',

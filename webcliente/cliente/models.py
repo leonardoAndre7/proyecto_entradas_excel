@@ -134,6 +134,7 @@ class Participante(models.Model):
     validado_admin = models.BooleanField(default=False)
     validado_contabilidad = models.BooleanField(default=False)
 
+    precio = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  
 
     def save(self, *args, **kwargs):
 
@@ -183,6 +184,8 @@ class Participante(models.Model):
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"
+
+
 
 class RegistroCorreo(models.Model):
         participante = models.ForeignKey(Participante, on_delete=models.CASCADE)

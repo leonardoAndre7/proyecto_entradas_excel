@@ -7,7 +7,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        /* Fondo con imagen */
         body {
             background: url("{% static 'img/exponentes.png' %}") no-repeat center center fixed;
             background-size: cover;
@@ -16,8 +15,6 @@
             font-family: Arial, sans-serif;
             position: relative;
         }
-
-        /* Overlay oscuro */
         body::before {
             content: "";
             position: fixed;
@@ -26,20 +23,12 @@
             background-color: rgba(0,0,0,0.5);
             z-index: 0;
         }
-
-        /* Contenido sobre overlay */
-        .content {
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Cards */
+        .content { position: relative; z-index: 1; }
         .card {
             background-color: rgba(30, 0, 60, 0.6);
             border-radius: 15px;
             color: #ffffff;
         }
-
         .card-header {
             background-color: rgba(106, 13, 173, 0.8);
             color: #fff;
@@ -47,8 +36,6 @@
             border-top-left-radius: 15px;
             border-top-right-radius: 15px;
         }
-
-        /* Formularios */
         .form-label { color: #e0c3fc; }
         .form-control {
             background-color: rgba(42,0,51,0.7);
@@ -61,37 +48,23 @@
             box-shadow: 0 0 10px #c100ff;
             color: #fff;
         }
-
-        /* Botones */
         .btn-primary { background-color: #6a0dad; border-color: #4b0082; }
         .btn-primary:hover { background-color: #8000ff; border-color: #4b0082; }
         .btn-outline-secondary { color: #fff; border-color: #c100ff; }
         .btn-outline-secondary:hover { background-color: #4b0082; border-color: #c100ff; }
-
-        /* Tabla transparente */
-        table.table {
-            background-color: rgba(0,0,0,0.4);
-            color: #fff;
-        }
-        table.table th {
-            background-color: rgba(75, 0, 130, 0.7);
-            color: #fff;
-        }
-        table.table td {
-            border-color: rgba(106, 13, 173, 0.5);
-        }
+        table.table { background-color: rgba(0,0,0,0.4); color: #fff; }
+        table.table th { background-color: rgba(75, 0, 130, 0.7); color: #fff; }
+        table.table td { border-color: rgba(106, 13, 173, 0.5); }
     </style>
 </head>
 <body>
 <div class="container py-5 content">
 
-    <!-- Reloj y mensaje preventa -->
     <div class="mb-4 text-center">
         <h4 id="reloj" class="fw-bold"></h4>
         <div id="mensaje-preventa" class="fw-semibold"></div>
     </div>
 
-    <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold">
             {% if object %}
@@ -106,7 +79,6 @@
     </div>
 
     <div class="row g-4">
-        <!-- Formulario -->
         <div class="col-lg-6">
             <div class="card shadow-sm p-3">
                 <div class="card-body">
@@ -126,15 +98,26 @@
                                 </div>
                             {% endfor %}
 
+                            <!-- Tipo de tarifa -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-semibold">Tipo de Tarifa</label>
+                                <select id="tipo_tarifa" class="form-control" name="tipo_tarifa">
+                                    <option value="">Seleccione</option>
+                                    <option value="pre1">Preventa 1</option>
+                                    <option value="pre2">Preventa 2</option>
+                                    <option value="pre3">Preventa 3</option>
+                                    <option value="puerta">Puerta</option>
+                                </select>
+                            </div>
+
                             <!-- Precio automático -->
                             <div class="col-md-12">
                                 <label class="form-label fw-semibold">Precio</label>
                                 <input type="text" id="precio" class="form-control" readonly>
+                                <input type="hidden" name="precio_final" id="precio_final">
                             </div>
-
                         </div>
 
-                        <!-- Botones -->
                         <div class="mt-4 text-end">
                             <button type="submit" class="btn btn-primary">
                                 {% if object %}
@@ -170,27 +153,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td class="fw-bold">FULL ACCES</td>
-                                <td>1050</td>
-                                <td>1500</td>
-                                <td>2100</td>
-                                <td class="text-danger fw-bold">3000</td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold">EMPRESARIAL</td>
-                                <td>525</td>
-                                <td>750</td>
-                                <td>1050</td>
-                                <td class="text-danger fw-bold">1800</td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold">EMPRENDEDOR</td>
-                                <td>105</td>
-                                <td>150</td>
-                                <td>210</td>
-                                <td class="text-danger fw-bold">750</td>
-                            </tr>
+                            <tr><td class="fw-bold">FULL ACCES</td><td>1050</td><td>1500</td><td>2100</td><td class="text-danger fw-bold">3000</td></tr>
+                            <tr><td class="fw-bold">EMPRESARIAL</td><td>525</td><td>750</td><td>1050</td><td class="text-danger fw-bold">1800</td></tr>
+                            <tr><td class="fw-bold">EMPRENDEDOR</td><td>105</td><td>150</td><td>210</td><td class="text-danger fw-bold">750</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -200,7 +165,6 @@
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const precios = {
     "FULL ACCES": { pre1: 1050, pre2: 1500, pre3: 2100, puerta: 3000 },
@@ -210,43 +174,23 @@ const precios = {
 
 document.addEventListener("DOMContentLoaded", () => {
     const tipoEntrada = document.querySelector('[name="tipo_entrada"]');
+    const tipoTarifa = document.getElementById("tipo_tarifa");
     const precio = document.getElementById("precio");
+    const precioFinal = document.getElementById("precio_final");
 
     function actualizarPrecio() {
-        const ahora = new Date().getTime();
-        const preventa1 = new Date('2025-09-30T23:59:59').getTime();
-        const preventa2 = new Date('2025-10-20T23:59:59').getTime();
-        const preventa3 = new Date('2025-10-30T23:59:59').getTime();
-
-        let etapa;
-        if (ahora <= preventa1) etapa = "pre1";
-        else if (ahora <= preventa2) etapa = "pre2";
-        else if (ahora <= preventa3) etapa = "pre3";
-        else etapa = "puerta";
-
-        if (tipoEntrada.value && precios[tipoEntrada.value]) {
-            precio.value = precios[tipoEntrada.value][etapa];
+        if (tipoEntrada.value && tipoTarifa.value && precios[tipoEntrada.value]) {
+            const valor = precios[tipoEntrada.value][tipoTarifa.value];
+            precio.value = valor;
+            precioFinal.value = valor;
         } else {
             precio.value = "";
+            precioFinal.value = "";
         }
-
-        // Mensaje preventa
-        const mensaje = document.getElementById('mensaje-preventa');
-        if (ahora <= preventa1) mensaje.textContent = "⚠️ PREVENTA 1 activa hasta el 30 de septiembre";
-        else if (ahora <= preventa2) mensaje.textContent = "⚠️ PREVENTA 2 activa hasta el 20 de octubre";
-        else if (ahora <= preventa3) mensaje.textContent = "⚠️ PREVENTA 3 activa hasta el 30 de octubre";
-        else mensaje.textContent = "⏰ Las preventas han finalizado. Precio en puerta aplicable.";
-
-        // Reloj
-        const fecha = new Date();
-        const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        document.getElementById('reloj').textContent =
-            fecha.toLocaleTimeString('es-ES') + " - " + fecha.toLocaleDateString('es-ES', opciones);
     }
 
     tipoEntrada.addEventListener("change", actualizarPrecio);
-    setInterval(actualizarPrecio, 1000);
-    actualizarPrecio();
+    tipoTarifa.addEventListener("change", actualizarPrecio);
 });
 </script>
 </body>

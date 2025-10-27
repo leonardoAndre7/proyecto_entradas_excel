@@ -102,10 +102,10 @@ class Participante(models.Model):
     ]
 
     PRECIOS_ENTRADA = {
-    "FULL ACCES": 1050.00,
-    "EMPRESARIAL": 525.00,
-    "EMPRENDEDOR": 105.00, 
-   }
+        "FULL ACCES": 1050.00,
+        "EMPRESARIAL": 525.00,
+        "EMPRENDEDOR": 105.00,
+    }
 
     cod_cliente = models.CharField(max_length=100, unique=True, editable=False)
     nombres = models.CharField(max_length=100, blank=True, null=True)
@@ -122,21 +122,20 @@ class Participante(models.Model):
     )
     paquete = models.CharField(max_length=100, blank=True, null=True)
     cantidad = models.IntegerField(default=0)
-    precio = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
+    precio = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     total_pagar = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     qr = models.ImageField(upload_to='qr/', null=True, blank=True)
     pago_confirmado = models.BooleanField(default=False)
     usado = models.BooleanField(default=False)
     entrada_usada = models.BooleanField(default=False)
     token = models.CharField(max_length=64, unique=True, editable=False, blank=True)
-    
-    # ✅ Nuevos campos de validación
+
+    # 🔹 Validaciones adicionales
     validado_admin = models.BooleanField(default=False)
     validado_contabilidad = models.BooleanField(default=False)
 
-    precio = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  
-
     def save(self, *args, **kwargs):
+        creando = self.pk is None  # Saber si es un nuevo registro
 
         # 🔹 Asignar precio automáticamente según tipo_entrada
         if self.tipo_entrada in self.PRECIOS_ENTRADA:
@@ -145,7 +144,7 @@ class Participante(models.Model):
         # 🔹 Calcular total
         self.total_pagar = (self.cantidad or 0) * (self.precio or 0)
 
-            # Generar cod_cliente automático si no existe
+        # 🔹 Generar cod_cliente automático si no existe
         if not self.cod_cliente:
             prefix = self.tipo_entrada.replace(" ", "").upper()  # Ej: EMPRESARIAL, FULLACCES
             last_code = (
@@ -164,27 +163,30 @@ class Participante(models.Model):
 
             self.cod_cliente = f"{prefix}{new_number:03d}"
 
-        # Generar token unico si no existe
+        # 🔹 Generar token único si no existe
         if not self.token:
             self.token = uuid.uuid4().hex
 
-        base_url = settings.BASE_URL.rstrip("/")  # quitar "/" final si lo hay
-        qr_content = f"{base_url}/validar/{self.pk or ''}/{self.token}"
-
-        # 🔹 Generar QR
-        qr_img = qrcode.make(qr_content)
-        buffer = BytesIO()
-        qr_img.save(buffer, format="PNG")
-        buffer.seek(0)  # 👈 Esto es MUY importante
-
-        self.qr.save(f"{self.dni}.png", File(buffer), save=False)
-
-
+        # 🔹 Guardar primero para obtener el ID (pk)
         super().save(*args, **kwargs)
+
+        # 🔹 Generar el QR solo si es nuevo o si no existe
+        if creando or not self.qr:
+            base_url = settings.BASE_URL.rstrip("/")
+            qr_content = f"{base_url}/validar/{self.pk}/{self.token}"
+
+            # Crear QR
+            qr_img = qrcode.make(qr_content)
+            buffer = BytesIO()
+            qr_img.save(buffer, format="PNG")
+            buffer.seek(0)
+
+            # Guardar imagen QR en el campo
+            self.qr.save(f"{self.dni or self.cod_cliente}.png", File(buffer), save=False)
+            super().save(update_fields=["qr"])
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"
-
 
 
 class RegistroCorreo(models.Model):

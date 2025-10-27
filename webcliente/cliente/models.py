@@ -135,36 +135,33 @@ class Participante(models.Model):
     validado_contabilidad = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        # 🔹 Asignar precio automáticamente
-        if self.tipo_entrada in self.PRECIOS_ENTRADA:
-            self.precio = self.PRECIOS_ENTRADA[self.tipo_entrada]
+        # 🔹 Si tipo_entrada está definido, asignar precio automáticamente
+        self.precio = self.PRECIOS_ENTRADA.get(self.tipo_entrada, 0)
 
         # 🔹 Calcular total
         self.total_pagar = (self.cantidad or 0) * (self.precio or 0)
 
         # 🔹 Generar cod_cliente
         if not self.cod_cliente:
-            prefix = self.tipo_entrada.replace(" ", "").upper()
+            prefix = (self.tipo_entrada or "PARTICIPANTE").replace(" ", "").upper()
             last_code = Participante.objects.filter(cod_cliente__startswith=prefix).order_by("-cod_cliente").first()
+            last_number = 1
             if last_code:
                 try:
-                    last_number = int(last_code.cod_cliente[len(prefix):])
+                    last_number = int(last_code.cod_cliente[len(prefix):]) + 1
                 except ValueError:
-                    last_number = 0
-                new_number = last_number + 1
-            else:
-                new_number = 1
-            self.cod_cliente = f"{prefix}{new_number:03d}"
+                    last_number = 1
+            self.cod_cliente = f"{prefix}{last_number:03d}"
 
         # 🔹 Generar token único
         if not self.token:
             self.token = uuid.uuid4().hex
 
-        # 🔹 Guardar temporalmente si no tiene PK
+        # 🔹 Guardar temporalmente para obtener PK antes de QR
         if not self.pk:
             super().save(*args, **kwargs)
 
-        # 🔹 Generar QR con PK seguro
+        # 🔹 Generar QR
         base_url = settings.BASE_URL.rstrip("/")
         qr_content = f"{base_url}/validar/{self.pk}/{self.token}"
 
@@ -175,10 +172,6 @@ class Participante(models.Model):
         self.qr.save(f"{self.dni or self.cod_cliente}.png", File(buffer), save=False)
 
         super().save(*args, **kwargs)
-
-
-    def __str__(self):
-        return f"{self.nombres} {self.apellidos}"
 
 
 class RegistroCorreo(models.Model):

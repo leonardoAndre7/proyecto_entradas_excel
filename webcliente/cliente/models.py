@@ -136,7 +136,10 @@ class Participante(models.Model):
 
     def save(self, *args, **kwargs):
         # 🔹 Si tipo_entrada está definido, asignar precio automáticamente
-        self.precio = self.PRECIOS_ENTRADA.get(self.tipo_entrada, 0)
+        # 🔹 Asignar precio automáticamente solo si no se puso precio manual
+        if not self.precio:
+            if self.tipo_entrada in self.PRECIOS_ENTRADA:
+                self.precio = self.PRECIOS_ENTRADA[self.tipo_entrada]
 
         # 🔹 Calcular total
         self.total_pagar = (self.cantidad or 0) * (self.precio or 0)

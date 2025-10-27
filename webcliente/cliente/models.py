@@ -135,21 +135,17 @@ class Participante(models.Model):
     validado_contabilidad = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        # 🔹 Asignar precio automáticamente según tipo_entrada
+        # 🔹 Asignar precio automáticamente
         if self.tipo_entrada in self.PRECIOS_ENTRADA:
             self.precio = self.PRECIOS_ENTRADA[self.tipo_entrada]
 
         # 🔹 Calcular total
         self.total_pagar = (self.cantidad or 0) * (self.precio or 0)
 
-        # 🔹 Generar cod_cliente automático si no existe
+        # 🔹 Generar cod_cliente
         if not self.cod_cliente:
-            prefix = self.tipo_entrada.replace(" ", "").upper()  # Ej: EMPRESARIAL, FULLACCES
-            last_code = (
-                Participante.objects.filter(cod_cliente__startswith=prefix)
-                .order_by("-cod_cliente")
-                .first()
-            )
+            prefix = self.tipo_entrada.replace(" ", "").upper()
+            last_code = Participante.objects.filter(cod_cliente__startswith=prefix).order_by("-cod_cliente").first()
             if last_code:
                 try:
                     last_number = int(last_code.cod_cliente[len(prefix):])
@@ -158,28 +154,27 @@ class Participante(models.Model):
                 new_number = last_number + 1
             else:
                 new_number = 1
-
             self.cod_cliente = f"{prefix}{new_number:03d}"
 
-        # 🔹 Generar token único si no existe
+        # 🔹 Generar token único
         if not self.token:
             self.token = uuid.uuid4().hex
 
-        # 🧠 👉 Aquí va la línea que mencionas:
-        base_url = settings.BASE_URL.rstrip("/")  # quita "/" final si lo hay
-        qr_content = f"{base_url}/validar/{self.pk or ''}/{self.token}"
+        # 🔹 Guardar temporalmente si no tiene PK
+        if not self.pk:
+            super().save(*args, **kwargs)
 
-        # 🔹 Generar QR
+        # 🔹 Generar QR con PK seguro
+        base_url = settings.BASE_URL.rstrip("/")
+        qr_content = f"{base_url}/validar/{self.pk}/{self.token}"
+
         qr_img = qrcode.make(qr_content)
         buffer = BytesIO()
         qr_img.save(buffer, format="PNG")
         buffer.seek(0)
-
-        # 🔹 Guardar la imagen del QR
         self.qr.save(f"{self.dni or self.cod_cliente}.png", File(buffer), save=False)
 
         super().save(*args, **kwargs)
-
 
 
     def __str__(self):

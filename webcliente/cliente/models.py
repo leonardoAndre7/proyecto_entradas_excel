@@ -135,8 +135,6 @@ class Participante(models.Model):
     validado_contabilidad = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        creando = self.pk is None  # Saber si es un nuevo registro
-
         # 🔹 Asignar precio automáticamente según tipo_entrada
         if self.tipo_entrada in self.PRECIOS_ENTRADA:
             self.precio = self.PRECIOS_ENTRADA[self.tipo_entrada]
@@ -167,23 +165,22 @@ class Participante(models.Model):
         if not self.token:
             self.token = uuid.uuid4().hex
 
-        # 🔹 Guardar primero para obtener el ID (pk)
+        # 🧠 👉 Aquí va la línea que mencionas:
+        base_url = settings.BASE_URL.rstrip("/")  # quita "/" final si lo hay
+        qr_content = f"{base_url}/validar/{self.pk or ''}/{self.token}"
+
+        # 🔹 Generar QR
+        qr_img = qrcode.make(qr_content)
+        buffer = BytesIO()
+        qr_img.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        # 🔹 Guardar la imagen del QR
+        self.qr.save(f"{self.dni or self.cod_cliente}.png", File(buffer), save=False)
+
         super().save(*args, **kwargs)
 
-        # 🔹 Generar el QR solo si es nuevo o si no existe
-        if creando or not self.qr:
-            base_url = settings.BASE_URL.rstrip("/")
-            qr_content = f"{base_url}/validar/{self.pk}/{self.token}"
 
-            # Crear QR
-            qr_img = qrcode.make(qr_content)
-            buffer = BytesIO()
-            qr_img.save(buffer, format="PNG")
-            buffer.seek(0)
-
-            # Guardar imagen QR en el campo
-            self.qr.save(f"{self.dni or self.cod_cliente}.png", File(buffer), save=False)
-            super().save(update_fields=["qr"])
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos}"

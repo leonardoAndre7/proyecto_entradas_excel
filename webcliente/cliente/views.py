@@ -776,8 +776,24 @@ def confirmar_pago(request, pk):
 
         if image_url:
             message = client.messages.create(
-                from_=numero_twilio, to=numero_destino, body=mensaje_whatsapp, media_url=[image_url]
-            )
+            from_=numero_twilio,
+            to=numero_destino,
+            template={
+                "name": "entrada_confirmada",
+                "language": {"code": "es"},
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": participante.nombres},
+                            {"type": "text", "text": url}
+                        ]
+                    }
+                ]
+            }
+        )
+
+
         else:
             message = client.messages.create(from_=numero_twilio, to=numero_destino, body=mensaje_whatsapp)
 

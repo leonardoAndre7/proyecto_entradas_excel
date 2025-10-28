@@ -84,6 +84,7 @@
         <p>El código de esta entrada ya fue validado anteriormente.</p>
         <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
         <p>DNI: {{ participante.dni }}</p>
+        <p>{{participante.cantidad}} entradas</p>
         {% if qr_image_url %}
         <div class="qr">
             <img src="{{ qr_image_url }}" alt="QR de entrada" style="width:200px; height:200px;">

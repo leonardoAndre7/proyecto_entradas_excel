@@ -758,7 +758,7 @@ def confirmar_pago(request, pk):
     # ✅ Enviar WhatsApp
     try:
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-        numero_twilio = f'whatsapp:{settings.TWILIO_WHATSAPP_NUMBER or "+15416963876"}'
+        numero_twilio = settings.TWILIO_WHATSAPP_NUMBER
 
         numero_limpio = "".join(filter(str.isdigit, participante.celular))
         if not numero_limpio.startswith("51"):

@@ -16,9 +16,9 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 # ✅ Cambia por tu dominio Render (lo obtendrás al desplegar)
 ALLOWED_HOSTS = [
-    'proyecto-entradas-excel-1.onrender.com',
     'ede-evento.com',
     'www.ede-evento.com',
+    'proyecto-entradas-excel-1.onrender.com',
     'localhost',
     '127.0.0.1',
 ]

@@ -64,16 +64,6 @@ import openpyxl
 from django.contrib import messages
 from django.contrib.auth.models import User
 
-def crear_superusuario(request):
-    if not User.objects.filter(username="admin").exists():
-        User.objects.create_superuser(
-            username="admin",
-            email="admin@example.com",
-            password="Eldespertar???"
-        )
-        return HttpResponse("✅ Superusuario creado")
-    return HttpResponse("⚠️ El superusuario ya existe")
-
 
 def enviar_masivo(request):
     participantes = Participante.objects.filter()

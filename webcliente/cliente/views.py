@@ -1603,9 +1603,20 @@ def preview_imagen_final(request):
     # 7. Retornar la imagen como <img src="data:..."> en la plantilla
     return render(request, 'cliente/preview_imagen.html', {'img_base64': img_base64})
 
+from .forms import VoucherForm 
 
-
-
+def subir_voucher(request, participante_id):
+    participante = get_object_or_404(Participante, id=participante_id)
+    
+    if request.method == "POST" and request.FILES.get('voucher_file'):
+        archivo = request.FILES['voucher_file']
+        # Crear voucher
+        Voucher.objects.create(participante=participante, imagen=archivo)
+        messages.success(request, "Voucher subido correctamente.")
+    else:
+        messages.error(request, "No se seleccionó ningún archivo.")
+    
+    return redirect('registro_participante')  # Cambia por la URL de tu registro
 
 
 

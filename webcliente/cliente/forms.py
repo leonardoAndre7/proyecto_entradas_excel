@@ -1,6 +1,6 @@
 # forms.py
 from django import forms
-from .models import Participante, Previaparticipantes
+from .models import Participante,Voucher, Previaparticipantes
 
 
 class ParticipanteForm(forms.ModelForm):
@@ -23,3 +23,9 @@ class ExcelUploadForm(forms.Form):
         label="Seleccionar archivo Excel",
         widget=forms.ClearableFileInput(attrs={'accept': '.xlsx,.xls'})
     )
+    
+
+class VoucherForm(forms.ModelForm):
+    class Meta:
+        model = Voucher
+        fields = ['imagen']

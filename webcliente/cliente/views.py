@@ -121,7 +121,7 @@ def enviar_masivo(request):
             <html>
             <body>
                 <p>Hola {participante.nombres},</p>
-                <p>Tienes {participante.cantidad} Entradas para el Evento </p>"
+                <p>Tienes {participante.cantidad} Entradas para el Evento </p>
                 <p>Gracias por tu compra. Adjunto tu entrada personalizada.</p>
                 <p>¡Nos vemos pronto!</p>
                 <img src="cid:entrada" style="max-width:100%; height:auto;">
@@ -758,7 +758,7 @@ def confirmar_pago(request, pk):
     # ✅ Enviar WhatsApp
     try:
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-        numero_twilio = settings.TWILIO_WHATSAPP_NUMBER
+        numero_twilio = f"whatsapp:{settings.TWILIO_WHATSAPP_NUMBER}"
 
         numero_limpio = "".join(filter(str.isdigit, participante.celular))
         if not numero_limpio.startswith("51"):
@@ -778,17 +778,11 @@ def confirmar_pago(request, pk):
             message = client.messages.create(
             from_=numero_twilio,
             to=numero_destino,
-            template={
+            content_template={
                 "name": "entrada_confirmada",
                 "language": {"code": "es"},
                 "components": [
-                    {
-                        "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": participante.nombres},
-                            {"type": "text", "text": url}
-                        ]
-                    }
+                    {"type": "body", "parameters":[{"type":"text","text":participante.nombres}, {"type":"text","text":url}]}
                 ]
             }
         )
@@ -1175,9 +1169,7 @@ def generar_qr(request, token):
     # ---------- Construcción de la URL que queremos codificar ----------
     # Opción A: Forzar host con tu IP local (útil para pruebas cuando tu servidor corre en otra máquina)
     # 🔹 Construir la URL automáticamente (sin IP fija)
-    BASE_URL = settings.BASE_URL  # definido en settings.py
-    url = f"{BASE_URL}/validar/{participante.token}/"
-
+    url = request.build_absolute_uri(reverse('validar_entrada', args=[participante.token]))
     # Opción B (recomendada si el host actual es el correcto):
     # url = request.build_absolute_uri(reverse('validar_entrada', args=[participante.token]))
     # esto genera automáticamente "http(s)://<host>/ruta" usando request.scheme y request.get_host()

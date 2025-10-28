@@ -1116,9 +1116,9 @@ def importar_excel(request):
         try:
             # Leer Excel
             df = pd.read_excel(archivo)
-            print(df.columns)  # Verifica los nombres de columnas
+            print("Columnas en Excel:", df.columns.tolist())  # Para depuración
 
-            # Asegúrate de que los nombres coincidan
+            # Renombrar columnas para que coincidan con tu modelo
             df = df.rename(columns={
                 'Nombre': 'Nombre',
                 'DNI': 'DNI',
@@ -1128,31 +1128,38 @@ def importar_excel(request):
                 'Tipo de entrada': 'Tipo_Entrada'
             })
 
-            # Extraer solo la parte después del guion
-            df['Tipo_Entrada'] = df['Tipo_Entrada'].astype(str).apply(lambda x: x.split('-')[-1].strip())
+            df['Tipo_Entrada'] = df['Tipo_Entrada'].astype(str).apply(
+                lambda x: x.split('-')[-1].strip() if isinstance(x, str) else x
+            )
 
-            # Iterar y crear participantes
+            enviados = 0
+            errores = 0
+
             for _, row in df.iterrows():
-                if pd.isna(row['DNI']) or pd.isna(row['Nombre']):
-                    continue  # Ignora filas vacías críticas
+                try:
+                    if pd.isna(row['DNI']) or pd.isna(row['Nombre']):
+                        continue
 
-                telefono = ''
-                if not pd.isna(row['TELEFONO']):
-                    telefono = str(int(float(row['TELEFONO']))).strip()  # elimina .0 o decimales
+                    telefono = ''
+                    if not pd.isna(row['TELEFONO']):
+                        telefono = str(row['TELEFONO']).replace('.0', '').strip()
 
+                    Participante.objects.create(
+                        nombres=row['Nombre'],
+                        apellidos="",  # opcional
+                        dni=str(row['DNI']),
+                        celular=telefono,
+                        correo=row['Correo'] if not pd.isna(row['Correo']) else '',
+                        vendedor=row['Vendedor'] if not pd.isna(row['Vendedor']) else '',
+                        tipo_entrada=row['Tipo_Entrada'],
+                        cantidad=1
+                    )
+                    enviados += 1
+                except Exception as e:
+                    print(f"❌ Error importando fila {row['Nombre']}: {e}")
+                    errores += 1
 
-                Participante.objects.create(
-                    nombres=row['Nombre'],
-                    apellidos="",  # Puedes separar apellido si quieres
-                    dni=str(row['DNI']),
-                    celular=telefono,
-                    correo=row['Correo'] if not pd.isna(row['Correo']) else '',
-                    vendedor=row['Vendedor'] if not pd.isna(row['Vendedor']) else '',
-                    tipo_entrada=row['Tipo_Entrada'],
-                    cantidad=1
-                )
-
-            messages.success(request, "✅ Participantes importados correctamente.")
+            messages.success(request, f"✅ Participantes importados: {enviados}. Errores: {errores}")
         except Exception as e:
             messages.error(request, f"❌ Error al importar Excel: {e}")
 

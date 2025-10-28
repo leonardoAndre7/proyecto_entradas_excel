@@ -1164,7 +1164,7 @@ def importar_excel(request):
                         vendedor=row['Vendedor'] if not pd.isna(row['Vendedor']) else '',
                         tipo_entrada=tipo,
                         cantidad=1,
-                        PRECIOS_ENTRADA=precio
+                        precio=precio
                     )
                     enviados += 1
 

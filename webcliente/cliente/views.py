@@ -249,6 +249,11 @@ def registro_participante(request):
                     celular=celular,
                     asesor=asesor
                 )
+                
+                # Guardar voucher si se subió
+                voucher_file = request.FILES.get('voucher_file')
+                if voucher_file:
+                    Voucher.objects.create(participante=participante, imagen=voucher_file)
 
             messages.success(request, "Participantes cargados desde Excel correctamente.")
 

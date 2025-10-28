@@ -107,7 +107,7 @@ class Participante(models.Model):
     apellidos = models.CharField(max_length=100, blank=True, null=True)
     dni = models.CharField(max_length=20, blank=True, null=True)
     celular = models.CharField(max_length=20, blank=True, null=True)
-    correo = models.CharField(max_length=50)
+    correo = models.CharField(max_length=50, blank=True, null=True)
     vendedor = models.CharField(max_length=255, blank=True, null=True)
 
     tipo_entrada = models.CharField(

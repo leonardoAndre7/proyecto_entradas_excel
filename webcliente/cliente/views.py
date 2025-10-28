@@ -1114,11 +1114,10 @@ def importar_excel(request):
     if request.method == "POST" and request.FILES.get('excel_file'):
         archivo = request.FILES['excel_file']
         try:
-            # Leer Excel
             df = pd.read_excel(archivo)
             print("Columnas en Excel:", df.columns.tolist())  # Para depuración
 
-            # Renombrar columnas para que coincidan con tu modelo
+            # Renombrar columnas
             df = df.rename(columns={
                 'Nombre': 'Nombre',
                 'DNI': 'DNI',
@@ -1128,9 +1127,12 @@ def importar_excel(request):
                 'Tipo de entrada': 'Tipo_Entrada'
             })
 
-            df['Tipo_Entrada'] = df['Tipo_Entrada'].astype(str).apply(
-                lambda x: x.split('-')[-1].strip() if isinstance(x, str) else x
-            )
+            # Diccionario de tarifas
+            tarifas = {
+                "FULL ACCES": {"Preventa1": 1050, "Preventa2": 1500, "Preventa3": 2100, "Puerta": 3000},
+                "EMPRESARIAL": {"Preventa1": 525, "Preventa2": 750, "Preventa3": 1050, "Puerta": 1800},
+                "EMPRENDEDOR": {"Preventa1": 105, "Preventa2": 150, "Preventa3": 210, "Puerta": 750},
+            }
 
             enviados = 0
             errores = 0
@@ -1144,6 +1146,15 @@ def importar_excel(request):
                     if not pd.isna(row['TELEFONO']):
                         telefono = str(row['TELEFONO']).replace('.0', '').strip()
 
+                    # Separar tarifa y tipo de entrada
+                    tipo_parts = str(row['Tipo_Entrada']).split('-')
+                    if len(tipo_parts) == 2:
+                        tarifa, tipo = tipo_parts[0].strip(), tipo_parts[1].strip().upper()
+                    else:
+                        tarifa, tipo = "Preventa1", str(row['Tipo_Entrada']).strip().upper()  # valor por defecto
+
+                    precio = tarifas.get(tipo, {}).get(tarifa, 0)  # precio según tipo y tarifa
+
                     Participante.objects.create(
                         nombres=row['Nombre'],
                         apellidos="",  # opcional
@@ -1151,10 +1162,12 @@ def importar_excel(request):
                         celular=telefono,
                         correo=row['Correo'] if not pd.isna(row['Correo']) else '',
                         vendedor=row['Vendedor'] if not pd.isna(row['Vendedor']) else '',
-                        tipo_entrada=row['Tipo_Entrada'],
-                        cantidad=1
+                        tipo_entrada=tipo,
+                        cantidad=1,
+                        PRECIOS_ENTRADA=precio
                     )
                     enviados += 1
+
                 except Exception as e:
                     print(f"❌ Error importando fila {row['Nombre']}: {e}")
                     errores += 1
@@ -1164,6 +1177,7 @@ def importar_excel(request):
             messages.error(request, f"❌ Error al importar Excel: {e}")
 
     return redirect('participante_lista')
+
 
 def generar_qr(request, token):
     """

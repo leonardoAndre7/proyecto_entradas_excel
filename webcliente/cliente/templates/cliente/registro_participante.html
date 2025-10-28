@@ -74,7 +74,6 @@
     background: linear-gradient(135deg, #9c27b0, #6a1b9a);
   }
 
-  /* ✅ CONTENEDOR DE TABLA MEJORADO */
   .table-container {
     background: rgba(255,255,255,0.05);
     border-radius: 15px;
@@ -164,7 +163,6 @@
     font-weight: 500;
   }
 
-  /* 🔍 Buscador */
   .search-box {
     margin-bottom: 1rem;
     display: flex;
@@ -241,7 +239,6 @@
       </button>
     </form>
 
-
     <div class="export-buttons mb-3">
       <a href="{% url 'exportar_excel_previo' %}" class="btn btn-success">
         <i class="bi bi-file-earmark-spreadsheet"></i> Excel
@@ -297,6 +294,13 @@
               {% empty %}
                 <span class="text-muted">Sin vouchers</span>
               {% endfor %}
+
+              <!-- Formulario para subir voucher -->
+              <form method="post" action="{% url 'subir_voucher' p.id %}" enctype="multipart/form-data" style="margin-top:5px;">
+                {% csrf_token %}
+                <input type="file" name="voucher_file" accept="image/*,.pdf" style="display:inline-block; width:120px;">
+                <button type="submit" class="btn btn-sm btn-primary">Subir</button>
+              </form>
             </td>
             <td><input type="checkbox" {% if p.validado_contabilidad %}checked{% endif %}></td>
             <td><input type="checkbox" {% if p.validado_administracion %}checked{% endif %}></td>
@@ -350,6 +354,3 @@
   });
 </script>
 {% endblock %}
-
-
-

@@ -3,7 +3,6 @@ from .models import Participante, Voucher,RegistroCorreo, Previaparticipantes
 import pandas as pd
 import openpyxl
 import qrcode
-import traceback
 from django.db.models import Max
 from datetime import datetime
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -1053,43 +1052,19 @@ from django.conf import settings
 
 class ParticipanteCreateView(CreateView):
     model = Participante
-    fields = [
-        'nombres', 'apellidos', 'dni', 'celular', 'correo',
-        'vendedor', 'tipo_entrada', 'cantidad',
-        'validado_admin', 'validado_contabilidad'
-    ]
+    fields = ['nombres','apellidos','dni','celular','correo','vendedor','tipo_entrada','cantidad', 'validado_admin', 'validado_contabilidad']
     template_name = 'cliente/participante_form.html'
     success_url = reverse_lazy('participante_lista')
 
+
     def form_valid(self, form):
-        try:
-            participante = form.save(commit=False)
+        print(form.cleaned_data)
+        participante = form.save()
+        if settings.DEBUG:  # usar settings.DEBUG en vez de DEBUG directo
+            print(f"Simulando WhatsApp a {participante.celular}")
+        return super().form_valid(form)
 
-            tipo_entrada = self.request.POST.get('tipo_entrada')
-            tipo_tarifa = self.request.POST.get('tipo_tarifa')
 
-            precios = {
-                "FULL ACCES": {"pre1": 1050, "pre2": 1500, "pre3": 2100, "puerta": 3000},
-                "EMPRESARIAL": {"pre1": 525, "pre2": 750, "pre3": 1050, "puerta": 1800},
-                "EMPRENDEDOR": {"pre1": 105, "pre2": 150, "pre3": 210, "puerta": 750},
-            }
-
-            precio = precios.get(tipo_entrada, {}).get(tipo_tarifa, 0)
-            participante.precio = precio
-            participante.total_pagar = (participante.cantidad or 0) * precio
-
-            participante.save()
-
-            messages.success(self.request, f"✅ Participante agregado con precio S/. {precio:.2f}")
-            return redirect(self.success_url)
-
-        except Exception as e:
-            print("❌ Error en form_valid:", e)
-            traceback.print_exc()
-            messages.error(self.request, "Ocurrió un error al guardar el participante.")
-            return self.form_invalid(form)
-    
-        
 class ParticipanteUpdateView(UpdateView):
     model = Participante
     fields = ['nombres','apellidos','dni','celular','correo','tipo_entrada','cantidad','precio', 'vendedor', 'validado_admin', 'validado_contabilidad']

@@ -5,188 +5,33 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
 
 <style>
-  html, body {
-    height: 100%;
-    margin: 0;
-    font-family: 'Poppins', 'Segoe UI', sans-serif;
-    background: url("{% static 'img/exponentes.jpeg' %}") no-repeat center center fixed;
-    background-size: cover;
-  }
-
-  .overlay-login {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 2rem;
-    overflow-y: auto;
-  }
-
-  .login-card {
-    width: 100%;
-    max-width: 1100px;
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(15px);
-    border-radius: 20px;
-    padding: 2rem;
-    color: white;
-    box-shadow: 0 0 30px rgba(0,0,0,0.3);
-  }
-
-  h3, h4, h5 {
-    color: #e1bee7;
-    text-shadow: 0 0 10px rgba(156,39,176,0.4);
-  }
-
-  label {
-    color: #f3e5f5;
-    font-weight: 500;
-  }
-
-  .form-control {
-    background: rgba(255,255,255,0.1);
-    border: none;
-    color: white;
-    border-radius: 12px;
-    padding: 0.75rem 1rem;
-  }
-
-  .form-control:focus {
-    background: rgba(255,255,255,0.2);
-    box-shadow: 0 0 8px rgba(156,39,176,0.6);
-  }
-
-  .btn-login {
-    background: linear-gradient(135deg, #7b1fa2, #4a148c);
-    border: none;
-    border-radius: 25px;
-    padding: 0.8rem;
-    font-weight: 600;
-    font-size: 1rem;
-    color: #fff;
-    transition: 0.3s;
-  }
-
-  .btn-login:hover {
-    transform: scale(1.05);
-    background: linear-gradient(135deg, #9c27b0, #6a1b9a);
-  }
-
-  .table-container {
-    background: rgba(255,255,255,0.05);
-    border-radius: 15px;
-    padding: 1rem;
-    max-height: 400px;
-    overflow-y: auto;
-    overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #ab47bc rgba(255,255,255,0.1);
-  }
-
-  .table-container::-webkit-scrollbar {
-    height: 10px;
-    width: 10px;
-  }
-
-  .table-container::-webkit-scrollbar-thumb {
-    background: #ab47bc;
-    border-radius: 8px;
-  }
-
-  .table-container::-webkit-scrollbar-track {
-    background: rgba(255,255,255,0.1);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    color: #e0e0e0;
-    border-radius: 15px;
-    overflow: hidden;
-  }
-
-  th, td {
-    padding: 10px 14px;
-    text-align: center;
-    white-space: nowrap;
-  }
-
-  th {
-    background: rgba(156,39,176,0.8);
-    color: white;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-  }
-
-  tbody tr {
-    background: rgba(0, 0, 0, 0.3);
-    transition: background 0.3s, transform 0.2s;
-  }
-
-  tbody tr:hover {
-    background: rgba(156,39,176,0.2);
-    transform: scale(1.01);
-  }
-
-  td {
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    font-size: 0.9rem;
-  }
-
-  .btn-table {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.8rem;
-    padding: 4px 8px;
-    border-radius: 8px;
-  }
-
-  hr {
-    border-color: rgba(255,255,255,0.15);
-  }
-
-  .export-buttons {
-    display: flex;
-    justify-content: end;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .btn-success, .btn-danger {
-    border-radius: 10px;
-    font-weight: 500;
-  }
-
-  .search-box {
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .search-box input {
-    flex: 1;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.1);
-    border: none;
-    color: white;
-    padding: 0.7rem 1rem;
-  }
-
-  .search-box input::placeholder {
-    color: #d1c4e9;
-  }
-
-  .search-box i {
-    color: #ba68c8;
-    font-size: 1.3rem;
-  }
+  html, body { height:100%; margin:0; font-family:'Poppins', 'Segoe UI', sans-serif; background: url("{% static 'img/exponentes.jpeg' %}") no-repeat center center fixed; background-size: cover; }
+  .overlay-login { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:flex-start; padding:2rem; overflow-y:auto; }
+  .login-card { width:100%; max-width:1100px; background: rgba(255,255,255,0.08); backdrop-filter: blur(15px); border-radius:20px; padding:2rem; color:white; box-shadow:0 0 30px rgba(0,0,0,0.3); }
+  h3,h4,h5 { color:#e1bee7; text-shadow:0 0 10px rgba(156,39,176,0.4); }
+  label { color:#f3e5f5; font-weight:500; }
+  .form-control { background: rgba(255,255,255,0.1); border:none; color:white; border-radius:12px; padding:0.75rem 1rem; }
+  .form-control:focus { background: rgba(255,255,255,0.2); box-shadow:0 0 8px rgba(156,39,176,0.6); }
+  .btn-login { background: linear-gradient(135deg, #7b1fa2, #4a148c); border:none; border-radius:25px; padding:0.8rem; font-weight:600; font-size:1rem; color:#fff; transition:0.3s; }
+  .btn-login:hover { transform: scale(1.05); background: linear-gradient(135deg, #9c27b0, #6a1b9a); }
+  .table-container { background: rgba(255,255,255,0.05); border-radius:15px; padding:1rem; max-height:400px; overflow-y:auto; overflow-x:auto; scrollbar-width: thin; scrollbar-color: #ab47bc rgba(255,255,255,0.1); }
+  .table-container::-webkit-scrollbar { height:10px; width:10px; }
+  .table-container::-webkit-scrollbar-thumb { background:#ab47bc; border-radius:8px; }
+  .table-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); }
+  table { width:100%; border-collapse:collapse; color:#e0e0e0; border-radius:15px; overflow:hidden; }
+  th, td { padding:10px 14px; text-align:center; white-space:nowrap; }
+  th { background: rgba(156,39,176,0.8); color:white; text-transform:uppercase; font-size:0.9rem; position:sticky; top:0; z-index:1; }
+  tbody tr { background: rgba(0,0,0,0.3); transition: background 0.3s, transform 0.2s; }
+  tbody tr:hover { background: rgba(156,39,176,0.2); transform: scale(1.01); }
+  td { border-bottom:1px solid rgba(255,255,255,0.1); font-size:0.9rem; }
+  .btn-table { display:inline-flex; align-items:center; gap:5px; font-size:0.8rem; padding:4px 8px; border-radius:8px; }
+  hr { border-color: rgba(255,255,255,0.15); }
+  .export-buttons { display:flex; justify-content:end; gap:10px; flex-wrap:wrap; }
+  .btn-success, .btn-danger { border-radius:10px; font-weight:500; }
+  .search-box { margin-bottom:1rem; display:flex; align-items:center; gap:10px; }
+  .search-box input { flex:1; border-radius:12px; background: rgba(255,255,255,0.1); border:none; color:white; padding:0.7rem 1rem; }
+  .search-box input::placeholder { color:#d1c4e9; }
+  .search-box i { color:#ba68c8; font-size:1.3rem; }
 </style>
 
 <div class="overlay-login">
@@ -217,9 +62,15 @@
         </div>
       </div>
 
-      <div class="mb-4">
+      <div class="mb-3">
         <label>Asesor</label>
         <input type="text" name="asesor" class="form-control">
+      </div>
+
+      <!-- NUEVO: Subir voucher al registrar -->
+      <div class="mb-3">
+        <label>Voucher (opcional)</label>
+        <input type="file" name="voucher_file" accept="image/*,.pdf" class="form-control">
       </div>
 
       <h5 class="text-center">📁 Carga Masiva (Excel)</h5>
@@ -294,13 +145,6 @@
               {% empty %}
                 <span class="text-muted">Sin vouchers</span>
               {% endfor %}
-
-              <!-- Formulario para subir voucher -->
-              <form method="post" action="{% url 'subir_voucher' p.id %}" enctype="multipart/form-data" style="margin-top:5px;">
-                {% csrf_token %}
-                <input type="file" name="voucher_file" accept="image/*,.pdf" style="display:inline-block; width:120px;">
-                <button type="submit" class="btn btn-sm btn-primary">Subir</button>
-              </form>
             </td>
             <td><input type="checkbox" {% if p.validado_contabilidad %}checked{% endif %}></td>
             <td><input type="checkbox" {% if p.validado_administracion %}checked{% endif %}></td>
@@ -320,8 +164,7 @@
                 </a>
                 <form method="post" action="{% url 'eliminar_participante_previa' p.id %}" style="display:inline;">
                   {% csrf_token %}
-                  <button type="submit" class="btn btn-danger btn-sm btn-table"
-                    onclick="return confirm('¿Estás seguro de eliminar este participante?');">
+                  <button type="submit" class="btn btn-danger btn-sm btn-table" onclick="return confirm('¿Estás seguro de eliminar este participante?');">
                     <i class="bi bi-trash"></i>
                   </button>
                 </form>
@@ -337,20 +180,15 @@
   </div>
 </div>
 
-<!-- 🔎 Script de búsqueda -->
 <script>
-  document.getElementById("searchInput").addEventListener("keyup", function() {
-    const filter = this.value.toLowerCase();
-    const rows = document.querySelectorAll("#participantesTable tbody tr");
-    rows.forEach(row => {
-      const nombre = row.cells[1]?.textContent.toLowerCase() || "";
-      const dni = row.cells[2]?.textContent.toLowerCase() || "";
-      if (nombre.includes(filter) || dni.includes(filter)) {
-        row.style.display = "";
-      } else {
-        row.style.display = "none";
-      }
-    });
+document.getElementById("searchInput").addEventListener("keyup", function() {
+  const filter = this.value.toLowerCase();
+  const rows = document.querySelectorAll("#participantesTable tbody tr");
+  rows.forEach(row => {
+    const nombre = row.cells[1]?.textContent.toLowerCase() || "";
+    const dni = row.cells[2]?.textContent.toLowerCase() || "";
+    row.style.display = (nombre.includes(filter) || dni.includes(filter)) ? "" : "none";
   });
+});
 </script>
 {% endblock %}

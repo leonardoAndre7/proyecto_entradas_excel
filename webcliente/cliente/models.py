@@ -101,11 +101,6 @@ class Participante(models.Model):
         ("EMPRENDEDOR", "Emprendedor"),
     ]
 
-    PRECIOS_ENTRADA = {
-        "FULL ACCES": 1050.00,
-        "EMPRESARIAL": 525.00,
-        "EMPRENDEDOR": 105.00,
-    }
 
     cod_cliente = models.CharField(max_length=100, unique=True, editable=False)
     nombres = models.CharField(max_length=100, blank=True, null=True)
@@ -117,8 +112,7 @@ class Participante(models.Model):
 
     tipo_entrada = models.CharField(
         max_length=20,
-        choices=TIPO_ENTRADA_CHOICES,
-        default="FULL ACCES"
+        choices=TIPO_ENTRADA_CHOICES
     )
     paquete = models.CharField(max_length=100, blank=True, null=True)
     cantidad = models.IntegerField(default=0)

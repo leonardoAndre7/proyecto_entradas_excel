@@ -1048,16 +1048,31 @@ class ParticipanteCreateView(CreateView):
 
 
     def form_valid(self, form):
-        print(form.cleaned_data)
-        participante = form.save()
-        if settings.DEBUG:  # usar settings.DEBUG en vez de DEBUG directo
-            print(f"Simulando WhatsApp a {participante.celular}")
+        participante = form.save(commit=False)
+
+        # Obtener los valores del formulario (que no están en el modelo)
+        tipo_tarifa = self.request.POST.get("tipo_tarifa")
+        precio_final = self.request.POST.get("precio_final")
+
+        # Si el precio_final viene del formulario, asignarlo al modelo
+        if precio_final:
+            participante.precio = precio_final
+
+        # Calcular total automáticamente
+        participante.total_pagar = (participante.cantidad or 0) * (participante.precio or 0)
+
+        participante.save()
+
+        # Log para verificar
+        print(f"✅ Participante guardado: {participante.nombres} | {participante.tipo_entrada} | {tipo_tarifa} | {participante.precio}")
+
+        # Aquí puedes activar WhatsApp o email después si lo deseas
         return super().form_valid(form)
 
 
 class ParticipanteUpdateView(UpdateView):
     model = Participante
-    fields = ['nombres','apellidos','dni','celular','correo','tipo_entrada','cantidad','precio', 'vendedor', 'validado_admin', 'validado_contabilidad']
+    fields = ['nombres','apellidos','dni','celular','correo','tipo_entrada','cantidad', 'vendedor', 'validado_admin', 'validado_contabilidad']
     template_name = 'cliente/participante_form.html'
     success_url = reverse_lazy('participante_lista')
 

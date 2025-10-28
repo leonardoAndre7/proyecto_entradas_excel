@@ -1039,6 +1039,7 @@ def limpiar_tipo_entrada(valor):
 
 from django.conf import settings
 
+from decimal import Decimal
 
 class ParticipanteCreateView(CreateView):
     model = Participante
@@ -1050,23 +1051,26 @@ class ParticipanteCreateView(CreateView):
     def form_valid(self, form):
         participante = form.save(commit=False)
 
-        # Obtener los valores del formulario (que no están en el modelo)
+        # Obtener los valores extra del formulario
         tipo_tarifa = self.request.POST.get("tipo_tarifa")
         precio_final = self.request.POST.get("precio_final")
 
-        # Si el precio_final viene del formulario, asignarlo al modelo
+        # Convertir precio_final a número si viene del formulario
         if precio_final:
-            participante.precio = precio_final
+            try:
+                participante.precio = Decimal(precio_final)
+            except:
+                participante.precio = Decimal("0.00")
 
-        # Calcular total automáticamente
-        participante.total_pagar = (participante.cantidad or 0) * (participante.precio or 0)
+        # Calcular total correctamente
+        cantidad = participante.cantidad or 0
+        precio = participante.precio or Decimal("0.00")
+        participante.total_pagar = cantidad * precio
 
         participante.save()
 
-        # Log para verificar
-        print(f"✅ Participante guardado: {participante.nombres} | {participante.tipo_entrada} | {tipo_tarifa} | {participante.precio}")
+        print(f"✅ Guardado: {participante.nombres} | Precio: {participante.precio} | Total: {participante.total_pagar}")
 
-        # Aquí puedes activar WhatsApp o email después si lo deseas
         return super().form_valid(form)
 
 

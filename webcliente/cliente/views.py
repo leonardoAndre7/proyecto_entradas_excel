@@ -1221,7 +1221,35 @@ def mostrar_qr(request, pk):
     img.save(response, "PNG")
     return response
 
+"""
 def validar_entrada(request, token):
+    participante = get_object_or_404(Participante, token=token)
+
+    if not participante.entrada_usada:
+        participante.entrada_usada = True
+        participante.fecha_ingreso = timezone.now()  # registra la hora de ingreso
+        participante.save()
+        mensaje = "Entrada válida, bienvenido al evento."
+        estado = True
+    else:
+        mensaje = "Esta entrada ya ha sido usada."
+        estado = False
+
+    # Renderiza la página de validación
+    return render(
+        request,
+        "cliente/entrada_valida.html" if estado else "cliente/entrada_usada.html",
+        {"participante": participante, "mensaje": mensaje}
+    )
+"""  
+
+from django.contrib.admin.views.decorators import staff_member_required
+
+@staff_member_required
+def validar_entrada(request, token):
+    """
+    Solo el staff puede validar la entrada.
+    """
     participante = get_object_or_404(Participante, token=token)
 
     if not participante.entrada_usada:

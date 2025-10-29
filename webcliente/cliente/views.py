@@ -1154,7 +1154,7 @@ class ParticipanteCreateView(CreateView):
         # Guardar múltiples vouchers (si existen)
         vouchers = self.request.FILES.getlist('vouchers')
         for archivo in vouchers:
-            Voucher.objects.create(participante=participante, archivo=archivo)
+            Voucher.objects.create(participante=participante, imagen=archivo)
 
         print(f"✅ Guardado: {participante.nombres} | {len(vouchers)} vouchers")
 

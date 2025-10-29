@@ -1201,6 +1201,11 @@ class ParticipanteDeleteView(DeleteView):
     template_name = 'cliente/participante_confirm_delete.html'
     success_url = reverse_lazy('participante_lista')
  
+from django.utils.decorators import method_decorator
+ 
+from django.contrib.auth.decorators import login_required
+
+@method_decorator(login_required(login_url='/login/'), name='dispatch')
 class ParticipanteListView(ListView):
     model = Participante
     template_name = 'cliente/lista.html'

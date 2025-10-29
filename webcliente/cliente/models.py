@@ -92,16 +92,30 @@ class Previaparticipantes(models.Model):
         super().save(*args, **kwargs)
 
 class Voucher(models.Model):
-        participante = models.ForeignKey(
-            Previaparticipantes,
-            on_delete=models.CASCADE,
-            related_name='vouchers'  # 👈 Este nombre se usará en p.vouchers.all
-        )
-        imagen = models.ImageField(upload_to='vouchers/')
-        fecha_subida = models.DateTimeField(auto_now_add=True)
+    # Se relaciona opcionalmente con Participante o Previaparticipantes
+    participante = models.ForeignKey(
+        'Participante',
+        on_delete=models.CASCADE,
+        related_name='vouchers',
+        blank=True,
+        null=True
+    )
+    previaparticipante = models.ForeignKey(
+        'Previaparticipantes',
+        on_delete=models.CASCADE,
+        related_name='vouchers_previa',
+        blank=True,
+        null=True
+    )
+    imagen = models.ImageField(upload_to='vouchers/')
+    fecha_subida = models.DateTimeField(auto_now_add=True)
 
-        def __str__(self):
-            return f"Voucher de {self.participante.nombres or self.participante.cod_part}"
+    def __str__(self):
+        if self.participante:
+            return f"Voucher de {self.participante.nombres or self.participante.cod_cliente}"
+        elif self.previaparticipante:
+            return f"Voucher de {self.previaparticipante.nombres or self.previaparticipante.cod_part}"
+        return "Voucher sin participante asignado"
 
 ###############################################
 ###########################################

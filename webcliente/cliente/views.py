@@ -739,6 +739,7 @@ def login_view(request):
 ##############################################################3##
 
 
+
 def index(request):
     return render(request, "cliente/index.html")
 
@@ -1134,43 +1135,76 @@ from decimal import Decimal
 
 class ParticipanteCreateView(CreateView):
     model = Participante
-    fields = ['nombres','apellidos','dni','celular','correo','vendedor','tipo_entrada','cantidad', 'validado_admin', 'validado_contabilidad']
+    fields = [
+        'nombres', 'apellidos', 'dni', 'celular', 'correo',
+        'vendedor', 'tipo_entrada', 'cantidad',
+        'validado_admin', 'validado_contabilidad'
+    ]
     template_name = 'cliente/participante_form.html'
     success_url = reverse_lazy('participante_lista')
-
 
     def form_valid(self, form):
         participante = form.save(commit=False)
 
-        # Obtener los valores extra del formulario
+        # Obtener datos adicionales del formulario
         tipo_tarifa = self.request.POST.get("tipo_tarifa")
         precio_final = self.request.POST.get("precio_final")
 
-        # Convertir precio_final a número si viene del formulario
+        # Guardar el precio
         if precio_final:
             try:
                 participante.precio = Decimal(precio_final)
             except:
                 participante.precio = Decimal("0.00")
 
-        # Calcular total correctamente
+        # Calcular total
         cantidad = participante.cantidad or 0
-        precio = participante.precio or Decimal("0.00")
-        participante.total_pagar = cantidad * precio
-
+        participante.total_pagar = cantidad * participante.precio
         participante.save()
 
-        print(f"✅ Guardado: {participante.nombres} | Precio: {participante.precio} | Total: {participante.total_pagar}")
+        # Guardar múltiples vouchers (si existen)
+        vouchers = self.request.FILES.getlist('vouchers')
+        for archivo in vouchers:
+            Voucher.objects.create(participante=participante, archivo=archivo)
+
+        print(f"✅ Guardado: {participante.nombres} | {len(vouchers)} vouchers")
 
         return super().form_valid(form)
 
 
 class ParticipanteUpdateView(UpdateView):
     model = Participante
-    fields = ['nombres','apellidos','dni','celular','correo','tipo_entrada','cantidad', 'vendedor', 'validado_admin', 'validado_contabilidad']
+    fields = [
+        'nombres', 'apellidos', 'dni', 'celular', 'correo',
+        'tipo_entrada', 'cantidad', 'vendedor',
+        'validado_admin', 'validado_contabilidad'
+    ]
     template_name = 'cliente/participante_form.html'
     success_url = reverse_lazy('participante_lista')
 
+    def form_valid(self, form):
+        participante = form.save(commit=False)
+
+        # Actualizar precio y total si cambia
+        precio_final = self.request.POST.get("precio_final")
+        if precio_final:
+            try:
+                participante.precio = Decimal(precio_final)
+            except:
+                participante.precio = Decimal("0.00")
+
+        cantidad = participante.cantidad or 0
+        participante.total_pagar = cantidad * participante.precio
+        participante.save()
+
+        # Si agregan nuevos vouchers al editar
+        vouchers = self.request.FILES.getlist('vouchers')
+        for archivo in vouchers:
+            Voucher.objects.create(participante=participante, archivo=archivo)
+
+        print(f"✏️ Actualizado: {participante.nombres} | +{len(vouchers)} vouchers")
+
+        return super().form_valid(form)
 
 
 class ParticipanteDeleteView(DeleteView):

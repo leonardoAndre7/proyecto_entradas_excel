@@ -181,6 +181,7 @@
                         <th><i class="bi bi-ticket-perforated-fill"></i> Tipo Entrada</th>
                         <th><i class="bi bi-hash"></i> Cant.</th>
                         <th><i class="bi bi-currency-dollar"></i> Precio</th>
+                        <th><i class="bi bi-paperclip"></i> Vouchers</th>
                         <th><i class="bi bi-cash-stack"></i> Total</th>
                          <th><i class="bi bi-shield-check"></i> Admin.</th>
                          <th><i class="bi bi-check2-square"></i> Contab.</th>
@@ -205,6 +206,19 @@
                         <td>{{ p.cantidad }}</td>
                         <td>{{ p.precio }}</td>
                 
+                        <td>
+                            {% if p.vouchers.all %}
+                                {% for v in p.vouchers.all %}
+                                    <a href="{{ v.archivo.url }}" target="_blank" class="btn btn-sm btn-outline-info mb-1" title="Ver voucher {{ forloop.counter }}">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small"><i class="bi bi-dash"></i> Sin vouchers</span>
+                            {% endif %}
+                        </td>
+
+
                         <td class="fw-bold text-success">S/ {{ p.total_pagar }}</td>
                         <td>
                             {% if p.validado_admin %}

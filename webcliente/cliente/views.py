@@ -262,10 +262,9 @@ def registro_participante(request):
                 asesor=request.POST.get('asesor')
             )
 
-            # Guardar voucher si se subió
-            voucher_file = request.FILES.get('voucher_file')
-            if voucher_file:
-                Voucher.objects.create(participante=participante, imagen=voucher_file)
+            # Guardar todos los vouchers subidos
+            for archivo in request.FILES.getlist('voucher_files'):
+                Voucher.objects.create(participante=participante, imagen=archivo)
 
             messages.success(request, f"Participante {participante.nombres} registrado correctamente.")
 
@@ -488,7 +487,9 @@ def exportar_pdf_previo(request):
 #### LA VALIDACION DEL STAF
 
 from django.shortcuts import get_object_or_404, render
+from django.contrib.admin.views.decorators import staff_member_required
 
+@staff_member_required
 def validar_entrada_previo(request, token):
     """
     Valida la entrada de un participante previo mediante su token.

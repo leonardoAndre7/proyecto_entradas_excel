@@ -90,9 +90,12 @@
 
     <form method="post" action="{% url 'enviar_todos_whatsapp' %}" onsubmit="return confirm('¿Deseas enviar los mensajes de WhatsApp a todos los participantes?');">
       {% csrf_token %}
-      <button type="submit" class="btn btn-success">
-        <i class="bi bi-whatsapp"></i> Enviar todos los WhatsApp
+      <button type="submit" class="btn btn-success d-flex align-items-center gap-2" style="background: linear-gradient(90deg, #25D366, #128C7E); border: none;">
+        <i class="bi bi-whatsapp"></i>
+        <i class="bi bi-envelope-fill"></i>
+        <span>Enviar a todos (WSP Y Correo)</span>
       </button>
+
     </form>
 
     <div class="export-buttons mb-3">
@@ -157,9 +160,12 @@
             <td><input type="checkbox" {% if p.validado_administracion %}checked{% endif %}></td>
             <td>
               {% if p.celular and p.qr_image %}
-                <a href="{% url 'enviar_whatsapp_qr' p.cod_part %}" class="btn btn-success btn-sm btn-table">
-                  <i class="bi bi-whatsapp"></i> QR
+                <a href="{% url 'enviar_whatsapp_qr' p.cod_part %}" class="btn btn-success btn-sm btn-table d-flex align-items-center gap-1" style="background: linear-gradient(90deg, #25D366, #128C7E); border: none;">
+                  <i class="bi bi-whatsapp"></i>
+                  <i class="bi bi-envelope-fill"></i>
+                  <span>Enviar QR</span>
                 </a>
+
               {% else %}
                 <span class="text-muted">N/A</span>
               {% endif %}

@@ -595,6 +595,11 @@ def enviar_todos_whatsapp(request):
 
     for idx, p in enumerate(participantes, start=1):
         try:
+            # ✅ Verificar que tenga administracion y contabilidad en True
+            if not (getattr(p, "administracion", False) and getattr(p, "contabilidad", False)):
+                print(f"⏭️ {p.nombres} omitido (no cumple con los checks de administración y contabilidad).")
+                continue
+
             numero = ''.join(filter(str.isdigit, str(p.celular).strip()))
             if not numero.startswith("51"):
                 numero = "51" + numero
@@ -688,8 +693,12 @@ def enviar_todos_whatsapp(request):
             print(f"❌ Error general con {p.nombres}: {e}")
             continue
 
-    messages.success(request, f"✅ Se enviaron {enviados} mensajes de WhatsApp y {enviados_email} correos correctamente.")
+    messages.success(
+        request,
+        f"✅ Se enviaron {enviados} mensajes de WhatsApp y {enviados_email} correos correctamente."
+    )
     return redirect('registro_participante')
+
 ####################################################
 #####################################################
 ####################################################

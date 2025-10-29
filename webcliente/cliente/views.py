@@ -128,6 +128,10 @@ def enviar_masivo(request):
                     <p>Hola {participante.nombres},</p>
                     <p>Tienes {participante.cantidad} Entradas para el evento.</p>
                     <p>Gracias por tu compra. Adjunto tu entrada personalizada.</p>
+                    
+                     <p>📱 Únete al grupo oficial del evento:</p>
+                    <p>https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT</p>
+                    
                     <img src="cid:entrada" style="max-width:100%; height:auto;">
                 </body></html>
                 """
@@ -165,7 +169,6 @@ def enviar_masivo(request):
                     f"¡Hola {participante.nombres}! 👋\n\n"
                     f"Tu pago fue confirmado ✅\n"
                     f"Tienes {participante.cantidad} entrada(s) para el evento.\n\n"
-                    f"Puedes validar tu entrada aquí:\n{url}\n\n"
                     f"📱 Únete al grupo oficial del evento:\n"
                     f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
                     f"Nos vemos pronto 🙌"
@@ -807,6 +810,8 @@ def confirmar_pago(request, pk):
             <p>Tienes {participante.cantidad} Entradas para el evento.</p>
             <p>Adjunto encontrarás tu entrada personalizada para 
             <b>El Despertar del Emprendedor</b>.</p>
+            <p>📱 Únete al grupo oficial del evento:</p>
+             <p>https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT</p>
             <p>¡Nos vemos pronto!</p>
             <br>
             <img src="cid:entrada" style="max-width:100%; height:auto;">
@@ -857,7 +862,6 @@ def confirmar_pago(request, pk):
             f"¡Hola {participante.nombres}! 👋\n\n"
             f"Tu pago fue confirmado ✅\n"
             f"Tienes {participante.cantidad} entradas para el evento 🎟️.\n\n"
-            f"Puedes validar tu entrada aquí:\n{url}\n\n"
             f"📱 Únete al grupo del evento:\n"
             f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
             f"Nos vemos pronto 🙌"

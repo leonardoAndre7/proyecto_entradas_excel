@@ -209,7 +209,7 @@
                         <td>
                             {% if p.vouchers.all %}
                                 {% for v in p.vouchers.all %}
-                                    <a href="{{ v.archivo.url }}" target="_blank" class="btn btn-sm btn-outline-info mb-1" title="Ver voucher {{ forloop.counter }}">
+                                    <a href="{{ v.imagen.url }}" target="_blank" class="btn btn-sm btn-outline-info mb-1" title="Ver voucher {{ forloop.counter }}">
                                         <i class="bi bi-eye"></i>
                                     </a>
                                 {% endfor %}

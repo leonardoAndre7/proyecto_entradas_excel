@@ -33,6 +33,7 @@ class Previaparticipantes(models.Model):
     nombres = models.CharField(max_length=255, blank=True, null=True)
     dni = models.CharField(max_length=20, blank=True, null=True)
     celular = models.CharField(max_length=9, blank=True, null=True)
+    correo = models.EmailField(blank=True, null=True)
     asesor = models.CharField(max_length=255, blank=True, null=True)
     qr_image = models.ImageField(upload_to='qrs/', blank=True, null=True)
 

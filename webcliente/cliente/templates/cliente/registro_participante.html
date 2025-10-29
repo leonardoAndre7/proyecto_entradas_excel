@@ -52,15 +52,20 @@
       </div>
 
       <div class="row">
-        <div class="col-md-6 mb-3">
+        <div class="col-md-4 mb-3">
           <label>DNI</label>
           <input type="text" name="dni" class="form-control">
         </div>
-        <div class="col-md-6 mb-3">
+        <div class="col-md-4 mb-3">
           <label>Celular</label>
           <input type="text" name="celular" class="form-control" maxlength="9">
         </div>
+        <div class="col-md-4 mb-3">
+          <label>Correo</label>
+          <input type="email" name="correo" class="form-control" placeholder="correo@ejemplo.com">
+        </div>
       </div>
+
 
       <div class="mb-3">
         <label>Asesor</label>
@@ -113,12 +118,13 @@
             <th>Nombre</th>
             <th>DNI</th>
             <th>Celular</th>
-            <th>Asesor</th>
+            <th>Correo</th>
+            <th>Asesor</th>   
             <th>QR</th>
             <th>Vouchers</th>
             <th>Contabilidad</th>
             <th>Administración</th>
-            <th>WhatsApp</th>
+            <th>WhatsApp / Correo</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -129,6 +135,7 @@
             <td>{{ p.nombres }}</td>
             <td>{{ p.dni }}</td>
             <td>{{ p.celular }}</td>
+            <td>{{ p.correo }}</td>
             <td>{{ p.asesor }}</td>
             <td>
               {% if p.qr_image %}

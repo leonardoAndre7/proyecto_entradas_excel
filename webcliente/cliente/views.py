@@ -233,9 +233,9 @@ def registro_participante(request):
             wb = openpyxl.load_workbook(excel_file)
             sheet = wb.active
 
-            # Suponiendo que la primera fila es encabezado: Nombres, DNI, Celular, Asesor
+            # Suponiendo que la primera fila es encabezado: Nombres, DNI, Celular, Asesor, Correo
             for row in sheet.iter_rows(min_row=2, values_only=True):
-                nombres, dni, celular, asesor = row[:4]
+                nombres, dni, celular, asesor, correo = row[:5]
 
                 # Generar nuevo código
                 ultimo = Previaparticipantes.objects.order_by('-id').first()
@@ -247,7 +247,8 @@ def registro_participante(request):
                     nombres=nombres,
                     dni=dni,
                     celular=celular,
-                    asesor=asesor
+                    asesor=asesor,
+                    correo=correo
                 )
 
             messages.success(request, "Participantes cargados desde Excel correctamente.")
@@ -259,7 +260,8 @@ def registro_participante(request):
                 nombres=request.POST.get('nombres'),
                 dni=request.POST.get('dni'),
                 celular=request.POST.get('celular'),
-                asesor=request.POST.get('asesor')
+                asesor=request.POST.get('asesor'),
+                correo=request.POST.get('correo')  # <-- Se agrega aquí
             )
 
             # Guardar todos los vouchers subidos
@@ -314,10 +316,13 @@ def eliminar_participante_previa(request, pk):
 
 
 
-
+########################
+##########################
+##########################
+#########################
+#############ENVIO DE WHATSAP Y CORREOS
 
 def enviar_whatsapp_qr(request, cod_part):
-    # Obtener participante correcto
     participante = get_object_or_404(Previaparticipantes, cod_part=cod_part)
 
     if not participante.qr_image:
@@ -327,13 +332,12 @@ def enviar_whatsapp_qr(request, cod_part):
     qr_path = participante.qr_image.path
 
     try:
-        # Abrir imagen
+        # Procesar la imagen QR
         img = Image.open(qr_path)
         if img.mode == "RGBA":
             img = img.convert("RGB")
         img.thumbnail((1080, 1440))
 
-        # Guardar imagen temporal
         tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{participante.id}.jpg")
         img.save(tmp_path, format="JPEG", quality=95)
 
@@ -341,8 +345,8 @@ def enviar_whatsapp_qr(request, cod_part):
         messages.error(request, f"❌ Error al procesar la imagen: {e}")
         return redirect("registro_participante")
 
+    # --- 1️⃣ Envío por WhatsApp ---
     try:
-        # Configurar Twilio
         account_sid = settings.TWILIO_ACCOUNT_SID
         auth_token = settings.TWILIO_AUTH_TOKEN
         client = Client(account_sid, auth_token)
@@ -351,11 +355,12 @@ def enviar_whatsapp_qr(request, cod_part):
         numero_destino = f"whatsapp:+51{''.join(filter(str.isdigit, participante.celular or ''))}"
 
         mensaje_texto = (
-            f"🎟️ Hola {participante.nombres}, tu entrada para El Despertar del Emprendedor está lista.\n"
-            "¡Nos vemos pronto! 🙌"
+            f"🎟️ Hola {participante.nombres}, tu entrada para *El Despertar del Emprendedor* está lista.\n"
+            f"📅 ¡Nos vemos pronto!\n"
+            f"Gracias por ser parte del evento. 🙌"
         )
 
-        # Subir imagen a ImgBB para obtener URL pública
+        # Subir imagen a ImgBB
         with open(tmp_path, "rb") as f:
             encoded_image = base64.b64encode(f.read()).decode("utf-8")
 
@@ -374,20 +379,51 @@ def enviar_whatsapp_qr(request, cod_part):
                 media_url=[image_url]
             )
         else:
-            # Solo texto si falla la subida de la imagen
             client.messages.create(
                 from_=numero_twilio,
                 to=numero_destino,
                 body=mensaje_texto
             )
 
-        messages.success(request, f"✅ Entrada enviada correctamente a {participante.nombres}")
+        messages.success(request, f"✅ WhatsApp enviado correctamente a {participante.nombres}")
 
     except Exception as e:
         messages.error(request, f"❌ Error enviando WhatsApp con Twilio: {e}")
 
+    # --- 2️⃣ Envío por Correo ---
+    try:
+        if participante.correo:
+            asunto = "🎟️ Tu entrada para El Despertar del Emprendedor"
+            cuerpo = (
+                f"Hola {participante.nombres},\n\n"
+                "Adjunto encontrarás tu entrada con el código QR para el evento *El Despertar del Emprendedor*.\n\n"
+                "📍 Lugar: Centro de Convenciones\n"
+                "📅 Fecha: Próximamente\n\n"
+                "¡Nos vemos pronto!\n\n"
+                "Equipo EDE Evento."
+            )
+
+            email = EmailMessage(
+                asunto,
+                cuerpo,
+                settings.DEFAULT_FROM_EMAIL,  # Asegúrate de tenerlo configurado en settings.py
+                [participante.correo],
+            )
+            email.attach_file(tmp_path)
+            email.send(fail_silently=False)
+
+            messages.success(request, f"📧 Correo enviado correctamente a {participante.correo}")
+        else:
+            messages.warning(request, f"⚠️ {participante.nombres} no tiene correo registrado.")
+
+    except Exception as e:
+        messages.error(request, f"❌ Error enviando correo: {e}")
+
     return redirect("registro_participante")
 
+#####################################
+####################################
+######################################
 
 from django.http import HttpResponse
 import openpyxl
@@ -547,6 +583,7 @@ def enviar_todos_whatsapp(request):
 
     participantes = Previaparticipantes.objects.exclude(celular__isnull=True).exclude(celular="")
     enviados = 0
+    enviados_email = 0
 
     messages.info(request, "⏳ Enviando mensajes... no cierres el navegador ni la consola.")
 
@@ -563,28 +600,41 @@ def enviar_todos_whatsapp(request):
                 numero = "51" + numero
             numero_destino = f"whatsapp:+{numero}"
 
-            mensaje_texto = f"🎟️ Hola {p.nombres}, tu entrada para El Despertar del Emprendedor está lista. ¡Gracias por registrarte!"
+            mensaje_texto = (
+                f"🎟️ Hola {p.nombres}, tu entrada para *El Despertar del Emprendedor* está lista.\n"
+                f"📅 ¡Nos vemos pronto!\n"
+                f"Gracias por ser parte del evento 🙌"
+            )
 
-            # Enviar imagen si existe
+            # --- 1️⃣ Procesar imagen si existe ---
+            image_url = None
+            tmp_path = None
             if p.qr_image:
-                # Abrir y optimizar la imagen
-                img = Image.open(p.qr_image.path)
-                if img.mode == "RGBA":
-                    img = img.convert("RGB")
-                img.thumbnail((1080, 1440))
-                tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{p.id}.jpg")
-                img.save(tmp_path, format="JPEG", quality=95)
+                try:
+                    img = Image.open(p.qr_image.path)
+                    if img.mode == "RGBA":
+                        img = img.convert("RGB")
+                    img.thumbnail((1080, 1440))
+                    tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{p.id}.jpg")
+                    img.save(tmp_path, format="JPEG", quality=95)
 
-                # Subir a ImgBB
-                with open(tmp_path, "rb") as f:
-                    encoded_image = base64.b64encode(f.read()).decode("utf-8")
-                response = requests.post(
-                    "https://api.imgbb.com/1/upload",
-                    data={"key": settings.IMGBB_API_KEY, "image": encoded_image},
-                    timeout=20
-                )
-                image_url = response.json().get("data", {}).get("url") if response.status_code == 200 else None
+                    # Subir a ImgBB
+                    with open(tmp_path, "rb") as f:
+                        encoded_image = base64.b64encode(f.read()).decode("utf-8")
 
+                    response = requests.post(
+                        "https://api.imgbb.com/1/upload",
+                        data={"key": settings.IMGBB_API_KEY, "image": encoded_image},
+                        timeout=20
+                    )
+                    if response.status_code == 200:
+                        image_url = response.json().get("data", {}).get("url")
+
+                except Exception as img_error:
+                    print(f"⚠️ Error procesando imagen de {p.nombres}: {img_error}")
+
+            # --- 2️⃣ Enviar WhatsApp ---
+            try:
                 if image_url:
                     client.messages.create(
                         from_=numero_twilio,
@@ -593,28 +643,52 @@ def enviar_todos_whatsapp(request):
                         media_url=[image_url]
                     )
                 else:
-                    # Solo texto si falla la subida de la imagen
                     client.messages.create(
                         from_=numero_twilio,
                         to=numero_destino,
                         body=mensaje_texto
                     )
-            else:
-                # Solo texto
-                client.messages.create(
-                    from_=numero_twilio,
-                    to=numero_destino,
-                    body=mensaje_texto
-                )
+                enviados += 1
+                print(f"📤 [{idx}/{len(participantes)}] WhatsApp enviado a {p.nombres} -> {numero}")
 
-            enviados += 1
-            print(f"📤 [{idx}/{len(participantes)}] Enviado a {p.nombres} -> {numero}")
+            except Exception as e:
+                print(f"❌ Error enviando WhatsApp a {p.nombres}: {e}")
+
+            # --- 3️⃣ Enviar correo si tiene correo registrado ---
+            if getattr(p, 'correo', None):
+                try:
+                    asunto = "🎟️ Tu entrada para El Despertar del Emprendedor"
+                    cuerpo = (
+                        f"Hola {p.nombres},\n\n"
+                        "Adjunto encontrarás tu entrada con el código QR para el evento *El Despertar del Emprendedor*.\n\n"
+                        "📍 Lugar: Centro de Convenciones\n"
+                        "📅 Fecha: Próximamente\n\n"
+                        "¡Nos vemos pronto!\n\n"
+                        "Equipo EDE Evento."
+                    )
+
+                    email = EmailMessage(
+                        asunto,
+                        cuerpo,
+                        settings.DEFAULT_FROM_EMAIL,
+                        [p.correo],
+                    )
+                    if tmp_path and os.path.exists(tmp_path):
+                        email.attach_file(tmp_path)
+                    email.send(fail_silently=False)
+                    enviados_email += 1
+                    print(f"📧 Correo enviado a {p.correo}")
+
+                except Exception as e:
+                    print(f"⚠️ Error enviando correo a {p.nombres}: {e}")
+            else:
+                print(f"⚠️ {p.nombres} no tiene correo registrado.")
 
         except Exception as e:
-            print(f"❌ Error enviando a {p.nombres}: {e}")
+            print(f"❌ Error general con {p.nombres}: {e}")
             continue
 
-    messages.success(request, f"✅ Se enviaron {enviados} mensajes correctamente.")
+    messages.success(request, f"✅ Se enviaron {enviados} mensajes de WhatsApp y {enviados_email} correos correctamente.")
     return redirect('registro_participante')
 ####################################################
 #####################################################

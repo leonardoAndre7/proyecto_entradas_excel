@@ -1267,7 +1267,7 @@ def importar_excel(request):
             tarifas = {
                 "FULL ACCES": {"PREVENTA1": 1050, "PREVENTA2": 1500, "PREVENTA3": 2100, "PUERTA": 3000},
                 "EMPRESARIAL": {"PREVENTA1": 525, "PREVENTA2": 750, "PREVENTA3": 1050, "PUERTA": 1800},
-                "EMPRENDEDOR": {"PREVENTA1": 105, "PREVENTA2": 150, "PREVENTA3": 210, "PUERTA": 750},
+                "EMPRENDEDOR": {"PREVENTA1": 105, "PREVENTA2": 150, "PREVENTA3": 300, "PUERTA": 750},
             }
 
             enviados = 0

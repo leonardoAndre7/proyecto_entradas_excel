@@ -77,19 +77,18 @@ def enviar_masivo(request):
 
     for participante in participantes:
         try:
-            # ✅ Enviar solo si tiene ambos checks activados
+            # ✅ Solo enviar si está validado por Admin y Contabilidad
             if not (participante.validado_admin and participante.validado_contabilidad):
-                print(f"⏭️ Saltando {participante.nombres}: faltan validaciones (Admin o Contabilidad)")
+                print(f"⏭️ Saltando {participante.nombres}: faltan validaciones.")
                 continue
 
-            print(f"📤 Enviando a {participante.nombres} ({participante.correo})")
-            print(f"! Paquete recibido: {participante.tipo_entrada}")
+            print(f"📤 Enviando a {participante.nombres} ({participante.celular})")
 
-            # Generar QR
-            url = f"https://proyecto-entradas-excel-1.onrender.com/validar/{participante.token}/"
+            # ✅ Generar QR con dominio público
+            url = f"{settings.BASE_URL}/validar/{participante.token}/"
             qr_img = qrcode.make(url).convert("RGB")
 
-            # Crear imagen personalizada
+            # ✅ Crear imagen personalizada
             imagen_final = generar_imagen_personalizada(
                 nombre_cliente=participante.nombres,
                 paquete=participante.tipo_entrada,
@@ -102,105 +101,103 @@ def enviar_masivo(request):
                 continue
 
             buffer = BytesIO()
-            imagen_final.save(buffer, format='PNG')
+            imagen_final.save(buffer, format="PNG")
             buffer.seek(0)
 
-            # Subir a ImgBB
-            api_key = settings.IMGBB_API_KEY
-            encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            response = requests.post(
-                "https://api.imgbb.com/1/upload",
-                data={"key": api_key, "image": encoded_image},
-                timeout=20
-            )
-            image_url = response.json().get("data", {}).get("url") if response.status_code == 200 else None
-
-            # Enviar correo
-            asunto = "🎟️ Tu entrada - El Despertar del Emprendedor"
-            html_mensaje = f"""
-            <html>
-            <body>
-                <p>Hola {participante.nombres},</p>
-                <p>Tienes {participante.cantidad} Entradas para el Evento </p>
-                <p>Gracias por tu compra. Adjunto tu entrada personalizada.</p>
-                <p>¡Nos vemos pronto!</p>
-                <img src="cid:entrada" style="max-width:100%; height:auto;">
-            </body>
-            </html>
-            """
-            email = EmailMultiAlternatives(
-                subject=asunto,
-                body="Tu correo no soporta HTML",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[participante.correo],
-            )
-            email.attach_alternative(html_mensaje, "text/html")
-            img = MIMEImage(buffer.getvalue())
-            img.add_header('Content-ID', '<entrada>')
-            img.add_header('Content-Disposition', 'inline', filename='entrada.png')
-            email.attach(img)
-            email.send()
-            
+            # ✅ Subir imagen a ImgBB
+            image_url = None
             try:
-            # Enviar WhatsApp con Twilio
-                account_sid = settings.TWILIO_ACCOUNT_SID
-                auth_token = settings.TWILIO_AUTH_TOKEN
-                client = Client(account_sid, auth_token)
+                api_key = settings.IMGBB_API_KEY
+                encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                response = requests.post(
+                    "https://api.imgbb.com/1/upload",
+                    data={"key": api_key, "image": encoded_image},
+                    timeout=20
+                )
+                if response.status_code == 200:
+                    image_url = response.json()["data"]["url"]
+                    print(f"🖼️ Imagen subida: {image_url}")
+            except Exception as e:
+                print(f"⚠️ Error subiendo imagen a ImgBB para {participante.nombres}: {e}")
 
-                numero_destino = f"whatsapp:+51{''.join(filter(str.isdigit, participante.celular))}"
-                numero_twilio = settings.TWILIO_PHONE_NUMBER
+            # ✅ Enviar correo
+            try:
+                asunto = "🎟️ Tu entrada - El Despertar del Emprendedor"
+                html_mensaje = f"""
+                <html><body>
+                    <p>Hola {participante.nombres},</p>
+                    <p>Tienes {participante.cantidad} Entradas para el evento.</p>
+                    <p>Gracias por tu compra. Adjunto tu entrada personalizada.</p>
+                    <img src="cid:entrada" style="max-width:100%; height:auto;">
+                </body></html>
+                """
+
+                email = EmailMultiAlternatives(
+                    subject=asunto,
+                    body="Tu correo no soporta HTML.",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[participante.correo],
+                )
+                email.attach_alternative(html_mensaje, "text/html")
+
+                img = MIMEImage(buffer.getvalue())
+                img.add_header('Content-ID', '<entrada>')
+                img.add_header('Content-Disposition', 'inline', filename='entrada.png')
+                email.attach(img)
+                email.send()
+                print(f"📧 Correo enviado a {participante.correo}")
+            except Exception as e:
+                print(f"⚠️ Error enviando correo a {participante.nombres}: {e}")
+
+            # ✅ Enviar WhatsApp solo si ya habló con Twilio
+            try:
+                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                numero_twilio = f"whatsapp:{settings.TWILIO_WHATSAPP_NUMBER}"
+
+                # Normalizar número destino
+                numero_limpio = "".join(filter(str.isdigit, participante.celular))
+                if not numero_limpio.startswith("51"):
+                    numero_limpio = "51" + numero_limpio
+                numero_destino = f"whatsapp:+{numero_limpio}"
+
+                mensaje = (
+                    f"🎟️ *Confirmación de tu entrada - El Despertar del Emprendedor*\n\n"
+                    f"¡Hola {participante.nombres}! 👋\n\n"
+                    f"Tu pago fue confirmado ✅\n"
+                    f"Tienes {participante.cantidad} entrada(s) para el evento.\n\n"
+                    f"Puedes validar tu entrada aquí:\n{url}\n\n"
+                    f"📱 Únete al grupo oficial del evento:\n"
+                    f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
+                    f"Nos vemos pronto 🙌"
+                )
 
                 if image_url:
-                    # ✅ Mensaje con imagen
-                    mensaje_whatsapp = (
-                        f"🎟️ *Confirmación de tu entrada - El Despertar del Emprendedor*\n\n"
-                        f"¡Hola {participante.nombres}! 👋\n\n"
-                        f"Tienes {participante.cantidad} Entradas para el Evento \n\n"
-                        f"Gracias por tu compra. Adjunto encontrarás tu *entrada personalizada* "
-                        f"para el evento *El Despertar del Emprendedor*.\n\n"
-                        f"📱 Únete al grupo oficial del evento:\n"
-                        f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
-                        f"Guarda esta imagen y muéstrala el día del evento. 📅\n"
-                        f"¡Nos vemos pronto! 🙌"
-                    )
-
-                    client.messages.create(
+                    message = client.messages.create(
                         from_=numero_twilio,
                         to=numero_destino,
-                        body=mensaje_whatsapp,
+                        body=mensaje,
                         media_url=[image_url]
                     )
-                    print(f"✅ WhatsApp enviado a {participante.nombres} ({numero_destino}) con imagen.")
-
                 else:
-                    # ✅ Mensaje solo texto (sin imagen)
-                    mensaje_whatsapp = (
-                        f"🎟️ *Confirmación de tu entrada - El Despertar del Emprendedor*\n\n"
-                        f"¡Hola {participante.nombres}! 👋\n\n"
-                        f"Gracias por tu compra. 🎟️ Tu entrada está registrada correctamente.\n\n"
-                        f"📱 Únete al grupo oficial del evento:\n"
-                        f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
-                        f"¡Nos vemos pronto! 🙌"
-                    )
-
-                    client.messages.create(
+                    message = client.messages.create(
                         from_=numero_twilio,
                         to=numero_destino,
-                        body=mensaje_whatsapp
+                        body=mensaje
                     )
-                    print(f"✅ WhatsApp enviado a {participante.nombres} ({numero_destino}) sin imagen.")
-            
+
+                print(f"✅ WhatsApp enviado a {participante.nombres}: {message.sid}")
+
             except Exception as e:
-                print(f"❌ Error al enviar WhatsApp a {participante.nombres}: {e}")
+                print(f"⚠️ No se pudo enviar WhatsApp a {participante.nombres}: {e}")
+                print("💡 Posible causa: el usuario no ha iniciado conversación con el número Twilio.")
 
-
-            # Registrar envío
+            # ✅ Registrar envío
             RegistroCorreo.objects.update_or_create(
                 participante=participante,
                 defaults={"enviado": True, "fecha_envio": timezone.now()}
             )
 
-            # Marcar como enviado/pago confirmado
+            # ✅ Marcar como pago confirmado
             participante.pago_confirmado = True
             participante.save()
 
@@ -213,8 +210,6 @@ def enviar_masivo(request):
     print(f"✅ Enviados: {enviados} | ❌ Errores: {errores}")
     messages.success(request, f"✅ Se enviaron {enviados} entradas correctamente. ({errores} errores)")
     return redirect("participante_lista")
-
-
 
 
 def registro_participante(request):
@@ -778,8 +773,6 @@ from twilio.rest import Client
 
 def confirmar_pago(request, pk):
     participante = get_object_or_404(Participante, pk=pk)
-
-    # ✅ Confirmar pago
     participante.pago_confirmado = True
     participante.save()
 
@@ -787,7 +780,7 @@ def confirmar_pago(request, pk):
     url = f"{settings.BASE_URL}{reverse('validar_entrada', args=[participante.token])}"
     qr_img = qrcode.make(url).convert("RGB")
 
-    # ✅ Generar imagen personalizada
+    # ✅ Crear imagen personalizada
     imagen_final = generar_imagen_personalizada(
         nombre_cliente=participante.nombres,
         paquete=participante.tipo_entrada,
@@ -802,42 +795,36 @@ def confirmar_pago(request, pk):
     buffer = BytesIO()
     imagen_final.save(buffer, format='PNG')
     buffer.seek(0)
-
-    nombre_archivo = f"entrada_{participante.id}.png"
-    ruta_media = os.path.join(settings.MEDIA_ROOT, nombre_archivo)
+    ruta_media = os.path.join(settings.MEDIA_ROOT, f"entrada_{participante.id}.png")
     imagen_final.save(ruta_media, format="PNG")
 
-    # ✅ Correo HTML
-    asunto = "🎟️ Confirmación de tu entrada - El Despertar del Emprendedor"
-    html_mensaje = f"""
-    <html>
-    <body>
-        <p>Hola {participante.nombres},</p>
-        <p>Tienes {participante.cantidad} Entradas para el Evento</p>
-        <p>Gracias por tu compra. Adjunto encontrarás tu entrada personalizada
-        para el evento <strong>El Despertar del Emprendedor</strong>.</p>
-        <p>No olvides guardarla y mostrarla el día del evento.</p>
-        <p>¡Nos vemos pronto!</p>
-        <br>
-        <img src="cid:entrada" alt="Entrada personalizada" style="max-width:100%; height:auto; display:block;">
-    </body>
-    </html>
-    """
-
-    email = EmailMultiAlternatives(
-        subject=asunto,
-        body="Tu correo no soporta HTML",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[participante.correo],
-    )
-    email.attach_alternative(html_mensaje, "text/html")
-
-    img = MIMEImage(buffer.getvalue())
-    img.add_header('Content-ID', '<entrada>')
-    img.add_header('Content-Disposition', 'inline', filename='entrada.png')
-    email.attach(img)
-
+    # ✅ Enviar correo
     try:
+        asunto = "🎟️ Confirmación de tu entrada - El Despertar del Emprendedor"
+        html_mensaje = f"""
+        <html><body>
+            <p>Hola {participante.nombres},</p>
+            <p>Tienes {participante.cantidad} Entradas para el evento.</p>
+            <p>Adjunto encontrarás tu entrada personalizada para 
+            <b>El Despertar del Emprendedor</b>.</p>
+            <p>¡Nos vemos pronto!</p>
+            <br>
+            <img src="cid:entrada" style="max-width:100%; height:auto;">
+        </body></html>
+        """
+
+        email = EmailMultiAlternatives(
+            subject=asunto,
+            body="Tu correo no soporta HTML.",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[participante.correo],
+        )
+        email.attach_alternative(html_mensaje, "text/html")
+
+        img = MIMEImage(buffer.getvalue())
+        img.add_header('Content-ID', '<entrada>')
+        img.add_header('Content-Disposition', 'inline', filename='entrada.png')
+        email.attach(img)
         email.send()
         print("✅ Correo enviado correctamente")
     except Exception as e:
@@ -852,16 +839,15 @@ def confirmar_pago(request, pk):
         if response.status_code == 200:
             image_url = response.json()["data"]["url"]
             print("✅ Imagen subida correctamente:", image_url)
-        else:
-            print("❌ Error subiendo imagen:", response.text)
     except Exception as e:
         print("❌ Error subiendo imagen:", e)
 
-    # ✅ Enviar WhatsApp
+    # ✅ Enviar WhatsApp solo si el usuario ya habló con el número Twilio
     try:
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
         numero_twilio = f"whatsapp:{settings.TWILIO_WHATSAPP_NUMBER}"
-
+        
+        # Limpiar número del participante
         numero_limpio = "".join(filter(str.isdigit, participante.celular))
         if not numero_limpio.startswith("51"):
             numero_limpio = "51" + numero_limpio
@@ -869,33 +855,33 @@ def confirmar_pago(request, pk):
 
         mensaje_whatsapp = (
             f"¡Hola {participante.nombres}! 👋\n\n"
-            f"Tienes {participante.cantidad} Entradas para el Evento 🎟️\n\n"
+            f"Tu pago fue confirmado ✅\n"
+            f"Tienes {participante.cantidad} entradas para el evento 🎟️.\n\n"
             f"Puedes validar tu entrada aquí:\n{url}\n\n"
             f"📱 Únete al grupo del evento:\n"
             f"https://chat.whatsapp.com/IJ394YIlCDcGOQLLupjyRT\n\n"
             f"Nos vemos pronto 🙌"
         )
 
+        # Si hay imagen subida, enviamos con media_url
         if image_url:
             message = client.messages.create(
-            from_=numero_twilio,
-            to=numero_destino,
-            content_template={
-                "name": "entrada_confirmada",
-                "language": {"code": "es"},
-                "components": [
-                    {"type": "body", "parameters":[{"type":"text","text":participante.nombres}, {"type":"text","text":url}]}
-                ]
-            }
-        )
-
-
+                from_=numero_twilio,
+                to=numero_destino,
+                body=mensaje_whatsapp,
+                media_url=[image_url]
+            )
         else:
-            message = client.messages.create(from_=numero_twilio, to=numero_destino, body=mensaje_whatsapp)
+            message = client.messages.create(
+                from_=numero_twilio,
+                to=numero_destino,
+                body=mensaje_whatsapp
+            )
 
-        print("✅ Mensaje enviado por WhatsApp Twilio:", message.sid)
+        print("✅ WhatsApp enviado correctamente:", message.sid)
+
     except Exception as e:
-        print("❌ Error enviando mensaje WhatsApp con Twilio:", e)
+        print("❌ No se pudo enviar WhatsApp (probablemente el usuario no escribió primero):", e)
 
     # ✅ Registrar envío
     registro, created = RegistroCorreo.objects.get_or_create(
@@ -907,8 +893,11 @@ def confirmar_pago(request, pk):
         registro.fecha_envio = timezone.now()
         registro.save()
 
-    messages.success(request, "✅ Pago confirmado y mensaje enviado por WhatsApp.")
+    messages.success(request, "✅ Pago confirmado, correo y WhatsApp enviados.")
     return redirect("participante_lista")
+
+
+
 
 
 def escalar_a_a4(imagen):

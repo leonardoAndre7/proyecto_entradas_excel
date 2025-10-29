@@ -1206,7 +1206,6 @@ class ParticipanteDeleteView(DeleteView):
     success_url = reverse_lazy('participante_lista')
  
 from django.utils.decorators import method_decorator
- 
 from django.contrib.auth.decorators import login_required
 
 @method_decorator(login_required(login_url='/login/'), name='dispatch')
@@ -1214,15 +1213,17 @@ class ParticipanteListView(ListView):
     model = Participante
     template_name = 'cliente/lista.html'
     ordering = ['id']
-    
+
     def get_queryset(self):
-        queryset = super().get_queryset()
-        q = self.request.GET.get("q")  # Obtiene el valor del input de búsqueda
+        # Prefetch para evitar consultas repetidas por cada participante
+        queryset = super().get_queryset().select_related('vendedor').prefetch_related('vouchers')
+        q = self.request.GET.get("q")
         if q:
             queryset = queryset.filter(
                 Q(nombres__icontains=q) | Q(dni__icontains=q)
             )
         return queryset
+
 
 
 

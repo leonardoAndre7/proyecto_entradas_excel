@@ -1215,14 +1215,14 @@ class ParticipanteListView(ListView):
     ordering = ['id']
 
     def get_queryset(self):
-        # Prefetch para evitar consultas repetidas por cada participante
-        queryset = super().get_queryset().select_related('vendedor').prefetch_related('vouchers')
+        queryset = super().get_queryset()
         q = self.request.GET.get("q")
         if q:
             queryset = queryset.filter(
                 Q(nombres__icontains=q) | Q(dni__icontains=q)
             )
         return queryset
+
 
 
 

@@ -249,11 +249,6 @@ def registro_participante(request):
                     celular=celular,
                     asesor=asesor
                 )
-                
-                # Guardar voucher si se subió
-                voucher_file = request.FILES.get('voucher_file')
-                if voucher_file:
-                    Voucher.objects.create(participante=participante, imagen=voucher_file)
 
             messages.success(request, "Participantes cargados desde Excel correctamente.")
 
@@ -267,9 +262,10 @@ def registro_participante(request):
                 asesor=request.POST.get('asesor')
             )
 
-            # Guardar vouchers
-            for archivo in request.FILES.getlist('vouchers'):
-                Voucher.objects.create(participante=participante, imagen=archivo)
+            # Guardar voucher si se subió
+            voucher_file = request.FILES.get('voucher_file')
+            if voucher_file:
+                Voucher.objects.create(participante=participante, imagen=voucher_file)
 
             messages.success(request, f"Participante {participante.nombres} registrado correctamente.")
 
@@ -486,21 +482,37 @@ def exportar_pdf_previo(request):
     doc.build(elements)
     return response
 
+#####################################
+####################################
+##################################
+#### LA VALIDACION DEL STAF
 
+from django.shortcuts import get_object_or_404, render
 
 def validar_entrada_previo(request, token):
+    """
+    Valida la entrada de un participante previo mediante su token.
+    Marca como validado solo si aún no ha sido validado.
+    """
+
+    # 1️⃣ Recuperar el participante o devolver 404 si no existe
     participante = get_object_or_404(Previaparticipantes, token=token)
 
+    # 2️⃣ Verificar si ya fue validado
     if participante.validado_administracion and participante.validado_contabilidad:
-        # Ya se escaneó antes
+        # Ya se escaneó antes, mostrar aviso
         return render(request, "cliente/entrada_repetida.html", {"participante": participante})
 
-    # Validación
+    # 3️⃣ Marcar como validado
     participante.validado_administracion = True
     participante.validado_contabilidad = True
     participante.save()
 
+    # 4️⃣ Renderizar plantilla de éxito
     return render(request, "cliente/entrada_validada.html", {"participante": participante})
+
+
+
 
 import openpyxl
 from .models import Previaparticipantes

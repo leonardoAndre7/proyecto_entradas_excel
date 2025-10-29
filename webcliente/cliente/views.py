@@ -1249,9 +1249,11 @@ def importar_excel(request):
         archivo = request.FILES['excel_file']
         try:
             df = pd.read_excel(archivo)
-            print("Columnas en Excel:", df.columns.tolist())  # Para depuración
+            print("Columnas en Excel:", df.columns.tolist())
 
-            # Renombrar columnas
+            # Normalizar los nombres de columnas (por si hay diferencias)
+            df.columns = df.columns.str.strip()
+
             df = df.rename(columns={
                 'Nombre': 'Nombre',
                 'DNI': 'DNI',
@@ -1263,9 +1265,9 @@ def importar_excel(request):
 
             # Diccionario de tarifas
             tarifas = {
-                "FULL ACCES": {"Preventa1": 1050, "Preventa2": 1500, "Preventa3": 2100, "Puerta": 3000},
-                "EMPRESARIAL": {"Preventa1": 525, "Preventa2": 750, "Preventa3": 1050, "Puerta": 1800},
-                "EMPRENDEDOR": {"Preventa1": 105, "Preventa2": 150, "Preventa3": 210, "Puerta": 750},
+                "FULL ACCES": {"PREVENTA1": 1050, "PREVENTA2": 1500, "PREVENTA3": 2100, "PUERTA": 3000},
+                "EMPRESARIAL": {"PREVENTA1": 525, "PREVENTA2": 750, "PREVENTA3": 1050, "PUERTA": 1800},
+                "EMPRENDEDOR": {"PREVENTA1": 105, "PREVENTA2": 150, "PREVENTA3": 210, "PUERTA": 750},
             }
 
             enviados = 0
@@ -1280,18 +1282,28 @@ def importar_excel(request):
                     if not pd.isna(row['TELEFONO']):
                         telefono = str(row['TELEFONO']).replace('.0', '').strip()
 
-                    # Separar tarifa y tipo de entrada
-                    tipo_parts = str(row['Tipo_Entrada']).split('-')
-                    if len(tipo_parts) == 2:
-                        tarifa, tipo = tipo_parts[0].strip(), tipo_parts[1].strip().upper()
-                    else:
-                        tarifa, tipo = "Preventa1", str(row['Tipo_Entrada']).strip().upper()  # valor por defecto
+                    # 👇 Interpretar tipo de entrada como "Preventa1-EMPRENDEDOR"
+                    tipo_texto = str(row['Tipo_Entrada']).strip().upper()
 
-                    precio = tarifas.get(tipo, {}).get(tarifa, 0)  # precio según tipo y tarifa
+                    # Separar las partes (por guion, espacio o ambos)
+                    if '-' in tipo_texto:
+                        tarifa, tipo = [p.strip().upper() for p in tipo_texto.split('-', 1)]
+                    elif ' ' in tipo_texto:
+                        partes = tipo_texto.split(' ')
+                        tarifa = partes[0].upper()
+                        tipo = ' '.join(partes[1:]).upper()
+                    else:
+                        tarifa, tipo = "PREVENTA1", tipo_texto  # Por defecto
+
+                    # Normalizar nombres (por si escriben FULL ACCESS o FULL ACCES)
+                    tipo = tipo.replace("ACCESS", "ACCES")
+
+                    # Calcular precio según tabla
+                    precio = tarifas.get(tipo, {}).get(tarifa, 0)
 
                     Participante.objects.create(
                         nombres=row['Nombre'],
-                        apellidos="",  # opcional
+                        apellidos="",
                         dni=str(row['DNI']),
                         celular=telefono,
                         correo=row['Correo'] if not pd.isna(row['Correo']) else '',
@@ -1303,10 +1315,11 @@ def importar_excel(request):
                     enviados += 1
 
                 except Exception as e:
-                    print(f"❌ Error importando fila {row['Nombre']}: {e}")
+                    print(f"❌ Error importando fila {row.get('Nombre', '(sin nombre)')}: {e}")
                     errores += 1
 
             messages.success(request, f"✅ Participantes importados: {enviados}. Errores: {errores}")
+
         except Exception as e:
             messages.error(request, f"❌ Error al importar Excel: {e}")
 

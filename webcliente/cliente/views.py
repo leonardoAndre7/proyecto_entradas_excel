@@ -1135,7 +1135,7 @@ def limpiar_tipo_entrada(valor):
     # Extrae la parte después del guion
     tipo = valor.split('-')[-1].strip().upper()
     # Validar que sea uno de los permitidos
-    if tipo not in ["FULL ACCES", "EMPRESARIAL", "EMPRENDEDOR"]:
+    if tipo not in ["FULL ACCESS", "EMPRESARIAL", "EMPRENDEDOR"]:
         tipo = "EMPRENDEDOR"  # default
     return tipo
 
@@ -1282,7 +1282,7 @@ def importar_excel(request):
 
             # Diccionario de tarifas
             tarifas = {
-                "FULL ACCES": {"PREVENTA1": 1050, "PREVENTA2": 1500, "PREVENTA3": 2100, "PUERTA": 3000},
+                "FULL ACCESS": {"PREVENTA1": 1050, "PREVENTA2": 1500, "PREVENTA3": 2100, "PUERTA": 3000},
                 "EMPRESARIAL": {"PREVENTA1": 525, "PREVENTA2": 750, "PREVENTA3": 1050, "PUERTA": 1800},
                 "EMPRENDEDOR": {"PREVENTA1": 105, "PREVENTA2": 150, "PREVENTA3": 300, "PUERTA": 750},
             }

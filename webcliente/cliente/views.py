@@ -1260,27 +1260,25 @@ def valor_seguro(x):
         return ""
     return str(x).strip()
 
-
 def importar_excel(request):
     if request.method == "POST" and request.FILES.get('excel_file'):
         archivo = request.FILES['excel_file']
         try:
             df = pd.read_excel(archivo)
             print("Columnas en Excel:", df.columns.tolist())
-
-            # Normalizar los nombres de columnas (por si hay diferencias)
+            
+            # Normalizar los nombres de columnas
             df.columns = df.columns.str.strip()
-
             df = df.rename(columns={
                 'Nombre': 'Nombre',
-                'DNI': 'DNI',
+                'DNI': 'DNI', 
                 'TELEFONO': 'TELEFONO',
                 'Correo electrónico': 'Correo',
                 'ASESOR QUE TE INVITO': 'Vendedor',
                 'Tipo de entrada': 'Tipo_Entrada'
             })
 
-            # Diccionario de tarifas
+            # Diccionario de tarifas (CORREGIDO - más robusto)
             tarifas = {
                 "FULL ACCESS": {"PREVENTA1": 1050, "PREVENTA2": 1500, "PREVENTA3": 2100, "PUERTA": 3000},
                 "EMPRESARIAL": {"PREVENTA1": 525, "PREVENTA2": 750, "PREVENTA3": 1050, "PUERTA": 1800},
@@ -1289,35 +1287,52 @@ def importar_excel(request):
 
             enviados = 0
             errores = 0
-
+            
             for _, row in df.iterrows():
                 try:
                     if pd.isna(row['DNI']) or pd.isna(row['Nombre']):
                         continue
-
+                    
                     telefono = ''
                     if not pd.isna(row['TELEFONO']):
                         telefono = str(row['TELEFONO']).replace('.0', '').strip()
-
-                    # 👇 Interpretar tipo de entrada como "Preventa1-EMPRENDEDOR"
+                    
+                    # 👇 NUEVA LÓGICA MEJORADA para interpretar tipo de entrada
                     tipo_texto = str(row['Tipo_Entrada']).strip().upper()
-
-                    # Separar las partes (por guion, espacio o ambos)
-                    if '-' in tipo_texto:
-                        tarifa, tipo = [p.strip().upper() for p in tipo_texto.split('-', 1)]
-                    elif ' ' in tipo_texto:
-                        partes = tipo_texto.split(' ')
-                        tarifa = partes[0].upper()
-                        tipo = ' '.join(partes[1:]).upper()
-                    else:
-                        tarifa, tipo = "PREVENTA1", tipo_texto  # Por defecto
-
-                    # Normalizar nombres (por si escriben FULL ACCESS o FULL ACCES)
-                    tipo = tipo.replace("ACCES", "ACCESS")
-
-                    # Calcular precio según tabla
-                    precio = tarifas.get(tipo, {}).get(tarifa, 0)
-
+                    
+                    # Limpiar y normalizar el texto
+                    tipo_texto = tipo_texto.replace("ACCES", "ACCESS")
+                    
+                    # Buscar el tipo de entrada en el texto
+                    tipo_encontrado = None
+                    tarifa_encontrada = None
+                    
+                    # Primero buscar el TIPO (FULL ACCESS, EMPRESARIAL, EMPRENDEDOR)
+                    for tipo_entrada in tarifas.keys():
+                        if tipo_entrada in tipo_texto:
+                            tipo_encontrado = tipo_entrada
+                            break
+                    
+                    # Si no encontró tipo, usar por defecto
+                    if not tipo_encontrado:
+                        tipo_encontrado = "EMPRENDEDOR"  # O el que prefieras por defecto
+                    
+                    # Luego buscar la TARIFA (PREVENTA1, PREVENTA2, etc.)
+                    for tarifa in tarifas[tipo_encontrado].keys():
+                        if tarifa in tipo_texto:
+                            tarifa_encontrada = tarifa
+                            break
+                    
+                    # Si no encontró tarifa, usar PREVENTA1 por defecto
+                    if not tarifa_encontrada:
+                        tarifa_encontrada = "PREVENTA1"
+                    
+                    # Obtener el precio
+                    precio = tarifas[tipo_encontrado].get(tarifa_encontrada, 0)
+                    
+                    # Debug: imprimir lo que encontró
+                    print(f"Texto: {tipo_texto} → Tipo: {tipo_encontrado}, Tarifa: {tarifa_encontrada}, Precio: {precio}")
+                    
                     Participante.objects.create(
                         nombres=row['Nombre'],
                         apellidos="",
@@ -1325,24 +1340,24 @@ def importar_excel(request):
                         celular=telefono,
                         correo=row['Correo'] if not pd.isna(row['Correo']) else '',
                         vendedor=row['Vendedor'] if not pd.isna(row['Vendedor']) else '',
-                        tipo_entrada=tipo,
+                        tipo_entrada=tipo_encontrado,
                         cantidad=1,
                         precio=precio
                     )
                     enviados += 1
-
+                    
                 except Exception as e:
                     print(f"❌ Error importando fila {row.get('Nombre', '(sin nombre)')}: {e}")
                     errores += 1
-
+            
             messages.success(request, f"✅ Participantes importados: {enviados}. Errores: {errores}")
-
+            
         except Exception as e:
             messages.error(request, f"❌ Error al importar Excel: {e}")
-
-    return redirect('participante_lista')
-
-
+        
+        return redirect('participante_lista')
+    
+    
 def generar_qr(request, token):
     """
     Genera un PNG con un QR que apunta a la vista 'validar_entrada' usando el token del participante.

@@ -123,7 +123,7 @@ class Voucher(models.Model):
 
 class Participante(models.Model):
     TIPO_ENTRADA_CHOICES = [
-        ("FULL ACCES", "Full Acces"),
+        ("FULL ACCESS", "Full Access"),
         ("EMPRESARIAL", "Empresarial"),
         ("EMPRENDEDOR", "Emprendedor"),
     ]

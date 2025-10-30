@@ -72,14 +72,14 @@ def check_admin_masivo(request):
     # Actualiza todos los participantes marcando validado_admin = True
     Participante.objects.update(validado_admin=True)
     messages.success(request, "Se ha marcado Administración como validado para todos los participantes.")
-    return redirect('lista_participantes')  # Cambia por el nombre de tu url de lista
+    return redirect("participante_lista")  # Cambia por el nombre de tu url de lista
 
 @require_POST
 def check_contabilidad_masivo(request):
     # Actualiza todos los participantes marcando validado_contabilidad = True
     Participante.objects.update(validado_contabilidad=True)
     messages.success(request, "Se ha marcado Contabilidad como validado para todos los participantes.")
-    return redirect('lista_participantes')  # Cambia por el nombre de tu url de lista
+    return redirect("participante_lista")  # Cambia por el nombre de tu url de lista
 
 
 def enviar_masivo(request):

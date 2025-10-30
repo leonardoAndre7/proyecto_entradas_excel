@@ -41,4 +41,8 @@ urlpatterns = [
     path('participantes/enviar_todos_whatsapp/', views.enviar_todos_whatsapp, name='enviar_todos_whatsapp'),
     path("enviar_masivo/", views.enviar_masivo, name="enviar_masivo"),
     path('participantes/<int:participante_id>/voucher/', views.subir_voucher, name='subir_voucher'),
+
+    # otras rutas...
+    path('check-admin-masivo/', views.check_admin_masivo, name='check_admin_masivo'),
+    path('check-contabilidad-masivo/', views.check_contabilidad_masivo, name='check_contabilidad_masivo'),
 ]

@@ -156,6 +156,20 @@
         </a>
 
 
+         <!-- Botones nuevos para check masivo -->
+        <form method="post" action="{% url 'check_admin_masivo' %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check2-square"></i> Check Masivo Admin
+            </button>
+        </form>
+        <form method="post" action="{% url 'check_contabilidad_masivo' %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-info">
+                <i class="bi bi-check2-square"></i> Check Masivo Contab
+            </button>
+        </form>
+
 
         <!-- Búsqueda -->
         <form method="get" class="d-flex ms-auto" role="search">

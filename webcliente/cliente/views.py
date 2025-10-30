@@ -63,6 +63,23 @@ from django.contrib import messages
 import openpyxl
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.views.decorators.http import require_POST
+
+
+
+@require_POST
+def check_admin_masivo(request):
+    # Actualiza todos los participantes marcando validado_admin = True
+    Participante.objects.update(validado_admin=True)
+    messages.success(request, "Se ha marcado Administración como validado para todos los participantes.")
+    return redirect('lista_participantes')  # Cambia por el nombre de tu url de lista
+
+@require_POST
+def check_contabilidad_masivo(request):
+    # Actualiza todos los participantes marcando validado_contabilidad = True
+    Participante.objects.update(validado_contabilidad=True)
+    messages.success(request, "Se ha marcado Contabilidad como validado para todos los participantes.")
+    return redirect('lista_participantes')  # Cambia por el nombre de tu url de lista
 
 
 def enviar_masivo(request):

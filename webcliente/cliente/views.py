@@ -1313,7 +1313,7 @@ def importar_excel(request):
                         tarifa, tipo = "PREVENTA1", tipo_texto  # Por defecto
 
                     # Normalizar nombres (por si escriben FULL ACCESS o FULL ACCES)
-                    tipo = tipo.replace("ACCESS", "ACCES")
+                    tipo = tipo.replace("ACCES", "ACCESS")
 
                     # Calcular precio según tabla
                     precio = tarifas.get(tipo, {}).get(tarifa, 0)

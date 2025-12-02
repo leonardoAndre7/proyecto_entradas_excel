@@ -14,7 +14,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background-image: url("{% static 'img/exponentes.jpeg' %}");
+            background-image: url("{% static 'img/nexo_logo_01.png' %}");
             background-size: cover;
             background-position: center;
             color: #fff;
@@ -85,8 +85,6 @@
         <p>El código de esta entrada ya fue validado anteriormente.</p>
         <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
         <p>DNI: {{ participante.dni }}</p>
-        <p>{{participante.cantidad}} entradas</p>
-        {% if participante.qr_image %}
         <div class="qr">
             <img src="{{ participante.qr_image.url }}" alt="QR de entrada">
         </div>

@@ -74,12 +74,16 @@ def check_admin_masivo(request):
     messages.success(request, "Se ha marcado Administración como validado para todos los participantes.")
     return redirect("participante_lista")  # Cambia por el nombre de tu url de lista
 
+
+
 @require_POST
 def check_contabilidad_masivo(request):
     # Actualiza todos los participantes marcando validado_contabilidad = True
     Participante.objects.update(validado_contabilidad=True)
     messages.success(request, "Se ha marcado Contabilidad como validado para todos los participantes.")
     return redirect("participante_lista")  # Cambia por el nombre de tu url de lista
+
+
 
 
 def enviar_masivo(request):
@@ -352,135 +356,402 @@ def eliminar_participante_previa(request, pk):
 ##########################################################################################
 
 
+
+
 ########################################################################################
 ##########################################################################################
 #############         ENVIO DE WHATSAP Y CORREOS
 ############################################################################################
 ##############################################################################################
-
+ 
 import os
 import base64
 import tempfile
 from PIL import Image
+from io import BytesIO
+import qrcode
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.conf import settings
+from django.urls import reverse
 from twilio.rest import Client
 import requests
 from decouple import config
+import logging
 
+# Configurar logger
+logger = logging.getLogger(__name__)
 
-def enviar_whatsapp_qr(request, cod_part):
-    participante = get_object_or_404(Previaparticipantes, cod_part=cod_part)
-
-    if not participante.qr_image:
-        messages.error(request, "❌ El participante no tiene QR generado.")
-        return redirect("registro_participante")
-
-    qr_path = participante.qr_image.path
-
-    # Crear imagen temporal procesada
+def generar_qr_dinamico(participante, size=None):
+    """
+    Genera el QR dinámicamente con tamaño ajustable
+    """
     try:
-        img = Image.open(qr_path)
-
-        # Convertir RGBA → RGB para evitar errores al guardar JPG
-        if img.mode == "RGBA":
-            img = img.convert("RGB")
-
-        img.thumbnail((1080, 1440))
-
-        tmp_path = os.path.join(
-            tempfile.gettempdir(),
-            f"entrada_{participante.id}.jpg"
-        )
-        img.save(tmp_path, format="JPEG", quality=95)
-
+        # URL del QR (igual que en qr_preview)
+        url = f"{settings.BASE_URL}{reverse('validar_entrada_previo', args=[str(participante.token)])}"
+        
+        # Crear QR (mismos parámetros que qr_preview)
+        qr = qrcode.QRCode(box_size=10, border=4)
+        qr.add_data(url)
+        qr.make(fit=True)
+        
+        # Crear imagen (mismos colores que qr_preview)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convertir a PIL Image
+        qr_img = img.get_image()
+        
+        # Redimensionar si se especifica tamaño
+        if size:
+            qr_img = qr_img.resize(size, Image.Resampling.LANCZOS)
+        
+        return qr_img
+        
     except Exception as e:
-        messages.error(request, f"❌ Error al procesar la imagen: {e}")
-        return redirect("registro_participante")
+        logger.error(f"Error generando QR dinámico: {e}")
+        raise
 
-    # ======================================================
-    #   1️⃣ ENVÍO POR WHATSAPP (Twilio + ImgBB)
-    # ======================================================
+def get_background_image():
+    """Obtiene la imagen de fondo asesor.jpeg"""
+    fondo_path = os.path.join(settings.BASE_DIR, 'cliente', 'static', 'img', 'asesor.jpeg')
+    
+    if os.path.exists(fondo_path):
+        return fondo_path
+    
+    # Buscar en otras ubicaciones posibles
+    alternative_paths = [
+        os.path.join(settings.BASE_DIR, 'static', 'img', 'asesor.jpeg'),
+        os.path.join(settings.BASE_DIR, 'asesor.jpeg'),
+    ]
+    
+    for path in alternative_paths:
+        if os.path.exists(path):
+            return path
+    
+    return None
+
+def calcular_transformacion_cuadrilatero():
+    """
+    Calcula la transformación para el QR en un cuadrilátero irregular
+    
+    Coordenadas del cuadrilátero:
+    - Izquierda arriba: (170, 405)
+    - Izquierda abajo: (168, 974)
+    - Derecha arriba: (735, 410)
+    - Derecha abajo: (737, 979)
+    
+    Retorna: (pos_x, pos_y, ancho, alto) aproximados
+    """
+    # Como es casi un rectángulo, usamos aproximación
+    # Calcular ancho promedio
+    ancho_arriba = 735 - 170  # 565
+    ancho_abajo = 737 - 168   # 569
+    ancho = (ancho_arriba + ancho_abajo) // 2  # 567
+    
+    # Calcular alto promedio
+    alto_izquierda = 974 - 405  # 569
+    alto_derecha = 979 - 410    # 569
+    alto = (alto_izquierda + alto_derecha) // 2  # 569
+    
+    # Posición: usar la esquina superior izquierda como referencia
+    # Pero ajustar ligeramente porque no es perfectamente rectangular
+    pos_x = min(170, 168)  # 168
+    pos_y = min(405, 410)  # 405
+    
+    # Pequeños ajustes para centrar mejor
+    pos_x += (abs(170 - 168)) // 2  # Ajuste por diferencia izquierda
+    pos_y += (abs(405 - 410)) // 2  # Ajuste por diferencia superior
+    
+    return pos_x, pos_y, ancho, alto
+
+def crear_entrada_con_qr(participante):
+    """
+    Crea la entrada combinada: asesor.jpeg + QR ajustado al cuadrilátero
+    """
     try:
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        # 1. Calcular dimensiones del cuadrilátero
+        pos_x, pos_y, qr_width, qr_height = calcular_transformacion_cuadrilatero()
+        
+        logger.info(f"Cuadrilátero: pos=({pos_x}, {pos_y}), tamaño={qr_width}x{qr_height}")
+        
+        # 2. Generar el QR con el tamaño exacto del cuadrilátero
+        qr_img = generar_qr_dinamico(participante, size=(qr_width, qr_height))
+        logger.info(f"QR generado con tamaño: {qr_img.size}")
+        
+        # 3. Obtener la imagen de fondo
+        fondo_path = get_background_image()
+        
+        if not fondo_path:
+            # Si no hay fondo, devolver solo el QR
+            logger.warning("No se encontró asesor.jpeg, usando solo QR")
+            buffer = BytesIO()
+            qr_img.save(buffer, format="PNG")
+            buffer.seek(0)
+            return buffer
+        
+        # 4. Cargar la imagen de fondo
+        fondo = Image.open(fondo_path)
+        
+        # Convertir formatos si es necesario
+        if fondo.mode == "RGBA":
+            fondo = fondo.convert("RGB")
+        
+        # 5. Crear máscara de transformación si es necesario
+        # Como las coordenadas forman casi un paralelogramo, 
+        # podemos usar una transformación simple
+        
+        # Opción A: Si el cuadrilátero es casi rectangular (como en este caso)
+        # Simplemente pegamos el QR en la posición calculada
+        
+        # 6. Crear copia del fondo
+        entrada_completa = fondo.copy()
+        
+        # 7. Pegar el QR en la posición calculada
+        # Nota: El QR ya tiene el tamaño correcto
+        entrada_completa.paste(qr_img, (pos_x, pos_y))
+        
+        # 8. Opcional: Dibujar el contorno del cuadrilátero para debug
+        if settings.DEBUG:
+            from PIL import ImageDraw
+            draw = ImageDraw.Draw(entrada_completa)
+            
+            # Dibujar el cuadrilátero
+            puntos = [
+                (170, 405),  # Izquierda arriba
+                (168, 974),  # Izquierda abajo
+                (737, 979),  # Derecha abajo
+                (735, 410),  # Derecha arriba
+            ]
+            
+            # Dibujar líneas
+            for i in range(4):
+                draw.line([puntos[i], puntos[(i+1)%4]], fill="red", width=2)
+            
+            # Marcar esquinas
+            for punto in puntos:
+                draw.ellipse([punto[0]-5, punto[1]-5, punto[0]+5, punto[1]+5], 
+                           fill="green", outline="yellow")
+        
+        # 9. Guardar en buffer
+        buffer = BytesIO()
+        entrada_completa.save(buffer, format="JPEG", quality=95, optimize=True)
+        buffer.seek(0)
+        
+        logger.info(f"Entrada creada exitosamente. Tamaño final: {entrada_completa.size}")
+        
+        return buffer
+        
+    except Exception as e:
+        logger.error(f"Error creando entrada con QR: {e}", exc_info=True)
+        raise
 
-        numero_twilio = f"whatsapp:{settings.TWILIO_PHONE_NUMBER}"
+def crear_entrada_con_qr_transformado(participante):
+    """
+    Versión alternativa con transformación perspectiva para cuadrilátero irregular
+    (Más precisa pero más compleja)
+    """
+    try:
+        from PIL import Image, ImageTransform
+        
+        # 1. Generar QR base
+        qr_base = generar_qr_dinamico(participante, size=(600, 600))
+        
+        # 2. Obtener fondo
+        fondo_path = get_background_image()
+        if not fondo_path:
+            buffer = BytesIO()
+            qr_base.save(buffer, format="PNG")
+            buffer.seek(0)
+            return buffer
+        
+        fondo = Image.open(fondo_path)
+        if fondo.mode == "RGBA":
+            fondo = fondo.convert("RGB")
+        
+        # 3. Coordenadas del cuadrilátero en el fondo
+        cuadrilatero_destino = [
+            (170, 405),  # Izquierda arriba
+            (168, 974),  # Izquierda abajo
+            (737, 979),  # Derecha abajo
+            (735, 410),  # Derecha arriba
+        ]
+        
+        # 4. Coordenadas del QR (cuadrado completo)
+        cuadrilatero_origen = [
+            (0, 0),      # Izquierda arriba
+            (0, 600),    # Izquierda abajo
+            (600, 600),  # Derecha abajo
+            (600, 0),    # Derecha arriba
+        ]
+        
+        # 5. Calcular transformación perspectiva
+        # Para una transformación simple, usamos un enfoque aproximado
+        entrada_completa = fondo.copy()
+        
+        # Calcular tamaño aproximado del QR distorsionado
+        ancho_promedio = ((735-170) + (737-168)) // 2
+        alto_promedio = ((974-405) + (979-410)) // 2
+        
+        # Redimensionar QR para el tamaño aproximado
+        qr_img = qr_base.resize((ancho_promedio, alto_promedio), Image.Resampling.LANCZOS)
+        
+        # Posición aproximada (esquina superior izquierda)
+        pos_x = min(170, 168, 735, 737)
+        pos_y = min(405, 410, 974, 979)
+        
+        # Pegar QR
+        entrada_completa.paste(qr_img, (pos_x, pos_y))
+        
+        # 6. Guardar
+        buffer = BytesIO()
+        entrada_completa.save(buffer, format="JPEG", quality=95)
+        buffer.seek(0)
+        
+        return buffer
+        
+    except Exception as e:
+        logger.error(f"Error en transformación perspectiva: {e}")
+        # Fallback a la versión simple
+        return crear_entrada_con_qr(participante)
 
-        # Normalizar número
-        celular = participante.celular or ""
-        celular = "".join([c for c in celular if c.isdigit()])
-        numero_destino = f"whatsapp:+51{celular}"
-
-        mensaje_texto = (
-            f"🎟️ Hola {participante.nombres}, tu entrada para *El Despertar del Emprendedor* está lista.\n"
-            f"📅 ¡Nos vemos pronto!\n"
-            f"Gracias por ser parte del evento. 🙌"
-        )
-
-        # Subir imagen QR a ImgBB
-        with open(tmp_path, "rb") as f:
-            encoded_image = base64.b64encode(f.read()).decode("utf-8")
-
+def upload_buffer_to_imgbb(image_buffer, filename="entrada.jpg"):
+    """Subir imagen desde buffer a ImgBB"""
+    try:
+        encoded_image = base64.b64encode(image_buffer.getvalue()).decode("utf-8")
+        
         response = requests.post(
             "https://api.imgbb.com/1/upload",
             data={
                 "key": settings.IMGBB_API_KEY,
-                "image": encoded_image
+                "image": encoded_image,
+                "name": filename
             },
-            timeout=20
+            timeout=30
         )
-
+        
         if response.status_code == 200:
-            image_url = response.json().get("data", {}).get("url")
+            return response.json().get("data", {}).get("url")
+        else:
+            logger.error(f"ImgBB API error: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        logger.error(f"Error uploading to ImgBB: {e}")
+        return None
 
-            client.messages.create(
+def enviar_whatsapp_qr(request, cod_part):
+    """
+    Envía el QR dinámico sobre asesor.jpeg por WhatsApp y correo
+    """
+    participante = get_object_or_404(Previaparticipantes, cod_part=cod_part)
+    
+    # Crear la entrada combinada
+    try:
+        # Usar la versión con transformación precisa
+        entrada_buffer = crear_entrada_con_qr_transformado(participante)
+        
+    except Exception as e:
+        messages.error(request, f"❌ Error al crear la entrada: {e}")
+        logger.error(f"Error creando entrada: {e}", exc_info=True)
+        return redirect("registro_participante")
+    
+    # Guardar temporalmente para correo
+    tmp_path = None
+    try:
+        tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{participante.id}.jpg")
+        with open(tmp_path, 'wb') as f:
+            f.write(entrada_buffer.getvalue())
+        
+        entrada_buffer.seek(0)
+        
+    except Exception as e:
+        messages.error(request, f"❌ Error al guardar temporalmente: {e}")
+        return redirect("registro_participante")
+    
+    # ======================================================
+    # 1️⃣ ENVÍO POR WHATSAPP
+    # ======================================================
+    try:
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        numero_twilio = f"whatsapp:{settings.TWILIO_PHONE_NUMBER}"
+        
+        # Normalizar número celular
+        celular = participante.celular or ""
+        celular = "".join([c for c in celular if c.isdigit()])
+        
+        if not celular:
+            messages.error(request, "❌ El participante no tiene número de celular.")
+            return redirect("registro_participante")
+        
+        numero_destino = f"whatsapp:+51{celular}"
+        
+        # Subir entrada a ImgBB
+        image_url = upload_buffer_to_imgbb(entrada_buffer, f"entrada_{participante.id}.jpg")
+        
+        mensaje_texto = (
+            f"🎟️ *Aquí tienes tu entrada para El Renacer del Asesor*\n\n"
+            f"Hola {participante.nombres}:\n\n"
+            f"¡Gracias por ser parte de El Renacer del Asesor!\n"
+            f"Adjunto encontrarás tu entrada oficial para el evento. Por favor, descárgala y guárdala, ya que será necesaria para tu acceso el día del evento.\n\n"
+            f"*Detalles importantes:*\n\n"
+            f"• *Evento:* El Renacer del Asesor\n"
+            f"• *Fecha:* 14/12/2025\n"
+            f"• *Lugar:* Pendiente\n\n"
+            f"Te recomendamos llegar con anticipación para realizar el check-in sin inconvenientes.\n\n"
+            f"¡Nos vemos pronto para vivir una experiencia que marcará un antes y un después en tu camino como asesor! 🚀"
+        )
+        
+        if image_url:
+            message = client.messages.create(
                 from_=numero_twilio,
                 to=numero_destino,
                 body=mensaje_texto,
                 media_url=[image_url]
             )
+            messages.success(request, f"✅ Entrada enviada por WhatsApp a {participante.nombres}")
         else:
             client.messages.create(
                 from_=numero_twilio,
                 to=numero_destino,
-                body=mensaje_texto
+                body=mensaje_texto + "\n\n⚠️ No se pudo adjuntar la entrada. Contacta al organizador."
             )
-
-        messages.success(request, f"✅ WhatsApp enviado correctamente a {participante.nombres}")
-
+            messages.warning(request, f"⚠️ WhatsApp enviado sin imagen a {participante.nombres}")
+            
     except Exception as e:
-        messages.error(request, f"❌ Error enviando WhatsApp con Twilio: {e}")
-
+        logger.error(f"Error enviando WhatsApp: {e}")
+        messages.error(request, f"❌ Error enviando WhatsApp: {str(e)[:100]}")
+    
     # ======================================================
-    #   2️⃣ ENVÍO POR CORREO
+    # 2️⃣ ENVÍO POR CORREO
     # ======================================================
     try:
         if participante.correo:
-
             from_email = config('EMAIL_HOST_USER1')
             password = config('EMAIL_HOST_PASSWORD1')
-
-            asunto = "🎟️ Tu entrada para El Despertar del Emprendedor"
+            
+            asunto = "🎟️ Aquí tienes tu entrada para El Renacer del Asesor"
             cuerpo = (
-                f"Hola {participante.nombres},\n\n"
-                "Adjunto encontrarás tu entrada con el código QR para el evento *El Despertar del Emprendedor*.\n\n"
-                "📍 Lugar: Centro de Convenciones\n"
-                "📅 Fecha: Próximamente\n\n"
-                "¡Nos vemos pronto!\n\n"
-                "Equipo EDE Evento."
+                f"Hola {participante.nombres}:\n\n"
+                "¡Gracias por ser parte de El Renacer del Asesor!\n"
+                "Adjunto encontrarás tu entrada oficial para el evento. Por favor, descárgala y guárdala, ya que será necesaria para tu acceso el día del evento.\n\n"
+                "Detalles importantes:\n\n"
+                "• Evento: El Renacer del Asesor\n"
+                "• Fecha: 14/12/2025\n"
+                "• Lugar: Pendiente\n\n"
+                "Te recomendamos llegar con anticipación para realizar el check-in sin inconvenientes.\n\n"
+                "¡Nos vemos pronto para vivir una experiencia que marcará un antes y un después en tu camino como asesor!\n\n"
+                "Saludos,\n"
+                "Equipo El Renacer del Asesor"
             )
-
+            
             import smtplib
             from email.message import EmailMessage
-
+            
             msg = EmailMessage()
             msg["Subject"] = asunto
             msg["From"] = from_email
             msg["To"] = participante.correo
             msg.set_content(cuerpo)
-
-            # Adjuntar QR
+            
             with open(tmp_path, "rb") as f:
                 msg.add_attachment(
                     f.read(),
@@ -488,30 +759,80 @@ def enviar_whatsapp_qr(request, cod_part):
                     subtype="jpeg",
                     filename=f"entrada_{participante.id}.jpg"
                 )
-
-            # Enviar correo
+            
             with smtplib.SMTP("smtp.gmail.com", 587) as server:
                 server.starttls()
                 server.login(from_email, password)
                 server.send_message(msg)
-
-            messages.success(request, f"📧 Correo enviado correctamente a {participante.correo}")
-
+            
+            messages.success(request, f"📧 Entrada enviada por correo a {participante.correo}")
         else:
             messages.warning(request, f"⚠️ {participante.nombres} no tiene correo registrado.")
-
+            
     except Exception as e:
-        messages.error(request, f"❌ Error enviando correo: {e}")
-
-    # Eliminar archivo temporal si existe
-    try:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-    except:
-        pass
-
+        logger.error(f"Error enviando correo: {e}")
+        messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
+    
+    # Limpieza
+    finally:
+        try:
+            if tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception as e:
+            logger.error(f"Error limpiando archivos: {e}")
+    
     return redirect("registro_participante")
 
+
+
+
+
+def visualizar_cuadrilatero():
+    """
+    Crea una imagen de prueba para ver el cuadrilátero
+    """
+    from PIL import Image, ImageDraw
+    
+    # Crear imagen blanca
+    img = Image.new('RGB', (1000, 1500), color='white')
+    draw = ImageDraw.Draw(img)
+    
+    # Coordenadas del cuadrilátero
+    puntos = [
+        (170, 405),  # Izquierda arriba
+        (168, 974),  # Izquierda abajo
+        (737, 979),  # Derecha abajo
+        (735, 410),  # Derecha arriba
+    ]
+    
+    # Dibujar líneas
+    for i in range(4):
+        draw.line([puntos[i], puntos[(i+1)%4]], fill="red", width=3)
+    
+    # Marcar puntos con colores
+    colores = ['green', 'blue', 'orange', 'purple']
+    nombres = ['Izq-Arriba', 'Izq-Abajo', 'Der-Abajo', 'Der-Arriba']
+    
+    for i, (punto, color, nombre) in enumerate(zip(puntos, colores, nombres)):
+        # Punto
+        draw.ellipse([punto[0]-8, punto[1]-8, punto[0]+8, punto[1]+8], 
+                    fill=color, outline='black')
+        # Texto
+        draw.text((punto[0]+10, punto[1]-10), f"{nombre}\n{punto}", fill='black')
+    
+    # Guardar
+    img.save('cuadrilatero_test.jpg', quality=95)
+    print("Imagen de prueba guardada como 'cuadrilatero_test.jpg'")
+    
+    # Mostrar dimensiones
+    print(f"\nDimensiones del cuadrilátero:")
+    print(f"Ancho superior: {735-170}px")
+    print(f"Ancho inferior: {737-168}px")
+    print(f"Alto izquierdo: {974-405}px")
+    print(f"Alto derecho: {979-410}px")
+    
+    return img
+ 
 ###############################################################################
 ###############################################################################
 
@@ -1032,8 +1353,6 @@ def confirmar_pago(request, pk):
 
     messages.success(request, "✅ Pago confirmado, correo y WhatsApp enviados.")
     return redirect("participante_lista")
-
-
 
 
 
@@ -1808,7 +2127,7 @@ def preview_imagen_final(request):
     adicional. El resultado se devuelve como imagen en base64 para previsualizarla
     en el navegador sin necesidad de guardarla físicamente en disco.
     """
-
+    
     # 1. Obtener el nombre del cliente desde la URL (ej: ?nombre=Leonardo)
     # Si no se pasa en la URL, se usa "Nombre Cliente" como valor por defecto.
     nombre_cliente = request.GET.get('nombre', 'Nombre Cliente')

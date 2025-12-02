@@ -22,7 +22,7 @@
 
         /* Fondo que ocupa toda la web */
         body {
-            background-image: url("{% static 'img/exponentes.jpeg' %}");
+            background-image: url("{% static 'img/nexo_logo_01.png' %}");
             background-size: 100% 100%; /* Estira la imagen completamente */
             background-position: center;
             background-repeat: no-repeat;
@@ -84,9 +84,7 @@
         <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
         <p>DNI: {{ participante.dni }}</p>
         <p>Entrada: {{ participante.tipo_entrada }}</p>
-        <p>{{participante.cantidad}} entradas</p>
         <p><b>¡Bienvenido al evento!</b></p>
-        {% if qr_image_url %}
         <div class="qr">
             <img src="{{ qr_image_url }}" alt="QR de entrada" style="width:200px; height:200px;">
         </div>

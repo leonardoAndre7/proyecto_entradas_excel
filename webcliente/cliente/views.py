@@ -613,6 +613,41 @@ def exportar_pdf_previo(request):
     doc.build(elements)
     return response
 
+####################################################
+#####################################################
+# PREVIEW QR - EVENTO 2
+#######################################################
+######################################################
+
+import qrcode
+from django.http import HttpResponse
+from io import BytesIO
+from django.urls import reverse
+from django.conf import settings
+
+def qr_preview(request, token):
+    participante = get_object_or_404(Previaparticipantes, token=token)
+
+    # URL del QR
+    url = f"{settings.BASE_URL}{reverse('validar_entrada_previo', args=[str(participante.token)])}"
+
+    # Crear QR
+    qr = qrcode.QRCode(box_size=10, border=4)
+    qr.add_data(url)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return HttpResponse(buffer, content_type="image/png")
+
+
+
+
+
 #####################################
 ####################################
 ##################################

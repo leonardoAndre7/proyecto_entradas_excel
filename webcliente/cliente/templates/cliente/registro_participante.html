@@ -123,14 +123,9 @@
             <td>{{ p.celular }}</td>
             <td>{{ p.correo }}</td>
             <td>
-              {% if p.qr_image %}
-                <a href="{{ p.qr_image.url }}" target="_blank">
-                  <img src="{{ p.qr_image.url }}" alt="QR" style="width:50px; height:50px; border-radius:8px;">
-                </a>
-              {% else %}
-                <span class="text-muted">Sin QR</span>
-              {% endif %}
+                <a href="{% url 'qr_preview' p.token %}">Ver QR</a>
             </td>
+
             <td>
               {% if p.celular and p.qr_image %}
                 <a href="{% url 'enviar_whatsapp_qr' p.cod_part %}" class="btn btn-success btn-sm btn-table d-flex align-items-center gap-1" style="background: linear-gradient(90deg, #25D366, #128C7E); border: none;">

@@ -1,6 +1,8 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views  # 👈 Solo esta línea basta
+from .views import qr_preview
+
 
 urlpatterns = [
     path('', views.ParticipanteListView.as_view(), name='participante_lista'),
@@ -11,7 +13,7 @@ urlpatterns = [
 
     path('exportar-excel/', views.exportar_excel, name='exportar_excel'),
     path("participantes/validar/<str:token>/", views.validar_entrada, name="validar_entrada"),
-    path('qr/<str:token>/', views.generar_qr, name='generar_qr'),
+    #path('qr/<str:token>/', views.generar_qr, name='generar_qr'),
     path('qr/mostrar/<int:pk>/', views.mostrar_qr, name='mostrar_qr'),
 
     path('confirmar-pago/<int:pk>/', views.confirmar_pago, name='confirmar_pago'),
@@ -48,6 +50,7 @@ urlpatterns = [
 
 
    path("ingreso/<int:pk>/", views.marcar_ingreso, name="marcar_ingreso"),
+   path("qr/<uuid:token>/", qr_preview, name="qr_preview")
 
 
 ]

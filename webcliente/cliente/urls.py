@@ -45,4 +45,9 @@ urlpatterns = [
     # otras rutas...
     path('check-admin-masivo/', views.check_admin_masivo, name='check_admin_masivo'),
     path('check-contabilidad-masivo/', views.check_contabilidad_masivo, name='check_contabilidad_masivo'),
+
+
+   path("ingreso/<int:pk>/", views.marcar_ingreso, name="marcar_ingreso"),
+
+
 ]

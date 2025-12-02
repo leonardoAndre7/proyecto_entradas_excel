@@ -232,14 +232,48 @@ def enviar_masivo(request):
     return redirect("participante_lista")
 
 
+
+
+
+
+
+from django.shortcuts import render, get_list_or_404, redirect
+from django.utils import timezone
+from django.contrib import messages
+
+def marcar_ingreso(request, pk):
+    participante = get_object_or_404(Previaparticipantes, pk=pk)
+    
+    if participante.entrada_usada:
+        messages.warning(request, f"{participante.nombres} ya ingreso anteriormente.")
+        return redirect("registro_participante")
+    
+    participante.entrada_usada = True
+    participante.hora_ingreso = timezone.now()
+    participante.save()
+    
+    messages.success(request, f"Ingreso registrado correctamente para {participante.nombres}.")
+    return redirect("registro_participante")
+
+
+
+
+
+
+
+
+##############################################################################################
+# REGISTRO DE LOS CLIENTE 2     -------      EVENTO 2
+##############################################################################################
 def registro_participante(request):
     # Generar el nuevo código automáticamente
     ultimo = Previaparticipantes.objects.order_by('-id').first()
-    if ultimo and ultimo.cod_part.startswith('PART'):
-        numero = int(ultimo.cod_part.replace('PART', '')) + 1
-    else:
-        numero = 1
-    nuevo_cod = f"PART{numero:03d}"
+    numero = int(ultimo.cod_part.replace('CLI', '')) + 1 if ultimo else 1
+    nuevo_cod = f"CLI{numero:03d}"
+
+    # Siempre obtenemos todos los participantes
+    participantes = Previaparticipantes.objects.order_by('cod_part')
+
 
     if request.method == 'POST':
         # 1️⃣ Carga masiva desde Excel
@@ -247,56 +281,42 @@ def registro_participante(request):
         if excel_file:
             wb = openpyxl.load_workbook(excel_file)
             sheet = wb.active
-
-            # Suponiendo que la primera fila es encabezado: Nombres, DNI, Celular, Asesor, Correo
             for row in sheet.iter_rows(min_row=2, values_only=True):
-                nombres, dni, celular, asesor, correo = row[:5]
-
-                # Generar nuevo código
+                nombres, dni, celular, correo = row[:4]
                 ultimo = Previaparticipantes.objects.order_by('-id').first()
-                numero = int(ultimo.cod_part.replace('PART', '')) + 1 if ultimo else 1
-                nuevo_cod_row = f"PART{numero:03d}"
-
+                numero = int(ultimo.cod_part.replace('CLI', '')) + 1 if ultimo else 1
+                nuevo_cod_row = f"CLI{numero:03d}"
                 Previaparticipantes.objects.create(
                     cod_part=nuevo_cod_row,
                     nombres=nombres,
                     dni=dni,
                     celular=celular,
-                    asesor=asesor,
                     correo=correo
                 )
-
             messages.success(request, "Participantes cargados desde Excel correctamente.")
-
         else:
-            # 2️⃣ Registro individual
             participante = Previaparticipantes.objects.create(
                 cod_part=nuevo_cod,
                 nombres=request.POST.get('nombres'),
                 dni=request.POST.get('dni'),
                 celular=request.POST.get('celular'),
-                asesor=request.POST.get('asesor'),
-                correo=request.POST.get('correo')  # <-- Se agrega aquí
+                correo=request.POST.get('correo')
             )
-
-            # Guardar todos los vouchers subidos
-            for archivo in request.FILES.getlist('voucher_files'):
-                Voucher.objects.create(participante=participante, imagen=archivo)
-
             messages.success(request, f"Participante {participante.nombres} registrado correctamente.")
-
         return redirect('registro_participante')
 
-    # Mostrar todos los participantes
-    participantes = Previaparticipantes.objects.prefetch_related('vouchers').all()
     return render(request, 'cliente/registro_participante.html', {
         'nuevo_cod': nuevo_cod,
         'participantes': participantes
     })
+####################################################################################
+###################################################################################
 
 
 
-
+##############################################################################################
+# ACTUALIZACION DE LOS CLIENTES 2     -------      EVENTO 2
+##############################################################################################
 def actualizar_participante_previa(request, pk):
     participante = get_object_or_404(Previaparticipantes, pk=pk)
 
@@ -304,38 +324,51 @@ def actualizar_participante_previa(request, pk):
         participante.nombres = request.POST.get('nombres')
         participante.dni = request.POST.get('dni')
         participante.celular = request.POST.get('celular')
-        participante.asesor = request.POST.get('asesor')
-        participante.validado_contabilidad = 'validado_contabilidad' in request.POST
-        participante.validado_administracion = 'validado_administracion' in request.POST
-    
+        participante.correo = request.POST.get('correo')
         
         participante.save()
-
-        # Subir nuevos vouchers si hay
-        for archivo in request.FILES.getlist('vouchers'):
-            Voucher.objects.create(participante=participante, imagen=archivo)
 
         return redirect('registro_participante')  # 🔹 Volvemos a la página principal
 
     return render(request, 'cliente/actualizar_participante_previo.html', {
         'participante': participante
     })
+    
+    
+####################################################################################
+###################################################################################
 
 
 
+##############################################################################################
+# ELIMINACION DE LOS CLIENTES 2     -------      EVENTO 2
+##############################################################################################
 def eliminar_participante_previa(request, pk):
     participante = get_object_or_404(Previaparticipantes, pk=pk)
     if request.method == "POST":
         participante.delete()
         return redirect('registro_participante') 
+##########################################################################################
+##########################################################################################
 
 
+########################################################################################
+##########################################################################################
+#############         ENVIO DE WHATSAP Y CORREOS
+############################################################################################
+##############################################################################################
 
-########################
-##########################
-##########################
-#########################
-#############ENVIO DE WHATSAP Y CORREOS
+import os
+import base64
+import tempfile
+from PIL import Image
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.conf import settings
+from twilio.rest import Client
+import requests
+from decouple import config
+
 
 def enviar_whatsapp_qr(request, cod_part):
     participante = get_object_or_404(Previaparticipantes, cod_part=cod_part)
@@ -346,28 +379,38 @@ def enviar_whatsapp_qr(request, cod_part):
 
     qr_path = participante.qr_image.path
 
+    # Crear imagen temporal procesada
     try:
-        # Procesar la imagen QR
         img = Image.open(qr_path)
+
+        # Convertir RGBA → RGB para evitar errores al guardar JPG
         if img.mode == "RGBA":
             img = img.convert("RGB")
+
         img.thumbnail((1080, 1440))
 
-        tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{participante.id}.jpg")
+        tmp_path = os.path.join(
+            tempfile.gettempdir(),
+            f"entrada_{participante.id}.jpg"
+        )
         img.save(tmp_path, format="JPEG", quality=95)
 
     except Exception as e:
         messages.error(request, f"❌ Error al procesar la imagen: {e}")
         return redirect("registro_participante")
 
-    # --- 1️⃣ Envío por WhatsApp ---
+    # ======================================================
+    #   1️⃣ ENVÍO POR WHATSAPP (Twilio + ImgBB)
+    # ======================================================
     try:
-        account_sid = settings.TWILIO_ACCOUNT_SID
-        auth_token = settings.TWILIO_AUTH_TOKEN
-        client = Client(account_sid, auth_token)
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
 
         numero_twilio = f"whatsapp:{settings.TWILIO_PHONE_NUMBER}"
-        numero_destino = f"whatsapp:+51{''.join(filter(str.isdigit, participante.celular or ''))}"
+
+        # Normalizar número
+        celular = participante.celular or ""
+        celular = "".join([c for c in celular if c.isdigit()])
+        numero_destino = f"whatsapp:+51{celular}"
 
         mensaje_texto = (
             f"🎟️ Hola {participante.nombres}, tu entrada para *El Despertar del Emprendedor* está lista.\n"
@@ -375,18 +418,22 @@ def enviar_whatsapp_qr(request, cod_part):
             f"Gracias por ser parte del evento. 🙌"
         )
 
-        # Subir imagen a ImgBB
+        # Subir imagen QR a ImgBB
         with open(tmp_path, "rb") as f:
             encoded_image = base64.b64encode(f.read()).decode("utf-8")
 
         response = requests.post(
             "https://api.imgbb.com/1/upload",
-            data={"key": settings.IMGBB_API_KEY, "image": encoded_image},
+            data={
+                "key": settings.IMGBB_API_KEY,
+                "image": encoded_image
+            },
             timeout=20
         )
 
         if response.status_code == 200:
             image_url = response.json().get("data", {}).get("url")
+
             client.messages.create(
                 from_=numero_twilio,
                 to=numero_destino,
@@ -405,9 +452,15 @@ def enviar_whatsapp_qr(request, cod_part):
     except Exception as e:
         messages.error(request, f"❌ Error enviando WhatsApp con Twilio: {e}")
 
-    # --- 2️⃣ Envío por Correo ---
+    # ======================================================
+    #   2️⃣ ENVÍO POR CORREO
+    # ======================================================
     try:
         if participante.correo:
+
+            from_email = config('EMAIL_HOST_USER1')
+            password = config('EMAIL_HOST_PASSWORD1')
+
             asunto = "🎟️ Tu entrada para El Despertar del Emprendedor"
             cuerpo = (
                 f"Hola {participante.nombres},\n\n"
@@ -418,23 +471,51 @@ def enviar_whatsapp_qr(request, cod_part):
                 "Equipo EDE Evento."
             )
 
-            email = EmailMessage(
-                asunto,
-                cuerpo,
-                settings.DEFAULT_FROM_EMAIL,  # Asegúrate de tenerlo configurado en settings.py
-                [participante.correo],
-            )
-            email.attach_file(tmp_path)
-            email.send(fail_silently=False)
+            import smtplib
+            from email.message import EmailMessage
+
+            msg = EmailMessage()
+            msg["Subject"] = asunto
+            msg["From"] = from_email
+            msg["To"] = participante.correo
+            msg.set_content(cuerpo)
+
+            # Adjuntar QR
+            with open(tmp_path, "rb") as f:
+                msg.add_attachment(
+                    f.read(),
+                    maintype="image",
+                    subtype="jpeg",
+                    filename=f"entrada_{participante.id}.jpg"
+                )
+
+            # Enviar correo
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(from_email, password)
+                server.send_message(msg)
 
             messages.success(request, f"📧 Correo enviado correctamente a {participante.correo}")
+
         else:
             messages.warning(request, f"⚠️ {participante.nombres} no tiene correo registrado.")
 
     except Exception as e:
         messages.error(request, f"❌ Error enviando correo: {e}")
 
+    # Eliminar archivo temporal si existe
+    try:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+    except:
+        pass
+
     return redirect("registro_participante")
+
+###############################################################################
+###############################################################################
+
+
 
 #####################################
 ####################################
@@ -1129,6 +1210,8 @@ def generar_imagen_personalizada(nombre_cliente, qr_img=None, paquete=None):
     return imagen_final
 
 
+
+
 def limpiar_tipo_entrada(valor):
     if not isinstance(valor, str):
         return "EMPRENDEDOR"  # valor por defecto si es vacío
@@ -1142,6 +1225,8 @@ def limpiar_tipo_entrada(valor):
 from django.conf import settings
 
 from decimal import Decimal
+
+
 
 class ParticipanteCreateView(CreateView):
     model = Participante
@@ -1180,6 +1265,7 @@ class ParticipanteCreateView(CreateView):
         print(f"✅ Guardado: {participante.nombres} | {len(vouchers)} vouchers")
 
         return super().form_valid(form)
+
 
 
 class ParticipanteUpdateView(UpdateView):
@@ -1605,6 +1691,9 @@ def exportar_excel_control(request):
     wb.save(response)
     return response
 
+
+
+
 def registros_json(request):
     registros = RegistroCorreo.objects.select_related("participante").order_by("-fecha_envio")
     data = {
@@ -1622,6 +1711,9 @@ def registros_json(request):
     }
     return JsonResponse(data)
  
+
+
+
 
 
 def exportar_pdf_control(request):
@@ -1664,6 +1756,8 @@ def exportar_pdf_control(request):
     response["Content-Disposition"] = 'attachment; filename="control.pdf"'
     response.write(pdf)
     return response
+
+
 
 
 from django.shortcuts import render

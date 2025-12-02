@@ -17,6 +17,8 @@ from django.db import models
 ###########################################
 ###########################################
 
+
+
 from django.db import models
 from django.db.models import Max
 import qrcode
@@ -28,33 +30,36 @@ from django.urls import reverse
 from django.conf import settings
 from uuid import uuid4
 
+
+
+
+
 class Previaparticipantes(models.Model):
     cod_part = models.CharField(max_length=100, unique=True, blank=True)
     nombres = models.CharField(max_length=255, blank=True, null=True)
     dni = models.CharField(max_length=20, blank=True, null=True)
     celular = models.CharField(max_length=9, blank=True, null=True)
     correo = models.EmailField(blank=True, null=True)
-    asesor = models.CharField(max_length=255, blank=True, null=True)
     qr_image = models.ImageField(upload_to='qrs/', blank=True, null=True)
 
-    # Campos de validación
-    validado_contabilidad = models.BooleanField(default=False)
-    validado_administracion = models.BooleanField(default=False)
+    entrada_usada = models.BooleanField(default=False)
+    hora_ingreso = models.DateTimeField(null=True, blank=True)
+
     # Token único para QR
     token = models.UUIDField(default=uuid4, editable=False, unique=True)
     fecha_validacion = models.DateTimeField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
-        # 1️⃣ Generar cod_part solo si no existe
+        # 1️⃣ Generar cod_part si no existe
         if not self.cod_part:
             if not self.id:
-                super().save(*args, **kwargs)  # Guardar primero para obtener ID
-            self.cod_part = f"PART{self.id:03d}"
+                super().save(*args, **kwargs)  # Guardar para obtener ID
+            self.cod_part = f"CLI{self.id:03d}"
 
         # 2️⃣ Generar QR solo si no existe
         if not self.qr_image:
             try:
-                # Construir link de validación usando el dominio de producción
+                # Construir link de validación
                 link_validacion = f"{settings.BASE_URL}{reverse('validar_entrada_previo', args=[str(self.token)])}"
 
                 # Generar QR
@@ -67,19 +72,15 @@ class Previaparticipantes(models.Model):
                 base_path = os.path.join(settings.BASE_DIR, "cliente", "static", "img", "previaqr.jpg")
                 if os.path.exists(base_path):
                     base_img = Image.open(base_path).convert("RGBA")
-
-                    # Ajustar tamaño y posición del QR
                     qr_width = 720 - 322
                     qr_height = 1492 - 1110
                     img_qr = img_qr.resize((qr_width, qr_height))
-
                     position = (322, 1110)
                     base_img.paste(img_qr, position, img_qr)
                 else:
-                    # Si no hay imagen base, usar solo el QR
                     base_img = img_qr
 
-                # Guardar imagen en memoria y luego en ImageField
+                # Guardar imagen en memoria y asignarla al ImageField
                 buffer = BytesIO()
                 base_img.save(buffer, format="PNG")
                 file_name = f"{self.cod_part}_qr.png"
@@ -88,8 +89,16 @@ class Previaparticipantes(models.Model):
             except Exception as e:
                 print("⚠️ Error generando QR:", e)
 
-        # Guardar finalmente
+        # Guardar finalmente (solo una vez)
         super().save(*args, **kwargs)
+        
+        
+        
+        
+        
+        
+        
+        
 
 class Voucher(models.Model):
     # Se relaciona opcionalmente con Participante o Previaparticipantes

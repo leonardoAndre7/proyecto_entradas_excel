@@ -8,7 +8,7 @@ class ParticipanteForm(forms.ModelForm):
 
     class Meta:
         model = Previaparticipantes
-        fields = ['nombres', 'dni', 'celular', 'asesor']  # campos normales
+        fields = ['nombres', 'dni', 'celular']  # campos normales
 
 
 class ParticipanteForm(forms.ModelForm):

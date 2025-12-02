@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- SEGURIDAD ---
 SECRET_KEY = config('SECRET_KEY', default='fallback-secret-key-only-for-local')
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = True
 
 
 
@@ -119,6 +119,8 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
 
 # --- LOGIN ---
 LOGIN_REDIRECT_URL = '/participantes/'

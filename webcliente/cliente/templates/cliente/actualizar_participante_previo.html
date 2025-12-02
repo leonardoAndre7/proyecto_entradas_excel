@@ -19,7 +19,7 @@
     background: rgba(0,0,0,0.7);
     display: flex;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center;
     padding: 2rem;
     overflow-y: auto;
   }
@@ -178,10 +178,6 @@
       <!-- Datos personales -->
       <div class="row">
         <div class="col-md-6 mb-3">
-          <label>Código participante</label>
-          <input type="text" name="cod_part" class="form-control" value="{{ participante.cod_part }}" readonly>
-        </div>
-        <div class="col-md-6 mb-3">
           <label>Nombres</label>
           <input type="text" name="nombres" class="form-control" value="{{ participante.nombres }}" required>
         </div>
@@ -196,48 +192,13 @@
           <label>Celular</label>
           <input type="text" name="celular" class="form-control" value="{{ participante.celular }}" maxlength="9">
         </div>
-      </div>
 
-      <div class="mb-3">
-        <label>Asesor</label>
-        <input type="text" name="asesor" class="form-control" value="{{ participante.asesor }}">
-      </div>
-
-      <!-- Vouchers -->
-      <hr>
-      <h5 style="text-align:center;color:#ce93d8;">📎 Subir Vouchers</h5>
-      <input type="file" name="vouchers" class="form-control mb-3" multiple accept="image/*">
-
-      {% if participante.vouchers.all %}
-      <h6 style="color:#ce93d8;">Vouchers actuales:</h6>
-      <ul>
-        {% for v in participante.vouchers.all %}
-          <li><a href="{{ v.imagen.url }}" target="_blank">Ver voucher {{ forloop.counter }}</a></li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-
-      <!-- Validaciones -->
-      <hr>
-      <h5 style="text-align:center;color:#ce93d8;">✔️ Validaciones</h5>
-
-      <div class="validation-row">
-        <div class="validation-label">
-          <label class="switch">
-            <input type="checkbox" name="validado_contabilidad" {% if participante.validado_contabilidad %}checked{% endif %}>
-            <span class="slider"></span>
-          </label>
-          Contabilidad
-        </div>
-
-        <div class="validation-label">
-          <label class="switch">
-            <input type="checkbox" name="validado_administracion" {% if participante.validado_administracion %}checked{% endif %}>
-            <span class="slider"></span>
-          </label>
-          Administración
+         <div class="col-md-6 mb-3">
+          <label>Correo</label>
+          <input type="text" name="correo" class="form-control" value="{{ participante.correo }}" required>
         </div>
       </div>
+
 
       <!-- Botón actualizar -->
       <button type="submit" class="btn-actualizar mt-4">Actualizar Participante</button>

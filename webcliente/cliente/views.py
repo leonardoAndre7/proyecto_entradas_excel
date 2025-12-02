@@ -625,23 +625,23 @@ from django.contrib.admin.views.decorators import staff_member_required
 def validar_entrada_previo(request, token):
     """
     Valida la entrada de un participante previo mediante su token.
-    Marca como validado solo si aún no ha sido validado.
+    Marca la entrada como usada solo si aún no fue utilizada.
     """
 
-    # 1️⃣ Recuperar el participante o devolver 404 si no existe
+    # 1️⃣ Recuperar el participante
     participante = get_object_or_404(Previaparticipantes, token=token)
 
-    # 2️⃣ Verificar si ya fue validado
-    if participante.validado_administracion and participante.validado_contabilidad:
-        # Ya se escaneó antes, mostrar aviso
+    # 2️⃣ Verificar si ya usó la entrada
+    if participante.entrada_usada:
+        # Ya se escaneó antes → pantalla de entrada repetida
         return render(request, "cliente/entrada_repetida.html", {"participante": participante})
 
-    # 3️⃣ Marcar como validado
-    participante.validado_administracion = True
-    participante.validado_contabilidad = True
+    # 3️⃣ Marcar como usada y registrar hora
+    participante.entrada_usada = True
+    participante.hora_ingreso = timezone.now()
     participante.save()
 
-    # 4️⃣ Renderizar plantilla de éxito
+    # 4️⃣ Mostrar pantalla de validación exitosa
     return render(request, "cliente/entrada_validada.html", {"participante": participante})
 
 

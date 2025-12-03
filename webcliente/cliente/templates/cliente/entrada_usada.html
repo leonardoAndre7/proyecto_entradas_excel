@@ -1,4 +1,3 @@
-
 {% load static %}
 
 <!DOCTYPE html>
@@ -6,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Entrada Ya Usada</title>
-    {% load static %}
+
     <style>
         /* Ocupa toda la pantalla */
         html, body {
@@ -23,45 +22,47 @@
         /* Fondo que ocupa toda la web */
         body {
             background-image: url("{% static 'img/nexo_logo_01.png' %}");
-            background-size: 100% 100%; /* Estira la imagen completamente */
+            background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
         }
 
-        /* Diseño del ticket */
+        /* Diseño del ticket azul transparente moderno */
         .ticket {
-            background: linear-gradient(135deg, #2c003e, #000000); /* Negro + Morado */
+            background: rgba(0, 102, 204, 0.35); /* Azul translúcido */
+            backdrop-filter: blur(12px); /* Difuminado elegante */
             width: 90%;
             max-width: 900px;
             padding: 60px 40px;
             border-radius: 25px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.6);
             text-align: center;
-            border: 5px solid #9b59b6; /* borde morado */
-            animation: pulse 1.5s infinite alternate;
+            border: 3px solid rgba(0, 140, 255, 0.6); /* borde azul */
+            animation: glow 2s infinite alternate;
         }
 
         h1 {
-            color: #ff4d94;
+            color: #ff4d4d; /* rojo suave */
             font-size: 4em;
             margin-bottom: 25px;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.7);
         }
 
         p {
             font-size: 1.8em;
             margin: 15px 0;
+            text-shadow: 1px 1px 5px rgba(0,0,0,0.6);
         }
 
         b {
             font-weight: bold;
-            color: #e0b3ff;
+            color: #cfe6ff; /* celeste suave */
         }
 
-        /* Animación sutil del ticket */
-        @keyframes pulse {
-            0% { box-shadow: 0 12px 30px rgba(155, 89, 182, 0.7); }
-            100% { box-shadow: 0 12px 30px rgba(155, 89, 182, 1); }
+        /* Animación del contorno */
+        @keyframes glow {
+            0% { border-color: rgba(0, 140, 255, 0.4); }
+            100% { border-color: rgba(0, 180, 255, 0.9); }
         }
 
         /* Responsivo */
@@ -78,15 +79,13 @@
         }
     </style>
 </head>
+
 <body>
     <div class="ticket">
         <h1>❌ Entrada Ya Usada</h1>
         <p>El código de esta entrada ya fue validado anteriormente.</p>
         <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
         <p>DNI: {{ participante.dni }}</p>
-        <div class="qr">
-            <img src="{{ qr_image_url }}" alt="QR de entrada" style="width:200px; height:200px;">
-        </div>
     </div>
 </body>
 </html>

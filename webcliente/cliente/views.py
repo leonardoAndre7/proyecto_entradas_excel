@@ -1021,135 +1021,221 @@ def leer_excel(archivo):
     
     return datos
 
-import pandas as pd
-import uuid
-#import pywhatkit
+
+
+
+###############################################################################
+#################################################################################
+# ENVIAR A TODOS WHATSAP Y CORREOS
+################################################################################
+##################################################################################
+import os
+import base64
+import tempfile
 import time
+import logging
+from io import BytesIO
+from email.message import EmailMessage
+
 from django.shortcuts import redirect
 from django.contrib import messages
+from django.conf import settings
+from django.core.mail import EmailMessage as DjangoEmailMessage  # opcional si prefieres
+from twilio.rest import Client
+import requests
+from decouple import config
+
 from cliente.models import Previaparticipantes
 
+# Asumo que estas funciones están definidas en el mismo archivo o importadas:
+# - crear_entrada_con_qr_transformado(participante) -> BytesIO (buffer con imagen JPEG)
+# - upload_buffer_to_imgbb(buffer, filename) -> URL (o None)
+# Si las tienes en otro módulo, importa: from .mi_modulo import crear_entrada_con_qr_transformado, upload_buffer_to_imgbb
+
+logger = logging.getLogger(__name__)
+
+
 def enviar_todos_whatsapp(request):
+    """
+    Envío masivo: por cada Previaparticipantes crea la entrada (QR + asesor.jpeg),
+    sube a ImgBB, envía por WhatsApp (Twilio) y envía por correo si tiene.
+    NO aplica filtros: envía a todos con celular (excluye nulos/vacíos).
+    """
     if request.method != "POST":
         return redirect('registro_participante')
 
-    participantes = Previaparticipantes.objects.exclude(celular__isnull=True).exclude(celular="")
-    enviados = 0
+    participantes = Previaparticipantes.objects.exclude(celular__isnull=True).exclude(celular="").order_by('id')
+    total = participantes.count()
+    enviados_whatsapp = 0
     enviados_email = 0
+    errores = 0
 
-    messages.info(request, "⏳ Enviando mensajes... no cierres el navegador ni la consola.")
+    messages.info(request, f"⏳ Iniciando envío masivo a {total} participantes. No cerrar navegador ni consola.")
 
-    # Configurar Twilio
-    account_sid = settings.TWILIO_ACCOUNT_SID
-    auth_token = settings.TWILIO_AUTH_TOKEN
-    client = Client(account_sid, auth_token)
-    numero_twilio = f"whatsapp:{settings.TWILIO_PHONE_NUMBER}"
+    # Inicializar Twilio
+    try:
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        numero_twilio = f"whatsapp:{settings.TWILIO_PHONE_NUMBER}"
+    except Exception as e:
+        logger.error(f"Error inicializando Twilio: {e}", exc_info=True)
+        messages.error(request, "❌ Error inicializando Twilio. Revisa configuración.")
+        return redirect('registro_participante')
 
     for idx, p in enumerate(participantes, start=1):
+        tmp_path = None
         try:
-            # ✅ Verificar que tenga administracion y contabilidad en True
-            if not (getattr(p, "administracion", False) and getattr(p, "contabilidad", False)):
-                print(f"⏭️ {p.nombres} omitido (no cumple con los checks de administración y contabilidad).")
+            logger.info(f"[{idx}/{total}] Procesando participante id={p.id} {p.nombres}")
+
+            # 1) Crear la entrada combinada (transformada). Reutiliza tu función existente.
+            try:
+                entrada_buffer = crear_entrada_con_qr_transformado(p)  # debe devolver BytesIO
+            except Exception as e:
+                logger.error(f"Error creando entrada para {p.id} - {p.nombres}: {e}", exc_info=True)
+                errores += 1
+                # continuar con el siguiente participante
                 continue
 
-            numero = ''.join(filter(str.isdigit, str(p.celular).strip()))
-            if not numero.startswith("51"):
-                numero = "51" + numero
-            numero_destino = f"whatsapp:+{numero}"
-
-            mensaje_texto = (
-                f"🎟️ Hola {p.nombres}, tu entrada para *El Despertar del Emprendedor* está lista.\n"
-                f"📅 ¡Nos vemos pronto!\n"
-                f"Gracias por ser parte del evento 🙌"
-            )
-
-            # --- 1️⃣ Procesar imagen si existe ---
-            image_url = None
-            tmp_path = None
-            if p.qr_image:
-                try:
-                    img = Image.open(p.qr_image.path)
-                    if img.mode == "RGBA":
-                        img = img.convert("RGB")
-                    img.thumbnail((1080, 1440))
-                    tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{p.id}.jpg")
-                    img.save(tmp_path, format="JPEG", quality=95)
-
-                    # Subir a ImgBB
-                    with open(tmp_path, "rb") as f:
-                        encoded_image = base64.b64encode(f.read()).decode("utf-8")
-
-                    response = requests.post(
-                        "https://api.imgbb.com/1/upload",
-                        data={"key": settings.IMGBB_API_KEY, "image": encoded_image},
-                        timeout=20
-                    )
-                    if response.status_code == 200:
-                        image_url = response.json().get("data", {}).get("url")
-
-                except Exception as img_error:
-                    print(f"⚠️ Error procesando imagen de {p.nombres}: {img_error}")
-
-            # --- 2️⃣ Enviar WhatsApp ---
+            # 2) Guardar temporalmente (para adjuntar al correo si hace falta)
             try:
-                if image_url:
-                    client.messages.create(
-                        from_=numero_twilio,
-                        to=numero_destino,
-                        body=mensaje_texto,
-                        media_url=[image_url]
-                    )
-                else:
-                    client.messages.create(
-                        from_=numero_twilio,
-                        to=numero_destino,
-                        body=mensaje_texto
-                    )
-                enviados += 1
-                print(f"📤 [{idx}/{len(participantes)}] WhatsApp enviado a {p.nombres} -> {numero}")
-
+                tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{p.id}.jpg")
+                with open(tmp_path, "wb") as f:
+                    f.write(entrada_buffer.getvalue())
+                entrada_buffer.seek(0)
             except Exception as e:
-                print(f"❌ Error enviando WhatsApp a {p.nombres}: {e}")
+                logger.error(f"Error guardando temporal para {p.id}: {e}", exc_info=True)
+                # No abortamos; intentaremos subir desde buffer
+                tmp_path = None
 
-            # --- 3️⃣ Enviar correo si tiene correo registrado ---
-            if getattr(p, 'correo', None):
+            # 3) Subir a ImgBB (reutilizando la función que ya tienes)
+            try:
+                image_url = upload_buffer_to_imgbb(entrada_buffer, filename=f"entrada_{p.id}.jpg")
+                if not image_url:
+                    logger.warning(f"No se obtuvo image_url para {p.id}; se enviará mensaje sin imagen.")
+            except Exception as e:
+                logger.error(f"Error subiendo a ImgBB para {p.id}: {e}", exc_info=True)
+                image_url = None
+
+            # 4) Preparar número destino (normalizar)
+            celular_raw = (p.celular or "").strip()
+            celular_digits = "".join([c for c in celular_raw if c.isdigit()])
+            if not celular_digits:
+                logger.warning(f"{p.nombres} (id={p.id}) no tiene número válido. Omitido WhatsApp.")
+            else:
+                # Si no tiene código país, asumimos Perú (51)
+                if not celular_digits.startswith("51"):
+                    celular_digits = "51" + celular_digits
+                numero_destino = f"whatsapp:+{celular_digits}"
+
+                # 5) Mensaje
+                mensaje_texto = (
+                    f"🎟️ Hola {p.nombres}, tu entrada para *El Renacer del Asesor* está lista.\n\n"
+                    f"📅 Fecha: 14/12/2025\n"
+                    f"📍 Lugar: Pendiente\n\n"
+                    "Adjuntamos tu entrada oficial. Por favor, descárgala y guárdala para el ingreso.\n\n"
+                    "¡Nos vemos pronto! 🚀"
+                )
+
+                # 6) Envío por Twilio (con o sin media)
                 try:
-                    asunto = "🎟️ Tu entrada para El Despertar del Emprendedor"
+                    if image_url:
+                        client.messages.create(
+                            from_=numero_twilio,
+                            to=numero_destino,
+                            body=mensaje_texto,
+                            media_url=[image_url]
+                        )
+                    else:
+                        client.messages.create(
+                            from_=numero_twilio,
+                            to=numero_destino,
+                            body=mensaje_texto
+                        )
+                    enviados_whatsapp += 1
+                    logger.info(f"WhatsApp enviado a {p.nombres} -> {numero_destino}")
+                except Exception as e:
+                    logger.error(f"Error enviando WhatsApp a {p.id} ({p.nombres}): {e}", exc_info=True)
+
+            # 7) Enviar correo si tiene
+            if getattr(p, "correo", None):
+                try:
+                    # Usamos smtplib + EmailMessage para adjuntar la imagen temporal si existe
+                    from email.message import EmailMessage
+                    import smtplib
+
+                    asunto = "🎟️ Tu entrada para El Renacer del Asesor"
                     cuerpo = (
                         f"Hola {p.nombres},\n\n"
-                        "Adjunto encontrarás tu entrada con el código QR para el evento *El Despertar del Emprendedor*.\n\n"
-                        "📍 Lugar: Centro de Convenciones\n"
-                        "📅 Fecha: Próximamente\n\n"
-                        "¡Nos vemos pronto!\n\n"
-                        "Equipo EDE Evento."
+                        "Adjunto encontrarás tu entrada oficial para el evento El Renacer del Asesor.\n\n"
+                        "• Fecha: 14/12/2025\n"
+                        "• Lugar: Pendiente\n\n"
+                        "Saludos,\nEquipo organizador"
                     )
 
-                    email = EmailMessage(
-                        asunto,
-                        cuerpo,
-                        settings.DEFAULT_FROM_EMAIL,
-                        [p.correo],
-                    )
+                    msg = EmailMessage()
+                    msg["Subject"] = asunto
+                    msg["From"] = settings.DEFAULT_FROM_EMAIL
+                    msg["To"] = p.correo
+                    msg.set_content(cuerpo)
+
+                    # Adjuntar desde tmp_path si existe, si no, desde buffer
                     if tmp_path and os.path.exists(tmp_path):
-                        email.attach_file(tmp_path)
-                    email.send(fail_silently=False)
-                    enviados_email += 1
-                    print(f"📧 Correo enviado a {p.correo}")
+                        with open(tmp_path, "rb") as f:
+                            filedata = f.read()
+                        msg.add_attachment(filedata, maintype="image", subtype="jpeg", filename=os.path.basename(tmp_path))
+                    else:
+                        # usar entrada_buffer
+                        entrada_buffer.seek(0)
+                        filedata = entrada_buffer.getvalue()
+                        msg.add_attachment(filedata, maintype="image", subtype="jpeg", filename=f"entrada_{p.id}.jpg")
+
+                    # Enviar por SMTP (configura con tus credenciales)
+                    smtp_host = config('EMAIL_HOST', default="smtp.gmail.com")
+                    smtp_port = int(config('EMAIL_PORT', default=587))
+                    smtp_user = config('EMAIL_HOST_USER1', default=None)
+                    smtp_pass = config('EMAIL_HOST_PASSWORD1', default=None)
+
+                    if not smtp_user or not smtp_pass:
+                        logger.error("Credenciales SMTP no configuradas. Saltando envío de correo.")
+                    else:
+                        with smtplib.SMTP(smtp_host, smtp_port) as server:
+                            server.starttls()
+                            server.login(smtp_user, smtp_pass)
+                            server.send_message(msg)
+                        enviados_email += 1
+                        logger.info(f"Correo enviado a {p.correo}")
 
                 except Exception as e:
-                    print(f"⚠️ Error enviando correo a {p.nombres}: {e}")
+                    logger.error(f"Error enviando correo a {p.id} ({p.nombres}): {e}", exc_info=True)
+
             else:
-                print(f"⚠️ {p.nombres} no tiene correo registrado.")
+                logger.warning(f"{p.nombres} (id={p.id}) no tiene correo registrado.")
+
+            # Pequeña pausa para reducir riesgo de rate-limit (ajusta según tu plan)
+            time.sleep(0.4)
 
         except Exception as e:
-            print(f"❌ Error general con {p.nombres}: {e}")
-            continue
+            logger.error(f"Error general con participante id={getattr(p, 'id', 'N/A')}: {e}", exc_info=True)
+            errores += 1
 
-    messages.success(
-        request,
-        f"✅ Se enviaron {enviados} mensajes de WhatsApp y {enviados_email} correos correctamente."
-    )
+        finally:
+            # Limpieza temporal
+            try:
+                if tmp_path and os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except Exception as e:
+                logger.error(f"Error limpiando tmp_path {tmp_path}: {e}", exc_info=True)
+
+    # Mensajes finales
+    summary = f"✅ Finalizado. WhatsApp enviados: {enviados_whatsapp}. Correos enviados: {enviados_email}. Errores: {errores}."
+    messages.success(request, summary)
+    logger.info(summary)
+
     return redirect('registro_participante')
+
+#########################################################
+#########################################################
+
+
 
 ####################################################
 #####################################################

@@ -5,6 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Entrada Válida</title>
+
     <style>
         html, body {
             height: 100%;
@@ -20,48 +21,45 @@
             color: #fff;
         }
 
+        /* Cuadro azul semitransparente con blur */
         .ticket {
-            background: linear-gradient(135deg, #2c003e, #000);
+            background: rgba(0, 102, 204, 0.35); /* Azul translúcido */
+            backdrop-filter: blur(12px); /* Efecto glass */
             width: 90%;
             max-width: 900px;
             padding: 60px 40px;
             border-radius: 25px;
-            border: 5px solid #9b59b6;
-            box-shadow: 0 12px 30px rgba(155, 89, 182, 0.7);
+            border: 3px solid rgba(0, 180, 255, 0.7); /* borde azul glow */
+            box-shadow: 0 12px 35px rgba(0,0,0,0.6);
             text-align: center;
-            animation: pulse 1.5s infinite alternate;
+            animation: glow 2s infinite alternate;
         }
 
         h1 {
-            color: #28ff96; /* Verde brillante */
+            color: #28ff96; /* Verde brillante éxito */
             font-size: 4em;
             margin-bottom: 20px;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.7);
         }
 
         p {
             font-size: 1.8em;
             margin: 10px 0;
+            text-shadow: 1px 1px 5px rgba(0,0,0,0.6);
         }
 
         b {
             font-weight: bold;
-            color: #e0b3ff;
+            color: #cfe6ff; /* celeste suave */
         }
 
-        .qr img {
-            width: 200px;
-            height: 200px;
-            margin-top: 20px;
-            border: 3px solid #9b59b6;
-            border-radius: 15px;
+        /* Animación del contorno */
+        @keyframes glow {
+            0% { border-color: rgba(0, 150, 255, 0.4); }
+            100% { border-color: rgba(0, 200, 255, 1); }
         }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 12px 30px rgba(155, 89, 182, 0.7); }
-            100% { box-shadow: 0 12px 30px rgba(155, 89, 182, 1); }
-        }
-
+        /* Responsivo */
         @media (max-width: 768px) {
             .ticket {
                 padding: 40px 20px;
@@ -72,22 +70,16 @@
             p {
                 font-size: 1.2em;
             }
-            .qr img {
-                width: 150px;
-                height: 150px;
-            }
         }
     </style>
 </head>
+
 <body>
     <div class="ticket">
         <h1>✅ Entrada Válida</h1>
         <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
         <p>DNI: {{ participante.dni }}</p>
         <p><b>¡Bienvenido al evento!</b></p>
-        <div class="qr">
-            <img src="{{ participante.qr_image.url }}" alt="QR de entrada">
-        </div>
     </div>
 </body>
 </html>

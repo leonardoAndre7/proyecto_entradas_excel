@@ -48,6 +48,9 @@ class Previaparticipantes(models.Model):
     # Token único para QR
     token = models.UUIDField(default=uuid4, editable=False, unique=True)
     fecha_validacion = models.DateTimeField(blank=True, null=True)
+    
+    enviado = models.BooleanField(default=False)
+
 
     def save(self, *args, **kwargs):
         # 1️⃣ Generar cod_part si no existe

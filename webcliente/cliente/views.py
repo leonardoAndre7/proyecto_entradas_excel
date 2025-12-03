@@ -707,6 +707,9 @@ def enviar_whatsapp_qr(request, cod_part):
                 body=mensaje_texto,
                 media_url=[image_url]
             )
+
+
+            
             messages.success(request, f"✅ Entrada enviada por WhatsApp a {participante.nombres}")
         else:
             client.messages.create(
@@ -714,8 +717,9 @@ def enviar_whatsapp_qr(request, cod_part):
                 to=numero_destino,
                 body=mensaje_texto + "\n\n⚠️ No se pudo adjuntar la entrada. Contacta al organizador."
             )
-            messages.warning(request, f"⚠️ WhatsApp enviado sin imagen a {participante.nombres}")
             
+            messages.warning(request, f"⚠️ WhatsApp enviado sin imagen a {participante.nombres}")
+             
     except Exception as e:
         logger.error(f"Error enviando WhatsApp: {e}")
         messages.error(request, f"❌ Error enviando WhatsApp: {str(e)[:100]}")
@@ -877,6 +881,10 @@ def enviar_whatsapp_qr(request, cod_part):
                 os.remove(tmp_path)
         except Exception as e:
             logger.error(f"Error limpiando archivos: {e}")
+      
+    participante.enviado = True
+    participante.save()
+
 
     return redirect("registro_participante")
 
@@ -1369,6 +1377,10 @@ def enviar_todos_whatsapp(request):
                     os.remove(tmp_path)
             except Exception as e:
                 logger.error(f"Error limpiando tmp_path {tmp_path}: {e}", exc_info=True)
+
+        p.enviado = True
+        p.save()
+
 
     # Mensajes finales
     summary = f"✅ Finalizado. WhatsApp enviados: {enviados_whatsapp}. Correos enviados: {enviados_email}. Errores: {errores}."

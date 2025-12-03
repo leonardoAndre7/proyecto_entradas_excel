@@ -637,6 +637,40 @@ def crear_entrada_con_qr_transformado(participante):
         # Pegar QR
         entrada_completa.paste(qr_img, (pos_x, pos_y))
         
+        # ============================================================
+        # ✨ AGREGAR NOMBRE DEL PARTICIPANTE DEBAJO DEL QR (BLANCO)
+        # ============================================================
+        from PIL import ImageDraw, ImageFont
+
+        draw = ImageDraw.Draw(entrada_completa)
+
+        # Nombre del participante en mayúsculas
+        nombre = participante.nombres.upper()
+
+        # Fuente estilo H3
+        try:
+            font = ImageFont.truetype("arial.ttf", 65)
+        except:
+            font = ImageFont.load_default()
+
+        # Medir para centrarlo debajo del QR
+        text_width, text_height = draw.textsize(nombre, font=font)
+
+        texto_x = pos_x + (ancho_promedio // 2) - (text_width // 2)
+        texto_y = pos_y + alto_promedio + 25  # debajo del QR
+
+        # Dibujar texto en blanco con borde negro
+        draw.text(
+            (texto_x, texto_y),
+            nombre,
+            font=font,
+            fill="white",          
+            stroke_width=3,
+            stroke_fill="black"
+        )
+        # ============================================================
+
+        
         # 6. Guardar
         buffer = BytesIO()
         entrada_completa.save(buffer, format="JPEG", quality=95)

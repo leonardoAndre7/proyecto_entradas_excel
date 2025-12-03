@@ -510,6 +510,41 @@ def crear_entrada_con_qr(participante):
         # Nota: El QR ya tiene el tamaño correcto
         entrada_completa.paste(qr_img, (pos_x, pos_y))
         
+        # ============================================================
+        # 7.1 ✨ AGREGAR NOMBRE DEL PARTICIPANTE DEBAJO DEL QR (BLANCO)
+        # ============================================================
+        from PIL import ImageDraw, ImageFont
+
+        draw = ImageDraw.Draw(entrada_completa)
+
+        # Nombre en mayúsculas
+        nombre = participante.nombres.upper()
+
+        # Fuente tipo H3
+        try:
+            font = ImageFont.truetype("arial.ttf", 65)
+        except:
+            font = ImageFont.load_default()
+
+        # Medir texto para centrarlo debajo del QR
+        text_width, text_height = draw.textsize(nombre, font=font)
+
+        # Posición centrada
+        texto_x = pos_x + (qr_width // 2) - (text_width // 2)
+        texto_y = pos_y + qr_height + 25  # espaciado debajo del QR
+
+        # Dibujar texto en blanco
+        draw.text(
+            (texto_x, texto_y),
+            nombre,
+            font=font,
+            fill="white",          # ⬅️ COLOR BLANCO
+            stroke_width=3,        # ⬅️ BORDE PARA QUE RESALTE (OPCIONAL)
+            stroke_fill="black"    # ⬅️ BORDE NEGRO
+        )
+        # ============================================================
+
+        
         # 8. Opcional: Dibujar el contorno del cuadrilátero para debug
         if settings.DEBUG:
             from PIL import ImageDraw
@@ -637,6 +672,10 @@ def upload_buffer_to_imgbb(image_buffer, filename="entrada.jpg"):
     except Exception as e:
         logger.error(f"Error uploading to ImgBB: {e}")
         return None
+
+
+
+
 
 def enviar_whatsapp_qr(request, cod_part):
     """

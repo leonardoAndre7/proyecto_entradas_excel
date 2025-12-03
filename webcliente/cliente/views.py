@@ -522,7 +522,7 @@ def crear_entrada_con_qr(participante):
 
         # Fuente tipo H3
         try:
-            font = ImageFont.truetype("arial.ttf", 65)
+            font = ImageFont.truetype("arial.ttf", 200)
         except:
             font = ImageFont.load_default()
 
@@ -652,7 +652,7 @@ def crear_entrada_con_qr_transformado(participante):
 
         # Fuente estilo H3
         try:
-            font = ImageFont.truetype("arial.ttf", 65)
+            font = ImageFont.truetype("arial.ttf", 200)
         except:
             font = ImageFont.load_default()
 

@@ -650,16 +650,22 @@ def crear_entrada_con_qr_transformado(participante):
         # Nombre del participante en mayúsculas
         nombre = participante.nombres.upper()
 
-        # Fuente estilo H3
-        try:
-            font = ImageFont.truetype("arial.ttf", 200)
-        except:
-            font = ImageFont.load_default()
+        # Ajuste dinámico de tamaño de fuente
+        max_width = ancho_promedio - 20  # dejar un pequeño margen
+        font_size = 200  # tamaño inicial grande
 
-        # ⚠️ MÉTODO ACTUAL DE PILLOW: medir texto con textbbox()
-        bbox = draw.textbbox((0, 0), nombre, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
+        while True:
+            try:
+                font = ImageFont.truetype("arial.ttf", font_size)
+            except:
+                font = ImageFont.load_default()
+                break
+            # Medir ancho del texto con textbbox
+            bbox = draw.textbbox((0, 0), nombre, font=font)
+            text_width = bbox[2] - bbox[0]
+            if text_width <= max_width or font_size <= 20:  # límite mínimo
+               break
+            font_size -= 5  # reducir hasta que quepa
 
 
         texto_x = pos_x + (ancho_promedio // 2) - (text_width // 2)
@@ -688,6 +694,10 @@ def crear_entrada_con_qr_transformado(participante):
         logger.error(f"Error en transformación perspectiva: {e}")
         # Fallback a la versión simple
         return crear_entrada_con_qr(participante)
+    
+    
+    
+    
 
 def upload_buffer_to_imgbb(image_buffer, filename="entrada.jpg"):
     """Subir imagen desde buffer a ImgBB"""

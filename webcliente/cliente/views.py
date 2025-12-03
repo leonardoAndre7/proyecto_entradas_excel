@@ -755,7 +755,6 @@ def enviar_whatsapp_qr(request, cod_part):
                 <!-- Fondo general -->
                 <table width="100%" cellpadding="0" cellspacing="0" border="0"
                     style="
-                        background-image: url('https://ede-evento.com/static/img/nexo_logo_01.png');
                         background-size: cover;
                         background-position: center;
                         padding: 40px 0;
@@ -1282,7 +1281,6 @@ def enviar_todos_whatsapp(request):
 
                         <table width="100%" cellpadding="0" cellspacing="0" border="0"
                             style="
-                                background-image: url('https://ede-evento.com/static/img/nexo_logo_01.png');
                                 background-size: cover;
                                 background-position: center;
                                 padding: 40px 0;

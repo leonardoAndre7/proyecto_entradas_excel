@@ -650,7 +650,6 @@ def crear_entrada_con_qr_transformado(participante):
                     font = ImageFont.truetype("arial.ttf", font_size)
                 except:
                     font = ImageFont.load_default()
-                    break
                 bbox = draw.textbbox((0, 0), nombre, font=font)
                 text_width = bbox[2] - bbox[0]
                 text_height = bbox[3] - bbox[1]

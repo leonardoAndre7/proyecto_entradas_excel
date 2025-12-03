@@ -654,7 +654,7 @@ def crear_entrada_con_qr_transformado(participante):
             font = ImageFont.load_default()
 
         # Medir para centrarlo debajo del QR
-        text_width, text_height = draw.textsize(nombre, font=font)
+        text_width, text_height = font.getsize(nombre)
 
         texto_x = pos_x + (ancho_promedio // 2) - (text_width // 2)
         texto_y = pos_y + alto_promedio + 25  # debajo del QR

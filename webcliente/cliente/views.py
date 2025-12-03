@@ -1256,37 +1256,92 @@ def enviar_todos_whatsapp(request):
             # 7) Enviar correo si tiene
             if getattr(p, "correo", None):
                 try:
-                    # Usamos smtplib + EmailMessage para adjuntar la imagen temporal si existe
                     from email.message import EmailMessage
                     import smtplib
 
-                    asunto = "🎟️ Tu entrada para El Renacer del Asesor"
-                    cuerpo = (
-                        f"Hola {p.nombres},\n\n"
-                        "Adjunto encontrarás tu entrada oficial para el evento El Renacer del Asesor.\n\n"
-                        "• Fecha: 14/12/2025\n"
-                        "• Lugar: Pendiente\n\n"
-                        "Saludos,\nEquipo organizador"
-                    )
+                    # URL DEL LOGO (asegúrate que existe)
+                    logo_url = "https://ede-evento.com/static/img/nexo_logo_01.png"
+
+                    # ============================
+                    #  HTML PREMIUM (MISMO QUE EL ANTERIOR)
+                    # ============================
+                    html_body = f"""
+                    <html>
+                    <body style="margin:0; padding:0; background:#0a0a0a; font-family: Arial, Helvetica, sans-serif;">
+
+                        <div style="max-width:600px; margin:20px auto; background:#111; padding:25px; border-radius:15px; color:white;">
+
+                            <div style="text-align:center;">
+                                <img src='{logo_url}' style="width:180px; margin-bottom:20px;">
+                            </div>
+
+                            <h2 style="color:#ffd900; text-align:center; font-size:24px;">
+                                🎟️ Tu entrada para <b>El Renacer del Asesor</b>
+                            </h2>
+
+                            <p style="font-size:16px; line-height:1.6;">
+                                Hola <b>{p.nombres}</b>,
+                            </p>
+
+                            <p style="font-size:16px; line-height:1.6;">
+                                ¡Gracias por formar parte del evento <b>El Renacer del Asesor</b>!  
+                                Adjuntamos tu entrada oficial para tu ingreso al evento.
+                            </p>
+
+                            <div style="background:#1d1d1d; padding:15px; border-radius:10px; margin:25px 0;">
+                                <p style="margin:4px 0; font-size:15px;">
+                                    📅 <b>Fecha:</b> 14/12/2025
+                                </p>
+                                <p style="margin:4px 0; font-size:15px;">
+                                    📍 <b>Lugar:</b> Pendiente
+                                </p>
+                            </div>
+
+                            <p style="font-size:16px; line-height:1.6;">
+                                Por favor, guarda tu entrada y muéstrala el día del evento.
+                            </p>
+
+                            <p style="text-align:center; margin-top:40px; font-size:13px; opacity:0.7;">
+                                © 2025 El Renacer del Asesor — Todos los derechos reservados.
+                            </p>
+
+                        </div>
+                    </body>
+                    </html>
+                    """
 
                     msg = EmailMessage()
-                    msg["Subject"] = asunto
+                    msg["Subject"] = "🎟️ Tu entrada para El Renacer del Asesor"
                     msg["From"] = settings.DEFAULT_FROM_EMAIL
                     msg["To"] = p.correo
-                    msg.set_content(cuerpo)
 
-                    # Adjuntar desde tmp_path si existe, si no, desde buffer
+                    # Texto plano (fallback)
+                    msg.set_content("Tu cliente de correo no soporta HTML, usa un lector compatible.")
+
+                    # HTML elegante
+                    msg.add_alternative(html_body, subtype="html")
+
+                    # Adjuntar entrada (jpg)
                     if tmp_path and os.path.exists(tmp_path):
                         with open(tmp_path, "rb") as f:
-                            filedata = f.read()
-                        msg.add_attachment(filedata, maintype="image", subtype="jpeg", filename=os.path.basename(tmp_path))
+                            msg.add_attachment(
+                                f.read(),
+                                maintype="image",
+                                subtype="jpeg",
+                                filename=os.path.basename(tmp_path)
+                            )
                     else:
-                        # usar entrada_buffer
                         entrada_buffer.seek(0)
-                        filedata = entrada_buffer.getvalue()
-                        msg.add_attachment(filedata, maintype="image", subtype="jpeg", filename=f"entrada_{p.id}.jpg")
+                        msg.add_attachment(
+                            entrada_buffer.getvalue(),
+                            maintype="image",
+                            subtype="jpeg",
+                            filename=f"entrada_{p.id}.jpg"
+                        )
 
-                    # Enviar por SMTP (configura con tus credenciales)
+                    # ============================
+                    #  ENVÍO SMTP
+                    # ============================
                     smtp_host = config('EMAIL_HOST', default="smtp.gmail.com")
                     smtp_port = int(config('EMAIL_PORT', default=587))
                     smtp_user = config('EMAIL_HOST_USER1', default=None)
@@ -1299,21 +1354,13 @@ def enviar_todos_whatsapp(request):
                             server.starttls()
                             server.login(smtp_user, smtp_pass)
                             server.send_message(msg)
-                        enviados_email += 1
-                        logger.info(f"Correo enviado a {p.correo}")
+
+                    enviados_email += 1
+                    logger.info(f"Correo HTML enviado a {p.correo}")
 
                 except Exception as e:
-                    logger.error(f"Error enviando correo a {p.id} ({p.nombres}): {e}", exc_info=True)
+                    logger.error(f"Error enviando correo HTML a {p.id} ({p.nombres}): {e}", exc_info=True)
 
-            else:
-                logger.warning(f"{p.nombres} (id={p.id}) no tiene correo registrado.")
-
-            # Pequeña pausa para reducir riesgo de rate-limit (ajusta según tu plan)
-            time.sleep(0.4)
-
-        except Exception as e:
-            logger.error(f"Error general con participante id={getattr(p, 'id', 'N/A')}: {e}", exc_info=True)
-            errores += 1
 
         finally:
             # Limpieza temporal

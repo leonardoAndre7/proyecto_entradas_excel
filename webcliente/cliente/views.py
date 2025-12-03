@@ -573,14 +573,16 @@ def crear_entrada_con_qr(participante):
     except Exception as e:
         logger.error(f"Error creando entrada con QR: {e}", exc_info=True)
         raise
-
+    
+    
+    
 def crear_entrada_con_qr_transformado(participante):
     """
-    Versión alternativa con transformación perspectiva para cuadrilátero irregular
-    (Más precisa pero más compleja)
+    Versión alternativa con transformación perspectiva para cuadrilátero irregular.
+    Agrega nombre del participante debajo del QR con tamaño dinámico.
     """
     try:
-        from PIL import Image, ImageTransform
+        from PIL import Image, ImageDraw, ImageFont
         
         # 1. Generar QR base
         qr_base = generar_qr_dinamico(participante, size=(600, 600))
@@ -597,93 +599,74 @@ def crear_entrada_con_qr_transformado(participante):
         if fondo.mode == "RGBA":
             fondo = fondo.convert("RGB")
         
-        # 3. Coordenadas del cuadrilátero en el fondo
-        cuadrilatero_destino = [
-            (170, 405),  # Izquierda arriba
-            (168, 974),  # Izquierda abajo
-            (737, 979),  # Derecha abajo
-            (735, 410),  # Derecha arriba
-        ]
-        
-        # 4. Coordenadas del QR (cuadrado completo)
-        cuadrilatero_origen = [
-            (0, 0),      # Izquierda arriba
-            (0, 600),    # Izquierda abajo
-            (600, 600),  # Derecha abajo
-            (600, 0),    # Derecha arriba
-        ]
-        
-        # 5. Calcular transformación perspectiva
-        # Para una transformación simple, usamos un enfoque aproximado
-        entrada_completa = fondo.copy()
-        
-        # Calcular tamaño aproximado del QR distorsionado
+        # 3. Coordenadas aproximadas del cuadrilátero
         ancho_promedio = ((735-170) + (737-168)) // 2
         alto_promedio = ((974-405) + (979-410)) // 2
         
-        # Redimensionar QR para el tamaño aproximado
+        pos_x = 168
+        pos_y = 405
+        
+        # 4. Redimensionar QR al tamaño aproximado
         qr_img = qr_base.resize((ancho_promedio, alto_promedio), Image.Resampling.LANCZOS)
+        qr_width, qr_height = qr_img.size
         
-        # Posición aproximada (esquina superior izquierda)
-        pos_x = min(170, 168, 735, 737)
-        pos_y = min(405, 410, 974, 979)
-        
-        # Pegar QR
+        # 5. Crear copia del fondo y pegar QR
+        entrada_completa = fondo.copy()
         entrada_completa.paste(qr_img, (pos_x, pos_y))
         
         # ============================================================
-        # ✨ AGREGAR NOMBRE DEL PARTICIPANTE DEBAJO DEL QR (BLANCO)
+        # ✨ AGREGAR NOMBRE DEL PARTICIPANTE DEBAJO DEL QR
         # ============================================================
-        from PIL import ImageDraw, ImageFont
-
         draw = ImageDraw.Draw(entrada_completa)
-
-        # Nombre del participante en mayúsculas
         nombre = participante.nombres.upper()
-
+        
         # Ajuste dinámico de tamaño de fuente
-        max_width = ancho_promedio - 20  # dejar un pequeño margen
-        font_size = 200  # tamaño inicial grande
-
+        max_width = qr_width - 20  # dejar un margen
+        font_size = 200
+        font = None
+        text_width = 0
+        text_height = 0
+        
         while font_size > 20:
-                try:
-                    font = ImageFont.truetype("arial.ttf", font_size)
-                except:
-                    font = ImageFont.load_default()
-                bbox = draw.textbbox((0, 0), nombre, font=font)
-                text_width = bbox[2] - bbox[0]
-                text_height = bbox[3] - bbox[1]
-                if text_width <= max_width:
-                    break
-                font_size -= 5
-
-
-        texto_x = pos_x + (ancho_promedio // 2) - (text_width // 2)
-        texto_y = pos_y + alto_promedio + 25  # debajo del QR
-
+            try:
+                font = ImageFont.truetype("arial.ttf", font_size)
+            except:
+                font = ImageFont.load_default()
+                break
+            bbox = draw.textbbox((0,0), nombre, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            if text_width <= max_width:
+                break
+            font_size -= 5
+        
+        # Posición centrada debajo del QR
+        texto_x = pos_x + (qr_width // 2) - (text_width // 2)
+        texto_y = pos_y + qr_height + 20  # margen debajo del QR
+        
         # Dibujar texto en blanco con borde negro
         draw.text(
             (texto_x, texto_y),
             nombre,
             font=font,
-            fill="white",          
+            fill="white",
             stroke_width=3,
             stroke_fill="black"
         )
         # ============================================================
 
-        
-        # 6. Guardar
+        # 6. Guardar en buffer
         buffer = BytesIO()
         entrada_completa.save(buffer, format="JPEG", quality=95)
         buffer.seek(0)
         
         return buffer
-        
+    
     except Exception as e:
-        logger.error(f"Error en transformación perspectiva: {e}")
+        logger.error(f"Error en transformación perspectiva: {e}", exc_info=True)
         # Fallback a la versión simple
         return crear_entrada_con_qr(participante)
+
     
     
     

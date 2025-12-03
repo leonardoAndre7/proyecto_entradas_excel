@@ -653,8 +653,11 @@ def crear_entrada_con_qr_transformado(participante):
         except:
             font = ImageFont.load_default()
 
-        # Medir para centrarlo debajo del QR
-        text_width, text_height = font.getsize(nombre)
+        # ⚠️ MÉTODO ACTUAL DE PILLOW: medir texto con textbbox()
+        bbox = draw.textbbox((0, 0), nombre, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
 
         texto_x = pos_x + (ancho_promedio // 2) - (text_width // 2)
         texto_y = pos_y + alto_promedio + 25  # debajo del QR

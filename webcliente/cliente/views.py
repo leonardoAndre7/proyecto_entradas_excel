@@ -723,35 +723,129 @@ def enviar_whatsapp_qr(request, cod_part):
     # ======================================================
     # 2️⃣ ENVÍO POR CORREO
     # ======================================================
+    # ======================================================
+# 2️⃣ ENVÍO POR CORREO — HTML + FONDO DESDE TU DOMINIO
+# ======================================================
     try:
         if participante.correo:
             from_email = config('EMAIL_HOST_USER1')
             password = config('EMAIL_HOST_PASSWORD1')
-            
+
             asunto = "🎟️ Aquí tienes tu entrada para El Renacer del Asesor"
-            cuerpo = (
-                f"Hola {participante.nombres}:\n\n"
-                "¡Gracias por ser parte de El Renacer del Asesor!\n"
-                "Adjunto encontrarás tu entrada oficial para el evento. Por favor, descárgala y guárdala, ya que será necesaria para tu acceso el día del evento.\n\n"
-                "Detalles importantes:\n\n"
-                "• Evento: El Renacer del Asesor\n"
-                "• Fecha: 14/12/2025\n"
-                "• Lugar: Pendiente\n\n"
-                "Te recomendamos llegar con anticipación para realizar el check-in sin inconvenientes.\n\n"
-                "¡Nos vemos pronto para vivir una experiencia que marcará un antes y un después en tu camino como asesor!\n\n"
-                "Saludos,\n"
-                "Equipo El Renacer del Asesor"
-            )
-            
+
             import smtplib
             from email.message import EmailMessage
-            
+
             msg = EmailMessage()
             msg["Subject"] = asunto
             msg["From"] = from_email
             msg["To"] = participante.correo
-            msg.set_content(cuerpo)
-            
+
+            # ---------------------------------------------
+            # HTML CON FONDO: usa la imagen desde tu dominio
+            # ---------------------------------------------
+            html = f"""
+            <html>
+            <body style="margin:0; padding:0;">
+
+                <!-- Fondo general -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                    style="
+                        background-image: url('https://ede-evento.com/static/img/nexo_logo_01.png');
+                        background-size: cover;
+                        background-position: center;
+                        padding: 40px 0;
+                    ">
+                <tr>
+                    <td>
+
+                    <!-- Caja de contenido -->
+                    <table width="600" align="center" cellpadding="0" cellspacing="0"
+                            style="
+                            background: rgba(255, 255, 255, 0.92);
+                            border-radius: 12px;
+                            padding: 30px;
+                            font-family: Arial, sans-serif;
+                            box-shadow: 0 4px 25px rgba(0,0,0,0.2);
+                            ">
+
+                        <tr>
+                        <td align="center">
+                            <h1 style="margin:0; color:#222; font-size:28px;">
+                            🎟️ El Renacer del Asesor
+                            </h1>
+                        </td>
+                        </tr>
+
+                        <tr>
+                        <td style="padding-top:20px; font-size:18px; color:#333;">
+                            Hola <strong>{participante.nombres}</strong>,
+                        </td>
+                        </tr>
+
+                        <tr>
+                        <td style="padding-top:15px; font-size:16px; color:#444;">
+                            ¡Gracias por ser parte de <strong>El Renacer del Asesor</strong>!
+                            Tu entrada oficial está adjunta a este correo.
+                        </td>
+                        </tr>
+
+                        <tr>
+                        <td style="padding-top:20px;">
+                            <table width="100%" style="background:#fafafa; border-left:5px solid #007bff; padding:20px;">
+                            <tr>
+                                <td style="font-size:18px; color:#222;">
+                                📌 <strong>Detalles del evento:</strong>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="font-size:16px; color:#555;">
+                                <ul style="padding-left:20px; margin:0;">
+                                    <li>Evento: El Renacer del Asesor</li>
+                                    <li>Ingreso con entrada adjunta</li>
+                                </ul>
+                                </td>
+                            </tr>
+                            </table>
+                        </td>
+                        </tr>
+
+                        <tr>
+                        <td style="padding-top:25px; font-size:17px; color:#007bff; font-weight:bold;">
+                            Te recomendamos llegar con anticipación para el check-in.
+                        </td>
+                        </tr>
+
+                        <tr>
+                        <td style="padding-top:25px; font-size:16px; color:#444;">
+                            ¡Nos vemos pronto para vivir una experiencia transformadora!
+                        </td>
+                        </tr>
+
+                        <tr>
+                        <td style="padding-top:30px; font-size:16px; color:#444;">
+                            Saludos,<br>
+                            <strong>Equipo El Renacer del Asesor</strong>
+                        </td>
+                        </tr>
+
+                    </table>
+
+                    </td>
+                </tr>
+                </table>
+
+            </body>
+            </html>
+            """
+
+            # El correo será HTML (NO texto simple)
+            msg.set_content("Tu cliente de correo no soporta HTML.")
+            msg.add_alternative(html, subtype="html")
+
+            # -------------------------------
+            # Adjuntar la entrada en JPG
+            # -------------------------------
             with open(tmp_path, "rb") as f:
                 msg.add_attachment(
                     f.read(),
@@ -759,29 +853,33 @@ def enviar_whatsapp_qr(request, cod_part):
                     subtype="jpeg",
                     filename=f"entrada_{participante.id}.jpg"
                 )
-            
+
+            # -------------------------------
+            # Enviar correo
+            # -------------------------------
             with smtplib.SMTP("smtp.gmail.com", 587) as server:
                 server.starttls()
                 server.login(from_email, password)
                 server.send_message(msg)
-            
+
             messages.success(request, f"📧 Entrada enviada por correo a {participante.correo}")
+
         else:
             messages.warning(request, f"⚠️ {participante.nombres} no tiene correo registrado.")
-            
+
     except Exception as e:
         logger.error(f"Error enviando correo: {e}")
         messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
-    
-    # Limpieza
+
     finally:
         try:
             if tmp_path and os.path.exists(tmp_path):
                 os.remove(tmp_path)
         except Exception as e:
             logger.error(f"Error limpiando archivos: {e}")
-    
+
     return redirect("registro_participante")
+
 
 
 

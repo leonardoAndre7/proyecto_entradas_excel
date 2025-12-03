@@ -653,6 +653,7 @@ def crear_entrada_con_qr_transformado(participante):
                     break
                 bbox = draw.textbbox((0, 0), nombre, font=font)
                 text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
                 if text_width <= max_width:
                     break
                 font_size -= 5

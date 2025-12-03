@@ -962,7 +962,7 @@ def exportar_excel_previo(request):
         ws = wb.active
         ws.title = "Participantes"
 
-        headers = ['Código', 'Nombre', 'DNI', 'Celular', 'Asesor', 'Validado Contabilidad', 'Validado Administración']
+        headers = ['Código', 'Nombre', 'DNI', 'Celular', 'Correo']
         for col_num, column_title in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_num, value=column_title)
             cell.font = Font(bold=True, color='FFFFFF')
@@ -974,13 +974,7 @@ def exportar_excel_previo(request):
             ws.cell(row=row_num, column=2, value=p.nombres)
             ws.cell(row=row_num, column=3, value=p.dni)
             ws.cell(row=row_num, column=4, value=p.celular)
-            ws.cell(row=row_num, column=5, value=p.asesor)
-
-            contabilidad = "Sí" if p.validado_contabilidad else "No"
-            administracion = "Sí" if p.validado_administracion else "No"
-
-            ws.cell(row=row_num, column=6, value=contabilidad)
-            ws.cell(row=row_num, column=7, value=administracion)
+            ws.cell(row=row_num, column=5, value=p.correo)
 
         for col in ws.columns:
             max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
@@ -994,6 +988,9 @@ def exportar_excel_previo(request):
         # Esto imprimirá el error real en consola y aún devolverá algo
         print("Error exportando Excel:", e)
         return HttpResponse("Ocurrió un error al generar el Excel.")
+
+
+
 
 # Exportar a PDF
 def exportar_pdf_previo(request):
@@ -1010,18 +1007,14 @@ def exportar_pdf_previo(request):
     elements.append(Spacer(1, 12))
 
     # Datos de tabla
-    data = [['Código', 'Nombre', 'DNI', 'Celular', 'Asesor', 'Validado Contabilidad', 'Validado Administración']]
+    data = [['Código', 'Nombre', 'DNI', 'Celular', 'Correo']]
     for p in participantes:
-        contabilidad = "Sí" if p.validado_contabilidad else "No"
-        administracion = "Sí" if p.validado_administracion else "No"
         data.append([
             p.cod_part,
             p.nombres,
             p.dni,
             p.celular,
-            p.asesor,
-            contabilidad,
-            administracion
+            p.correo
         ])
 
     table = Table(data, repeatRows=1)
@@ -1264,79 +1257,130 @@ def enviar_todos_whatsapp(request):
             # 7) Enviar correo si tiene
             if getattr(p, "correo", None):
                 try:
-                    from email.message import EmailMessage
+                    # ======================================================
+                    # 2️⃣ ENVÍO POR CORREO — HTML + FONDO DESDE TU DOMINIO
+                    # ======================================================
+                    from_email = config('EMAIL_HOST_USER1')
+                    password = config('EMAIL_HOST_PASSWORD1')
+
+                    asunto = "🎟️ Aquí tienes tu entrada para El Renacer del Asesor"
+
                     import smtplib
+                    from email.message import EmailMessage
 
-                    # URL DEL LOGO (asegúrate que existe)
-                    logo_url = "https://ede-evento.com/static/img/nexo_logo_01.png"
+                    msg = EmailMessage()
+                    msg["Subject"] = asunto
+                    msg["From"] = from_email
+                    msg["To"] = p.correo
 
-                    # ============================
-                    #  HTML PREMIUM (MISMO QUE EL ANTERIOR)
-                    # ============================
-                    html_body = f"""
+                    # ---------------------------------------------
+                    # HTML CON FONDO (desde tu dominio)
+                    # ---------------------------------------------
+                    html = f"""
                     <html>
-                    <body style="margin:0; padding:0; background:#0a0a0a; font-family: Arial, Helvetica, sans-serif;">
+                    <body style="margin:0; padding:0;">
 
-                        <div style="max-width:600px; margin:20px auto; background:#111; padding:25px; border-radius:15px; color:white;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                            style="
+                                background-image: url('https://ede-evento.com/static/img/nexo_logo_01.png');
+                                background-size: cover;
+                                background-position: center;
+                                padding: 40px 0;
+                            ">
+                        <tr>
+                            <td>
 
-                            <div style="text-align:center;">
-                                <img src='{logo_url}' style="width:180px; margin-bottom:20px;">
-                            </div>
+                            <table width="600" align="center" cellpadding="0" cellspacing="0"
+                                    style="
+                                    background: rgba(255, 255, 255, 0.92);
+                                    border-radius: 12px;
+                                    padding: 30px;
+                                    font-family: Arial, sans-serif;
+                                    box-shadow: 0 4px 25px rgba(0,0,0,0.2);
+                                    ">
 
-                            <h2 style="color:#ffd900; text-align:center; font-size:24px;">
-                                🎟️ Tu entrada para <b>El Renacer del Asesor</b>
-                            </h2>
+                                <tr>
+                                <td align="center">
+                                    <h1 style="margin:0; color:#222; font-size:28px;">
+                                    🎟️ El Renacer del Asesor
+                                    </h1>
+                                </td>
+                                </tr>
 
-                            <p style="font-size:16px; line-height:1.6;">
-                                Hola <b>{p.nombres}</b>,
-                            </p>
+                                <tr>
+                                <td style="padding-top:20px; font-size:18px; color:#333;">
+                                    Hola <strong>{p.nombres}</strong>,
+                                </td>
+                                </tr>
 
-                            <p style="font-size:16px; line-height:1.6;">
-                                ¡Gracias por formar parte del evento <b>El Renacer del Asesor</b>!  
-                                Adjuntamos tu entrada oficial para tu ingreso al evento.
-                            </p>
+                                <tr>
+                                <td style="padding-top:15px; font-size:16px; color:#444;">
+                                    ¡Gracias por ser parte de <strong>El Renacer del Asesor</strong>!  
+                                    Tu entrada oficial está adjunta a este correo.
+                                </td>
+                                </tr>
 
-                            <div style="background:#1d1d1d; padding:15px; border-radius:10px; margin:25px 0;">
-                                <p style="margin:4px 0; font-size:15px;">
-                                    📅 <b>Fecha:</b> 14/12/2025
-                                </p>
-                                <p style="margin:4px 0; font-size:15px;">
-                                    📍 <b>Lugar:</b> Pendiente
-                                </p>
-                            </div>
+                                <tr>
+                                <td style="padding-top:20px;">
+                                    <table width="100%" style="background:#fafafa; border-left:5px solid #007bff; padding:20px;">
+                                    <tr>
+                                        <td style="font-size:18px; color:#222;">
+                                        📌 <strong>Detalles del evento:</strong>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-size:16px; color:#555;">
+                                        <ul style="padding-left:20px; margin:0;">
+                                            <li>Evento: El Renacer del Asesor</li>
+                                            <li>Ingreso con entrada adjunta</li>
+                                        </ul>
+                                        </td>
+                                    </tr>
+                                    </table>
+                                </td>
+                                </tr>
 
-                            <p style="font-size:16px; line-height:1.6;">
-                                Por favor, guarda tu entrada y muéstrala el día del evento.
-                            </p>
+                                <tr>
+                                <td style="padding-top:25px; font-size:17px; color:#007bff; font-weight:bold;">
+                                    Te recomendamos llegar con anticipación para el check-in.
+                                </td>
+                                </tr>
 
-                            <p style="text-align:center; margin-top:40px; font-size:13px; opacity:0.7;">
-                                © 2025 El Renacer del Asesor — Todos los derechos reservados.
-                            </p>
+                                <tr>
+                                <td style="padding-top:25px; font-size:16px; color:#444;">
+                                    ¡Nos vemos pronto para vivir una experiencia transformadora!
+                                </td>
+                                </tr>
 
-                        </div>
+                                <tr>
+                                <td style="padding-top:30px; font-size:16px; color:#444;">
+                                    Saludos,<br>
+                                    <strong>Equipo El Renacer del Asesor</strong>
+                                </td>
+                                </tr>
+
+                            </table>
+
+                            </td>
+                        </tr>
+                        </table>
+
                     </body>
                     </html>
                     """
 
-                    msg = EmailMessage()
-                    msg["Subject"] = "🎟️ Tu entrada para El Renacer del Asesor"
-                    msg["From"] = settings.DEFAULT_FROM_EMAIL
-                    msg["To"] = p.correo
+                    # Configurar cuerpo HTML
+                    msg.set_content("Tu cliente de correo no soporta HTML.")
+                    msg.add_alternative(html, subtype="html")
 
-                    # Texto plano (fallback)
-                    msg.set_content("Tu cliente de correo no soporta HTML, usa un lector compatible.")
-
-                    # HTML elegante
-                    msg.add_alternative(html_body, subtype="html")
-
-                    # Adjuntar entrada (jpg)
+                    # Adjuntar entrada (JPG)
                     if tmp_path and os.path.exists(tmp_path):
                         with open(tmp_path, "rb") as f:
                             msg.add_attachment(
                                 f.read(),
                                 maintype="image",
                                 subtype="jpeg",
-                                filename=os.path.basename(tmp_path)
+                                filename=f"entrada_{p.id}.jpg"
                             )
                     else:
                         entrada_buffer.seek(0)
@@ -1347,47 +1391,41 @@ def enviar_todos_whatsapp(request):
                             filename=f"entrada_{p.id}.jpg"
                         )
 
-                    # ============================
-                    #  ENVÍO SMTP
-                    # ============================
-                    smtp_host = config('EMAIL_HOST', default="smtp.gmail.com")
-                    smtp_port = int(config('EMAIL_PORT', default=587))
-                    smtp_user = config('EMAIL_HOST_USER1', default=None)
-                    smtp_pass = config('EMAIL_HOST_PASSWORD1', default=None)
-
-                    if not smtp_user or not smtp_pass:
-                        logger.error("Credenciales SMTP no configuradas. Saltando envío de correo.")
-                    else:
-                        with smtplib.SMTP(smtp_host, smtp_port) as server:
-                            server.starttls()
-                            server.login(smtp_user, smtp_pass)
-                            server.send_message(msg)
+                    # Enviar correo
+                    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                        server.starttls()
+                        server.login(from_email, password)
+                        server.send_message(msg)
 
                     enviados_email += 1
-                    logger.info(f"Correo HTML enviado a {p.correo}")
+                    messages.success(request, f"📧 Entrada enviada por correo a {p.correo}")
 
                 except Exception as e:
                     logger.error(f"Error enviando correo HTML a {p.id} ({p.nombres}): {e}", exc_info=True)
+                    messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
 
+            else:
+                messages.warning(request, f"⚠️ {p.nombres} no tiene correo registrado.")
 
         finally:
-            # Limpieza temporal
-            try:
-                if tmp_path and os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-            except Exception as e:
-                logger.error(f"Error limpiando tmp_path {tmp_path}: {e}", exc_info=True)
+                try:
+                    if tmp_path and os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+                except Exception as e:
+                    logger.error(f"Error limpiando tmp_path {tmp_path}: {e}", exc_info=True)
 
+            # Marcar como enviado
         p.enviado = True
         p.save()
-
-
-    # Mensajes finales
-    summary = f"✅ Finalizado. WhatsApp enviados: {enviados_whatsapp}. Correos enviados: {enviados_email}. Errores: {errores}."
+        
+           # ---------------------------
+    # 🔥 RETURN FINAL OBLIGATORIO
+    # ---------------------------
+    summary = f"✅ Finalizado. WhatsApp enviados: {enviados_whatsapp}. Correos: {enviados_email}. Errores: {errores}."
     messages.success(request, summary)
     logger.info(summary)
 
-    return redirect('registro_participante')
+    return redirect("registro_participante")
 
 #########################################################
 #########################################################

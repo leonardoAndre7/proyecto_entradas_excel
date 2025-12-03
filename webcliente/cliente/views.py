@@ -527,7 +527,10 @@ def crear_entrada_con_qr(participante):
             font = ImageFont.load_default()
 
         # Medir texto para centrarlo debajo del QR
-        text_width, text_height = draw.textsize(nombre, font=font)
+        bbox = draw.textbbox((0, 0), nombre, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
 
         # Posición centrada
         texto_x = pos_x + (qr_width // 2) - (text_width // 2)

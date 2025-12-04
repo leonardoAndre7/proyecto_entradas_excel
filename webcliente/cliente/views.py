@@ -520,7 +520,25 @@ def crear_entrada_con_qr(participante):
         # Nombre en mayúsculas
         nombre = participante.nombres.upper()
 
-        
+        # Ajuste automático del tamaño de la fuente
+        max_width = qr_width - 20   # margen dentro del QR
+        font_size = 200             # máximo tamaño inicial
+        font = None
+
+        while font_size > 20:
+            try:
+                font = ImageFont.truetype("arial.ttf", font_size)
+            except:
+                font = ImageFont.load_default()
+                break
+
+            bbox = draw.textbbox((0,0), nombre, font=font)
+            text_width = bbox[2] - bbox[0]
+
+            if text_width <= max_width:
+                break
+
+            font_size -= 5
 
 
         # Posición centrada

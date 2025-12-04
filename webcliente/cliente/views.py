@@ -411,6 +411,9 @@ def generar_qr_dinamico(participante, size=None):
         logger.error(f"Error generando QR dinámico: {e}")
         raise
 
+
+
+
 def get_background_image():
     """Obtiene la imagen de fondo asesor.jpeg"""
     fondo_path = os.path.join(settings.BASE_DIR, 'cliente', 'static', 'img', 'asesor.jpeg')
@@ -429,6 +432,10 @@ def get_background_image():
             return path
     
     return None
+
+
+
+
 
 def calcular_transformacion_cuadrilatero():
     """
@@ -463,6 +470,10 @@ def calcular_transformacion_cuadrilatero():
     pos_y += (abs(405 - 410)) // 2  # Ajuste por diferencia superior
     
     return pos_x, pos_y, ancho, alto
+
+
+
+
 
 def crear_entrada_con_qr(participante):
     """
@@ -523,9 +534,9 @@ def crear_entrada_con_qr(participante):
 
         # Ajuste automático del tamaño
         max_width = qr_width - 20
-        font_size = 140  # tamaño grande inicial
+        font_size = 120  # tamaño grande inicial
 
-        while font_size > 40:
+        while font_size > 50:
             try:
                 font = ImageFont.truetype(font_path, font_size)
             except:
@@ -554,10 +565,8 @@ def crear_entrada_con_qr(participante):
             stroke_width=5,
             stroke_fill="black"
         )
-# ============================================================
         # ============================================================
-
-        
+        # ============================================================
         # 8. Opcional: Dibujar el contorno del cuadrilátero para debug
         if settings.DEBUG:
             from PIL import ImageDraw

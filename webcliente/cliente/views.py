@@ -516,44 +516,45 @@ def crear_entrada_con_qr(participante):
         from PIL import ImageDraw, ImageFont
 
         draw = ImageDraw.Draw(entrada_completa)
-
-        # Nombre en mayúsculas
         nombre = participante.nombres.upper()
 
-        # Ajuste automático del tamaño de la fuente
-        max_width = qr_width - 20   # margen dentro del QR
-        font_size = 200             # máximo tamaño inicial
-        font = None
+        # Ruta a la fuente que sí existe
+        font_path = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", "Roboto-Bold.ttf")
 
-        while font_size > 20:
+        # Ajuste automático del tamaño
+        max_width = qr_width - 20
+        font_size = 180  # tamaño grande inicial
+
+        while font_size > 40:
             try:
-                font = ImageFont.truetype("arial.ttf", font_size)
+                font = ImageFont.truetype(font_path, font_size)
             except:
-                font = ImageFont.load_default()
+                # fallback seguro
+                font = ImageFont.truetype(font_path, 60)
                 break
 
-            bbox = draw.textbbox((0,0), nombre, font=font)
+            bbox = draw.textbbox((0, 0), nombre, font=font)
             text_width = bbox[2] - bbox[0]
 
             if text_width <= max_width:
                 break
 
-            font_size -= 5
+            font_size -= 10
 
-
-        # Posición centrada
+        # centrar texto
         texto_x = pos_x + (qr_width // 2) - (text_width // 2)
-        texto_y = pos_y + qr_height + 25  # espaciado debajo del QR
+        texto_y = pos_y + qr_height + 35
 
-        # Dibujar texto en blanco
+        # Dibujar texto en blanco con borde negro grueso
         draw.text(
             (texto_x, texto_y),
             nombre,
             font=font,
-            fill="white",          # ⬅️ COLOR BLANCO
-            stroke_width=3,        # ⬅️ BORDE PARA QUE RESALTE (OPCIONAL)
-            stroke_fill="black"    # ⬅️ BORDE NEGRO
+            fill="white",
+            stroke_width=5,
+            stroke_fill="black"
         )
+# ============================================================
         # ============================================================
 
         
@@ -635,42 +636,48 @@ def crear_entrada_con_qr_transformado(participante):
         # ============================================================
         # ✨ AGREGAR NOMBRE DEL PARTICIPANTE DEBAJO DEL QR
         # ============================================================
+        from PIL import ImageDraw, ImageFont
+
         draw = ImageDraw.Draw(entrada_completa)
         nombre = participante.nombres.upper()
-        
-        # Ajuste dinámico de tamaño de fuente
-        max_width = qr_width - 20  # dejar un margen
-        font_size = 200
-        font = None
-        text_width = 0
-        text_height = 0
-        
-        while font_size > 20:
+
+        # Ruta a la fuente que sí existe
+        font_path = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", "Roboto-Bold.ttf")
+
+        # Ajuste automático del tamaño
+        max_width = qr_width - 20
+        font_size = 180  # tamaño grande inicial
+
+        while font_size > 40:
             try:
-                font = ImageFont.truetype("arial.ttf", font_size)
+                font = ImageFont.truetype(font_path, font_size)
             except:
-                font = ImageFont.load_default()
+                # fallback seguro
+                font = ImageFont.truetype(font_path, 60)
                 break
-            bbox = draw.textbbox((0,0), nombre, font=font)
+
+            bbox = draw.textbbox((0, 0), nombre, font=font)
             text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
+
             if text_width <= max_width:
                 break
-            font_size -= 5
-        
-        # Posición centrada debajo del QR
+
+            font_size -= 10
+
+        # centrar texto
         texto_x = pos_x + (qr_width // 2) - (text_width // 2)
-        texto_y = pos_y + qr_height + 20  # margen debajo del QR
-        
-        # Dibujar texto en blanco con borde negro
+        texto_y = pos_y + qr_height + 35
+
+        # Dibujar texto en blanco con borde negro grueso
         draw.text(
             (texto_x, texto_y),
             nombre,
             font=font,
             fill="white",
-            stroke_width=3,
+            stroke_width=5,
             stroke_fill="black"
         )
+# ============================================================
         # ============================================================
 
         # 6. Guardar en buffer

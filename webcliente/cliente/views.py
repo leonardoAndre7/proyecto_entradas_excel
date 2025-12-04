@@ -657,7 +657,7 @@ def crear_entrada_con_qr_transformado(participante):
         max_width = qr_width - 20
         font_size = 120  # tamaño grande inicial
 
-        while font_size > 50:
+        while font_size > 25:
             try:
                 font = ImageFont.truetype(font_path, font_size)
             except:

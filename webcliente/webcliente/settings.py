@@ -113,11 +113,11 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
  
 # --- EMAIL ---
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
 EMAIL_HOST = "smtp.sendgrid.net"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "apikey"
+EMAIL_HOST_USER = config('EMAIL_HOST_USER1')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL1")
 

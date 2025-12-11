@@ -740,6 +740,10 @@ def enviar_whatsapp_qr(request, cod_part):
     """
     participante = get_object_or_404(Previaparticipantes, cod_part=cod_part)
     
+     # 🔹 DEBUG: Verificar que las variables de entorno están cargadas en Render
+    logger.info(f"DEBUG: EMAIL_HOST_USER1={config('EMAIL_HOST_USER1')}")
+    logger.info(f"DEBUG: EMAIL_HOST_PASSWORD1={'****' if config('EMAIL_HOST_PASSWORD1') else None}")
+    
     # Crear la entrada combinada
     try:
         # Usar la versión con transformación precisa

@@ -823,8 +823,9 @@ def enviar_whatsapp_qr(request, cod_part):
     # ======================================================
     # 2️⃣ ENVÍO POR CORREO — SendGrid
     # ======================================================
-    try:
-        if participante.correo:
+
+    if participante.correo:
+        try:
             from sendgrid import SendGridAPIClient
             from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
             import base64
@@ -927,7 +928,6 @@ def enviar_whatsapp_qr(request, cod_part):
             </html>
             """
 
-            # Crear objeto Mail
             message = Mail(
                 from_email=config('EMAIL_HOST_USER1'),
                 to_emails=participante.correo,
@@ -937,39 +937,35 @@ def enviar_whatsapp_qr(request, cod_part):
 
             # Adjuntar imagen
             encoded_file = base64.b64encode(open(tmp_path, "rb").read()).decode()
-            attachment = Attachment()
-            attachment.file_content = FileContent(encoded_file)
-            attachment.file_type = FileType('image/jpeg')
-            attachment.file_name = FileName(f"entrada_{participante.id}.jpg")
-            attachment.disposition = Disposition('attachment')
-            message.attachment = attachment
+            attachment = Attachment(
+                FileContent(encoded_file),
+                FileName(f"entrada_{participante.id}.jpg"),
+                FileType('image/jpeg'),
+                Disposition('attachment')
+            )
+            message.attachments = [attachment]
 
-            # Enviar
-            sg = SendGridAPIClient(os.environ.get('EMAIL_HOST_PASSWORD1'))
+            # Enviar correo
+            sg = SendGridAPIClient(config('EMAIL_HOST_PASSWORD1'))
             response = sg.send(message)
-
             if 200 <= response.status_code < 300:
                 messages.success(request, f"📧 Entrada enviada por correo a {participante.correo}")
             else:
                 logger.error(f"SendGrid error: {response.status_code} - {response.body}")
                 messages.error(request, f"❌ Error enviando correo (SendGrid)")
-
-        else:
-            messages.warning(request, f"⚠️ {participante.nombres} no tiene correo registrado.")
-
-    except Exception as e:
-        logger.error(f"Error enviando correo con SendGrid: {e}", exc_info=True)
-        messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
-
-    finally:
-        try:
-            if tmp_path and os.path.exists(tmp_path):
-                os.remove(tmp_path)
         except Exception as e:
-            logger.error(f"Error limpiando archivos: {e}")
+            logger.error(f"Error enviando correo con SendGrid: {e}", exc_info=True)
+            messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
 
     participante.enviado = True
     participante.save()
+
+    # Limpiar temporal
+    try:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+    except Exception as e:
+        logger.error(f"Error eliminando archivo temporal: {e}")
 
     return redirect("registro_participante")
 

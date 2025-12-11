@@ -821,29 +821,18 @@ def enviar_whatsapp_qr(request, cod_part):
         messages.error(request, f"❌ Error enviando WhatsApp: {str(e)[:100]}")
     
     # ======================================================
-    # 2️⃣ ENVÍO POR CORREO
+    # 2️⃣ ENVÍO POR CORREO — SendGrid
     # ======================================================
-    # ======================================================
-# 2️⃣ ENVÍO POR CORREO — HTML + FONDO DESDE TU DOMINIO
-# ======================================================
     try:
         if participante.correo:
-            from_email = config('EMAIL_HOST_USER1')
-            password = config('EMAIL_HOST_PASSWORD1')
+            from sendgrid import SendGridAPIClient
+            from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
+            import base64
+            import os
 
             asunto = "🎟️ Aquí tienes tu entrada para El Renacer del Asesor"
 
-            import smtplib
-            from email.message import EmailMessage
-
-            msg = EmailMessage()
-            msg["Subject"] = asunto
-            msg["From"] = from_email
-            msg["To"] = participante.correo
-
-            # ---------------------------------------------
-            # HTML CON FONDO: usa la imagen desde tu dominio
-            # ---------------------------------------------
+            # Mantener el mismo HTML que tenías
             html = f"""
             <html>
             <body style="margin:0; padding:0;">
@@ -938,36 +927,38 @@ def enviar_whatsapp_qr(request, cod_part):
             </html>
             """
 
-            # El correo será HTML (NO texto simple)
-            msg.set_content("Tu cliente de correo no soporta HTML.")
-            msg.add_alternative(html, subtype="html")
+            # Crear objeto Mail
+            message = Mail(
+                from_email=config('EMAIL_HOST_USER1'),
+                to_emails=participante.correo,
+                subject=asunto,
+                html_content=html
+            )
 
-            # -------------------------------
-            # Adjuntar la entrada en JPG
-            # -------------------------------
-            with open(tmp_path, "rb") as f:
-                msg.add_attachment(
-                    f.read(),
-                    maintype="image",
-                    subtype="jpeg",
-                    filename=f"entrada_{participante.id}.jpg"
-                )
+            # Adjuntar imagen
+            encoded_file = base64.b64encode(open(tmp_path, "rb").read()).decode()
+            attachment = Attachment()
+            attachment.file_content = FileContent(encoded_file)
+            attachment.file_type = FileType('image/jpeg')
+            attachment.file_name = FileName(f"entrada_{participante.id}.jpg")
+            attachment.disposition = Disposition('attachment')
+            message.attachment = attachment
 
-            # -------------------------------
-            # Enviar correo
-            # -------------------------------
-            with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                server.starttls()
-                server.login(from_email, password)
-                server.send_message(msg)
+            # Enviar
+            sg = SendGridAPIClient(os.environ.get('EMAIL_HOST_PASSWORD1'))
+            response = sg.send(message)
 
-            messages.success(request, f"📧 Entrada enviada por correo a {participante.correo}")
+            if 200 <= response.status_code < 300:
+                messages.success(request, f"📧 Entrada enviada por correo a {participante.correo}")
+            else:
+                logger.error(f"SendGrid error: {response.status_code} - {response.body}")
+                messages.error(request, f"❌ Error enviando correo (SendGrid)")
 
         else:
             messages.warning(request, f"⚠️ {participante.nombres} no tiene correo registrado.")
 
     except Exception as e:
-        logger.error(f"Error enviando correo: {e}")
+        logger.error(f"Error enviando correo con SendGrid: {e}", exc_info=True)
         messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
 
     finally:
@@ -976,10 +967,9 @@ def enviar_whatsapp_qr(request, cod_part):
                 os.remove(tmp_path)
         except Exception as e:
             logger.error(f"Error limpiando archivos: {e}")
-      
+
     participante.enviado = True
     participante.save()
-
 
     return redirect("registro_participante")
 

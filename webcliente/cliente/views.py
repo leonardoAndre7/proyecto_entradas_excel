@@ -787,8 +787,6 @@ def enviar_whatsapp_qr(request, cod_part):
                 f"Adjunto encontrarás tu entrada oficial para el evento. Por favor, descárgala y guárdala, ya que será necesaria para tu acceso el día del evento.\n\n"
                 f"*Detalles importantes:*\n\n"
                 f"• *Evento:* El Renacer del Asesor\n"
-                f"• *Fecha:* 14/12/2025\n"
-                f"• *Lugar:* Pendiente\n\n"
                 f"Te recomendamos llegar con anticipación para realizar el check-in sin inconvenientes.\n\n"
                 f"¡Nos vemos pronto para vivir una experiencia que marcará un antes y un después en tu camino como asesor! 🚀"
             )

@@ -733,39 +733,37 @@ def upload_buffer_to_imgbb(image_buffer, filename="entrada.jpg"):
 
 
 
-
 def enviar_whatsapp_qr(request, cod_part):
     """
     Envía el QR dinámico sobre asesor.jpeg por WhatsApp y correo
     """
     participante = get_object_or_404(Previaparticipantes, cod_part=cod_part)
     
-     # 🔹 DEBUG: Verificar que las variables de entorno están cargadas en Render
+    # 🔹 DEBUG: Verificar que las variables de entorno están cargadas en Render
     logger.info(f"DEBUG: EMAIL_HOST_USER1={config('EMAIL_HOST_USER1')}")
     logger.info(f"DEBUG: EMAIL_HOST_PASSWORD1={'****' if config('EMAIL_HOST_PASSWORD1') else None}")
     
     # Crear la entrada combinada
     try:
-        # Usar la versión con transformación precisa
         entrada_buffer = crear_entrada_con_qr_transformado(participante)
-        
     except Exception as e:
         messages.error(request, f"❌ Error al crear la entrada: {e}")
         logger.error(f"Error creando entrada: {e}", exc_info=True)
         return redirect("registro_participante")
     
     # Guardar temporalmente para correo
-    tmp_path = None
+    tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{participante.id}.jpg")
     try:
-        tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{participante.id}.jpg")
         with open(tmp_path, 'wb') as f:
             f.write(entrada_buffer.getvalue())
-        
         entrada_buffer.seek(0)
-        
     except Exception as e:
         messages.error(request, f"❌ Error al guardar temporalmente: {e}")
         return redirect("registro_participante")
+    
+    # Variables de control de envío
+    whatsapp_enviado = False
+    correo_enviado = False
     
     # ======================================================
     # 1️⃣ ENVÍO POR WHATSAPP
@@ -774,52 +772,45 @@ def enviar_whatsapp_qr(request, cod_part):
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
         numero_twilio = f"whatsapp:{settings.TWILIO_PHONE_NUMBER}"
         
-        # Normalizar número celular
         celular = participante.celular or ""
         celular = "".join([c for c in celular if c.isdigit()])
-        
         if not celular:
-            messages.error(request, "❌ El participante no tiene número de celular.")
-            return redirect("registro_participante")
-        
-        numero_destino = f"whatsapp:+51{celular}"
-        
-        # Subir entrada a ImgBB
-        image_url = upload_buffer_to_imgbb(entrada_buffer, f"entrada_{participante.id}.jpg")
-        
-        mensaje_texto = (
-            f"🎟️ *Aquí tienes tu entrada para El Renacer del Asesor*\n\n"
-            f"Hola {participante.nombres}:\n\n"
-            f"¡Gracias por ser parte de El Renacer del Asesor!\n"
-            f"Adjunto encontrarás tu entrada oficial para el evento. Por favor, descárgala y guárdala, ya que será necesaria para tu acceso el día del evento.\n\n"
-            f"*Detalles importantes:*\n\n"
-            f"• *Evento:* El Renacer del Asesor\n"
-            f"• *Fecha:* 14/12/2025\n"
-            f"• *Lugar:* Pendiente\n\n"
-            f"Te recomendamos llegar con anticipación para realizar el check-in sin inconvenientes.\n\n"
-            f"¡Nos vemos pronto para vivir una experiencia que marcará un antes y un después en tu camino como asesor! 🚀"
-        )
-        
-        if image_url:
-            message = client.messages.create(
-                from_=numero_twilio,
-                to=numero_destino,
-                body=mensaje_texto,
-                media_url=[image_url]
-            )
-
-
-            
-            messages.success(request, f"✅ Entrada enviada por WhatsApp a {participante.nombres}")
+            messages.warning(request, "❌ El participante no tiene número de celular.")
         else:
-            client.messages.create(
-                from_=numero_twilio,
-                to=numero_destino,
-                body=mensaje_texto + "\n\n⚠️ No se pudo adjuntar la entrada. Contacta al organizador."
+            numero_destino = f"whatsapp:+51{celular}"
+            image_url = upload_buffer_to_imgbb(entrada_buffer, f"entrada_{participante.id}.jpg")
+            
+            mensaje_texto = (
+                f"🎟️ *Aquí tienes tu entrada para El Renacer del Asesor*\n\n"
+                f"Hola {participante.nombres}:\n\n"
+                f"¡Gracias por ser parte de El Renacer del Asesor!\n"
+                f"Adjunto encontrarás tu entrada oficial para el evento. Por favor, descárgala y guárdala, ya que será necesaria para tu acceso el día del evento.\n\n"
+                f"*Detalles importantes:*\n\n"
+                f"• *Evento:* El Renacer del Asesor\n"
+                f"• *Fecha:* 14/12/2025\n"
+                f"• *Lugar:* Pendiente\n\n"
+                f"Te recomendamos llegar con anticipación para realizar el check-in sin inconvenientes.\n\n"
+                f"¡Nos vemos pronto para vivir una experiencia que marcará un antes y un después en tu camino como asesor! 🚀"
             )
             
-            messages.warning(request, f"⚠️ WhatsApp enviado sin imagen a {participante.nombres}")
-             
+            if image_url:
+                client.messages.create(
+                    from_=numero_twilio,
+                    to=numero_destino,
+                    body=mensaje_texto,
+                    media_url=[image_url]
+                )
+                messages.success(request, f"✅ Entrada enviada por WhatsApp a {participante.nombres}")
+            else:
+                client.messages.create(
+                    from_=numero_twilio,
+                    to=numero_destino,
+                    body=mensaje_texto + "\n\n⚠️ No se pudo adjuntar la entrada. Contacta al organizador."
+                )
+                messages.warning(request, f"⚠️ WhatsApp enviado sin imagen a {participante.nombres}")
+            
+            whatsapp_enviado = True
+
     except Exception as e:
         logger.error(f"Error enviando WhatsApp: {e}")
         messages.error(request, f"❌ Error enviando WhatsApp: {str(e)[:100]}")
@@ -827,45 +818,33 @@ def enviar_whatsapp_qr(request, cod_part):
     # ======================================================
     # 2️⃣ ENVÍO POR CORREO — SendGrid
     # ======================================================
-
     if participante.correo:
         try:
             from sendgrid import SendGridAPIClient
             from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
             import base64
-            import os
 
             asunto = "🎟️ Aquí tienes tu entrada para El Renacer del Asesor"
 
-            # Mantener el mismo HTML que tenías
             html = f"""
             <html>
             <body style="margin:0; padding:0;">
 
                 <!-- Fondo general -->
                 <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                    style="
-                        background-size: cover;
-                        background-position: center;
-                        padding: 40px 0;
-                    ">
+                    style="background-size: cover; background-position: center; padding: 40px 0;">
                 <tr>
                     <td>
 
                     <!-- Caja de contenido -->
                     <table width="600" align="center" cellpadding="0" cellspacing="0"
-                            style="
-                            background: rgba(255, 255, 255, 0.92);
-                            border-radius: 12px;
-                            padding: 30px;
-                            font-family: Arial, sans-serif;
-                            box-shadow: 0 4px 25px rgba(0,0,0,0.2);
-                            ">
+                           style="background: rgba(255, 255, 255, 0.92); border-radius: 12px; padding: 30px;
+                                  font-family: Arial, sans-serif; box-shadow: 0 4px 25px rgba(0,0,0,0.2);">
 
                         <tr>
                         <td align="center">
                             <h1 style="margin:0; color:#222; font-size:28px;">
-                            🎟️ El Renacer del Asesor
+                                🎟️ El Renacer del Asesor
                             </h1>
                         </td>
                         </tr>
@@ -939,7 +918,6 @@ def enviar_whatsapp_qr(request, cod_part):
                 html_content=html
             )
 
-            # Adjuntar imagen
             encoded_file = base64.b64encode(open(tmp_path, "rb").read()).decode()
             attachment = Attachment(
                 FileContent(encoded_file),
@@ -949,20 +927,25 @@ def enviar_whatsapp_qr(request, cod_part):
             )
             message.attachments = [attachment]
 
-            # Enviar correo
             sg = SendGridAPIClient(config('EMAIL_HOST_PASSWORD1'))
             response = sg.send(message)
             if 200 <= response.status_code < 300:
                 messages.success(request, f"📧 Entrada enviada por correo a {participante.correo}")
+                correo_enviado = True
             else:
                 logger.error(f"SendGrid error: {response.status_code} - {response.body}")
                 messages.error(request, f"❌ Error enviando correo (SendGrid)")
+
         except Exception as e:
             logger.error(f"Error enviando correo con SendGrid: {e}", exc_info=True)
             messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
 
-    participante.enviado = True
-    participante.save()
+    # ======================================================
+    # Marcar participante como enviado solo si al menos un envío fue exitoso
+    # ======================================================
+    if whatsapp_enviado or correo_enviado:
+        participante.enviado = True
+        participante.save()
 
     # Limpiar temporal
     try:
@@ -972,8 +955,6 @@ def enviar_whatsapp_qr(request, cod_part):
         logger.error(f"Error eliminando archivo temporal: {e}")
 
     return redirect("registro_participante")
-
-
 
 
 

@@ -145,13 +145,16 @@ form input::placeholder {
                 <i class="bi bi-check2-circle"></i> Enviado
               </button>
             {% else %}
-              <a href="{% url 'enviar_whatsapp_qr' p.cod_part %}"
-                class="btn btn-success btn-sm btn-table d-flex align-items-center gap-1"
-                style="background: linear-gradient(90deg, #25D366, #128C7E); border: none;">
-                <i class="bi bi-whatsapp"></i>
-                <i class="bi bi-envelope-fill"></i>
-                <span>Enviar QR</span>
-              </a>
+              <form method="post" action="{% url 'enviar_whatsapp_qr' p.cod_part %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-sm btn-table d-flex align-items-center gap-1"
+                        style="background: linear-gradient(90deg, #25D366, #128C7E); border: none;">
+                  <i class="bi bi-whatsapp"></i>
+                  <i class="bi bi-envelope-fill"></i>
+                  <span>Enviar QR</span>
+                </button>
+              </form>
+
             {% endif %}
             </td>
 

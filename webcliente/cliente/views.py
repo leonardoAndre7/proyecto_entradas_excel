@@ -925,7 +925,7 @@ def enviar_whatsapp_qr(request, cod_part):
                 FileType('image/jpeg'),
                 Disposition('attachment')
             )
-            message.attachments = [attachment]
+            message.add_attachment(attachment)
 
             sg = SendGridAPIClient(config('EMAIL_HOST_PASSWORD1'))
             response = sg.send(message)

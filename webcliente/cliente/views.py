@@ -819,8 +819,6 @@ def enviar_whatsapp_qr(request, cod_part):
     # ======================================================
     from django.core.mail import EmailMessage
     import base64
-    from decouple import config
-    
     
     
     if participante.correo:

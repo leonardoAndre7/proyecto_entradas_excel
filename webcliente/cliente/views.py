@@ -3,6 +3,7 @@ from .models import Participante, Voucher,RegistroCorreo, Previaparticipantes
 import pandas as pd
 import openpyxl
 import qrcode
+from decouple import config
 from django.db.models import Max
 from datetime import datetime
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side

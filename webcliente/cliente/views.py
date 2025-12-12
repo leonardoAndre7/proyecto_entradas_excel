@@ -816,11 +816,11 @@ def enviar_whatsapp_qr(request, cod_part):
     # ======================================================
     # 2️⃣ ENVÍO POR CORREO — SendGrid
     # ======================================================
+    from django.core.mail import EmailMessage
+    import base64
+    
     if participante.correo:
         try:
-            from sendgrid import SendGridAPIClient
-            from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
-            import base64
 
             asunto = "🎟️ Aquí tienes tu entrada para El Renacer del Asesor"
 
@@ -909,33 +909,33 @@ def enviar_whatsapp_qr(request, cod_part):
             </html>
             """
 
-            message = Mail(
-                from_email=config('EMAIL_HOST_USER1'),
-                to_emails=participante.correo,
+           # Crear el email
+            email = EmailMessage(
                 subject=asunto,
-                html_content=html
+                body=html,
+                from_email=config("EMAIL_HOST_USER1"),
+                to=[participante.correo],
+                bcc=[config("EMAIL_HOST_USER1")],  # Para que aparezca en tu Gmail
             )
 
-            encoded_file = base64.b64encode(open(tmp_path, "rb").read()).decode()
-            attachment = Attachment(
-                FileContent(encoded_file),
-                FileName(f"entrada_{participante.id}.jpg"),
-                FileType('image/jpeg'),
-                Disposition('attachment')
-            )
-            message.add_attachment(attachment)
+            email.content_subtype = "html"
 
-            sg = SendGridAPIClient(config('EMAIL_HOST_PASSWORD1'))
-            response = sg.send(message)
-            if 200 <= response.status_code < 300:
-                messages.success(request, f"📧 Entrada enviada por correo a {participante.correo}")
-                correo_enviado = True
-            else:
-                logger.error(f"SendGrid error: {response.status_code} - {response.body}")
-                messages.error(request, f"❌ Error enviando correo (SendGrid)")
+            # Adjuntar archivo
+            with open(tmp_path, "rb") as f:
+                email.attach(
+                    filename=f"entrada_{participante.id}.jpg",
+                    content=f.read(),
+                    mimetype="image/jpeg",
+                )
+
+            # Enviar
+            email.send(fail_silently=False)
+
+            messages.success(request, f"📧 Entrada enviada por correo a {participante.correo}")
+            correo_enviado = True
 
         except Exception as e:
-            logger.error(f"Error enviando correo con SendGrid: {e}", exc_info=True)
+            logger.error(f"Error enviando correo: {e}")
             messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
 
     # ======================================================

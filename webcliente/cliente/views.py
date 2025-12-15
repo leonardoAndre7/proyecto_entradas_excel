@@ -915,9 +915,8 @@ def enviar_whatsapp_qr(request, cod_part):
             email = EmailMessage(
                 subject=asunto,
                 body=html,
-                from_email=config("EMAIL_HOST_USER1"),
-                to=[participante.correo],
-                bcc=[config("EMAIL_HOST_USER1")],  # Para que aparezca en tu Gmail
+                from_email=None, # Usa noreply@ede-evento.com
+                to=[participante.correo, "copias@ede-evento.com"],
             )
 
             email.content_subtype = "html"

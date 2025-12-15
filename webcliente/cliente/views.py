@@ -1221,302 +1221,255 @@ def leer_excel(archivo):
 ################################################################################
 ##################################################################################
 import os
-import base64
 import tempfile
-import time
 import logging
-from io import BytesIO
-from email.message import EmailMessage
 
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.conf import settings
-from django.core.mail import EmailMessage as DjangoEmailMessage  # opcional si prefieres
+from django.core.mail import EmailMessage
+from django.core.files import File
+
 from twilio.rest import Client
-import requests
-from decouple import config
 
-from cliente.models import Previaparticipantes
-
-# Asumo que estas funciones están definidas en el mismo archivo o importadas:
-# - crear_entrada_con_qr_transformado(participante) -> BytesIO (buffer con imagen JPEG)
-# - upload_buffer_to_imgbb(buffer, filename) -> URL (o None)
-# Si las tienes en otro módulo, importa: from .mi_modulo import crear_entrada_con_qr_transformado, upload_buffer_to_imgbb
-
-logger = logging.getLogger(__name__)
+from cliente.models import Previaparticipantes, EmailEnviado
 
 
 def enviar_todos_whatsapp(request):
-    """
-    Envío masivo: por cada Previaparticipantes crea la entrada (QR + asesor.jpeg),
-    sube a ImgBB, envía por WhatsApp (Twilio) y envía por correo si tiene.
-    NO aplica filtros: envía a todos con celular (excluye nulos/vacíos).
-    """
+    
     if request.method != "POST":
-        return redirect('registro_participante')
+        return redirect("registro_participante")
 
-    participantes = Previaparticipantes.objects.exclude(celular__isnull=True).exclude(celular="").order_by('id')
+    participantes = Previaparticipantes.objects.exclude(
+        celular__isnull=True
+    ).exclude(celular="").order_by("id")
+
     total = participantes.count()
     enviados_whatsapp = 0
     enviados_email = 0
     errores = 0
 
-    messages.info(request, f"⏳ Iniciando envío masivo a {total} participantes. No cerrar navegador ni consola.")
+    messages.info(
+        request,
+        f"⏳ Iniciando envío masivo a {total} participantes. No cerrar navegador."
+    )
 
-    # Inicializar Twilio
+    logger = logging.getLogger(__name__)
+
+    # ==========================
+    # INICIALIZAR TWILIO
+    # ==========================
     try:
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        client = Client(
+            settings.TWILIO_ACCOUNT_SID,
+            settings.TWILIO_AUTH_TOKEN
+        )
         numero_twilio = f"whatsapp:{settings.TWILIO_PHONE_NUMBER}"
     except Exception as e:
-        logger.error(f"Error inicializando Twilio: {e}", exc_info=True)
-        messages.error(request, "❌ Error inicializando Twilio. Revisa configuración.")
-        return redirect('registro_participante')
+        logger.error(e)
+        messages.error(request, "❌ Error inicializando Twilio")
+        return redirect("registro_participante")
 
+    # ==========================
+    # LOOP PRINCIPAL
+    # ==========================
     for idx, p in enumerate(participantes, start=1):
         tmp_path = None
+        registro_email = None
+
         try:
-            logger.info(f"[{idx}/{total}] Procesando participante id={p.id} {p.nombres}")
+            # ==========================
+            # CREAR ENTRADA
+            # ==========================
+            entrada_buffer = crear_entrada_con_qr_transformado(p)
 
-            # 1) Crear la entrada combinada (transformada). Reutiliza tu función existente.
-            try:
-                entrada_buffer = crear_entrada_con_qr_transformado(p)  # debe devolver BytesIO
-            except Exception as e:
-                logger.error(f"Error creando entrada para {p.id} - {p.nombres}: {e}", exc_info=True)
-                errores += 1
-                # continuar con el siguiente participante
-                continue
+            tmp_path = os.path.join(
+                tempfile.gettempdir(),
+                f"entrada_{p.id}.jpg"
+            )
 
-            # 2) Guardar temporalmente (para adjuntar al correo si hace falta)
-            try:
-                tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{p.id}.jpg")
-                with open(tmp_path, "wb") as f:
-                    f.write(entrada_buffer.getvalue())
-                entrada_buffer.seek(0)
-            except Exception as e:
-                logger.error(f"Error guardando temporal para {p.id}: {e}", exc_info=True)
-                # No abortamos; intentaremos subir desde buffer
-                tmp_path = None
+            with open(tmp_path, "wb") as f:
+                f.write(entrada_buffer.getvalue())
 
-            # 3) Subir a ImgBB (reutilizando la función que ya tienes)
-            try:
-                image_url = upload_buffer_to_imgbb(entrada_buffer, filename=f"entrada_{p.id}.jpg")
-                if not image_url:
-                    logger.warning(f"No se obtuvo image_url para {p.id}; se enviará mensaje sin imagen.")
-            except Exception as e:
-                logger.error(f"Error subiendo a ImgBB para {p.id}: {e}", exc_info=True)
-                image_url = None
+            entrada_buffer.seek(0)
 
-            # 4) Preparar número destino (normalizar)
-            celular_raw = (p.celular or "").strip()
-            celular_digits = "".join([c for c in celular_raw if c.isdigit()])
-            if not celular_digits:
-                logger.warning(f"{p.nombres} (id={p.id}) no tiene número válido. Omitido WhatsApp.")
-            else:
-                # Si no tiene código país, asumimos Perú (51)
-                if not celular_digits.startswith("51"):
-                    celular_digits = "51" + celular_digits
-                numero_destino = f"whatsapp:+{celular_digits}"
+            # ==========================
+            # WHATSAPP
+            # ==========================
+            celular = "".join(c for c in (p.celular or "") if c.isdigit())
 
-                # 5) Mensaje
-                mensaje_texto = (
-                    f"🎟️ Hola {p.nombres}, tu entrada para *El Renacer del Asesor* está lista.\n\n"
-                    f"📅 Fecha: 14/12/2025\n"
-                    f"📍 Lugar: Pendiente\n\n"
-                    "Adjuntamos tu entrada oficial. Por favor, descárgala y guárdala para el ingreso.\n\n"
-                    "¡Nos vemos pronto! 🚀"
+            if celular:
+                if not celular.startswith("51"):
+                    celular = "51" + celular
+
+                image_url = upload_buffer_to_imgbb(
+                    entrada_buffer,
+                    f"entrada_{p.id}.jpg"
                 )
 
-                # 6) Envío por Twilio (con o sin media)
-                try:
-                    if image_url:
-                        client.messages.create(
-                            from_=numero_twilio,
-                            to=numero_destino,
-                            body=mensaje_texto,
-                            media_url=[image_url]
-                        )
-                    else:
-                        client.messages.create(
-                            from_=numero_twilio,
-                            to=numero_destino,
-                            body=mensaje_texto
-                        )
-                    enviados_whatsapp += 1
-                    logger.info(f"WhatsApp enviado a {p.nombres} -> {numero_destino}")
-                except Exception as e:
-                    logger.error(f"Error enviando WhatsApp a {p.id} ({p.nombres}): {e}", exc_info=True)
+                mensaje_whatsapp = (
+                    f"🎟️ *El Renacer del Asesor*\n\n"
+                    f"Hola {p.nombres},\n\n"
+                    "Tu entrada oficial ya está lista.\n"
+                    "Adjuntamos la imagen para tu ingreso.\n\n"
+                    "¡Te esperamos! 🚀"
+                )
 
-            # 7) Enviar correo si tiene
-            if getattr(p, "correo", None):
-                try:
-                    # ======================================================
-                    # 2️⃣ ENVÍO POR CORREO — HTML + FONDO DESDE TU DOMINIO
-                    # ======================================================
-                    from_email = config('EMAIL_HOST_USER1')
-                    password = config('EMAIL_HOST_PASSWORD1')
+                client.messages.create(
+                    from_=numero_twilio,
+                    to=f"whatsapp:+{celular}",
+                    body=mensaje_whatsapp,
+                    media_url=[image_url] if image_url else None,
+                )
 
-                    asunto = "🎟️ Aquí tienes tu entrada para El Renacer del Asesor"
+                enviados_whatsapp += 1
 
-                    import smtplib
-                    from email.message import EmailMessage
+            # ==========================
+            # CORREO (SENDGRID)
+            # ==========================
+            if p.correo:
+                asunto = "🎟️ Aquí tienes tu entrada para El Renacer del Asesor"
 
-                    msg = EmailMessage()
-                    msg["Subject"] = asunto
-                    msg["From"] = from_email
-                    msg["To"] = p.correo
-
-                    # ---------------------------------------------
-                    # HTML CON FONDO (desde tu dominio)
-                    # ---------------------------------------------
-                    html = f"""
-                    <html>
-                    <body style="margin:0; padding:0;">
-
-                        <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                            style="
-                                background-size: cover;
-                                background-position: center;
-                                padding: 40px 0;
-                            ">
+                html = f"""
+                <html>
+                <body style="margin:0;padding:0;background:#f2f2f2;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
                         <tr>
-                            <td>
+                            <td align="center" style="padding:40px 0;">
 
-                            <table width="600" align="center" cellpadding="0" cellspacing="0"
-                                    style="
-                                    background: rgba(255, 255, 255, 0.92);
-                                    border-radius: 12px;
-                                    padding: 30px;
-                                    font-family: Arial, sans-serif;
-                                    box-shadow: 0 4px 25px rgba(0,0,0,0.2);
-                                    ">
+                                <table width="600" cellpadding="0" cellspacing="0"
+                                    style="background:#ffffff;border-radius:12px;
+                                    font-family:Arial,sans-serif;
+                                    box-shadow:0 4px 25px rgba(0,0,0,.2);
+                                    padding:30px;">
 
-                                <tr>
-                                <td align="center">
-                                    <h1 style="margin:0; color:#222; font-size:28px;">
-                                    🎟️ El Renacer del Asesor
-                                    </h1>
-                                </td>
-                                </tr>
-
-                                <tr>
-                                <td style="padding-top:20px; font-size:18px; color:#333;">
-                                    Hola <strong>{p.nombres}</strong>,
-                                </td>
-                                </tr>
-
-                                <tr>
-                                <td style="padding-top:15px; font-size:16px; color:#444;">
-                                    ¡Gracias por ser parte de <strong>El Renacer del Asesor</strong>!  
-                                    Tu entrada oficial está adjunta a este correo.
-                                </td>
-                                </tr>
-
-                                <tr>
-                                <td style="padding-top:20px;">
-                                    <table width="100%" style="background:#fafafa; border-left:5px solid #007bff; padding:20px;">
                                     <tr>
-                                        <td style="font-size:18px; color:#222;">
-                                        📌 <strong>Detalles del evento:</strong>
+                                        <td align="center">
+                                            <h1 style="margin:0;color:#222;">
+                                                🎟️ El Renacer del Asesor
+                                            </h1>
                                         </td>
                                     </tr>
+
                                     <tr>
-                                        <td style="font-size:16px; color:#555;">
-                                        <ul style="padding-left:20px; margin:0;">
-                                            <li>Evento: El Renacer del Asesor</li>
-                                            <li>Ingreso con entrada adjunta</li>
-                                        </ul>
+                                        <td style="padding-top:20px;font-size:18px;color:#333;">
+                                            Hola <strong>{p.nombres}</strong>,
                                         </td>
                                     </tr>
-                                    </table>
-                                </td>
-                                </tr>
 
-                                <tr>
-                                <td style="padding-top:25px; font-size:17px; color:#007bff; font-weight:bold;">
-                                    Te recomendamos llegar con anticipación para el check-in.
-                                </td>
-                                </tr>
+                                    <tr>
+                                        <td style="padding-top:15px;font-size:16px;color:#444;">
+                                            ¡Gracias por ser parte de <strong>El Renacer del Asesor</strong>!
+                                            Tu entrada oficial está adjunta a este correo.
+                                        </td>
+                                    </tr>
 
-                                <tr>
-                                <td style="padding-top:25px; font-size:16px; color:#444;">
-                                    ¡Nos vemos pronto para vivir una experiencia transformadora!
-                                </td>
-                                </tr>
+                                    <tr>
+                                        <td style="padding-top:20px;">
+                                            <table width="100%"
+                                                style="background:#fafafa;
+                                                border-left:5px solid #007bff;
+                                                padding:20px;">
+                                                <tr>
+                                                    <td style="font-size:16px;color:#555;">
+                                                        📌 <strong>Detalles del evento</strong>
+                                                        <ul>
+                                                            <li>Evento: El Renacer del Asesor</li>
+                                                            <li>Ingreso con entrada adjunta</li>
+                                                        </ul>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
 
-                                <tr>
-                                <td style="padding-top:30px; font-size:16px; color:#444;">
-                                    Saludos,<br>
-                                    <strong>Equipo El Renacer del Asesor</strong>
-                                </td>
-                                </tr>
+                                    <tr>
+                                        <td style="padding-top:25px;font-size:16px;color:#007bff;">
+                                            Te recomendamos llegar con anticipación.
+                                        </td>
+                                    </tr>
 
-                            </table>
+                                    <tr>
+                                        <td style="padding-top:25px;font-size:16px;color:#444;">
+                                            ¡Nos vemos pronto!
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td style="padding-top:30px;font-size:16px;color:#444;">
+                                            Saludos,<br>
+                                            <strong>Equipo El Renacer del Asesor</strong>
+                                        </td>
+                                    </tr>
+
+                                </table>
 
                             </td>
                         </tr>
-                        </table>
+                    </table>
+                </body>
+                </html>
+                """
 
-                    </body>
-                    </html>
-                    """
+                # Guardar en BD (tipo Gmail → Enviados)
+                registro_email = EmailEnviado.objects.create(
+                    participante=p,
+                    destinatario=p.correo,
+                    asunto=asunto,
+                    cuerpo_html=html,
+                )
 
-                    # Configurar cuerpo HTML
-                    msg.set_content("Tu cliente de correo no soporta HTML.")
-                    msg.add_alternative(html, subtype="html")
+                with open(tmp_path, "rb") as f:
+                    registro_email.adjunto.save(
+                        f"entrada_{p.id}.jpg",
+                        File(f),
+                        save=True
+                    )
 
-                    # Adjuntar entrada (JPG)
-                    if tmp_path and os.path.exists(tmp_path):
-                        with open(tmp_path, "rb") as f:
-                            msg.add_attachment(
-                                f.read(),
-                                maintype="image",
-                                subtype="jpeg",
-                                filename=f"entrada_{p.id}.jpg"
-                            )
-                    else:
-                        entrada_buffer.seek(0)
-                        msg.add_attachment(
-                            entrada_buffer.getvalue(),
-                            maintype="image",
-                            subtype="jpeg",
-                            filename=f"entrada_{p.id}.jpg"
-                        )
+                email = EmailMessage(
+                    subject=asunto,
+                    body=html,
+                    from_email="EDE Evento <noreply@ede-evento.com>",
+                    to=[p.correo],
+                )
+                email.content_subtype = "html"
 
-                    # Enviar correo
-                    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                        server.starttls()
-                        server.login(from_email, password)
-                        server.send_message(msg)
+                with open(tmp_path, "rb") as f:
+                    email.attach(
+                        f"entrada_{p.id}.jpg",
+                        f.read(),
+                        "image/jpeg"
+                    )
 
-                    enviados_email += 1
-                    messages.success(request, f"📧 Entrada enviada por correo a {p.correo}")
+                email.send(fail_silently=False)
 
-                except Exception as e:
-                    logger.error(f"Error enviando correo HTML a {p.id} ({p.nombres}): {e}", exc_info=True)
-                    messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
+                registro_email.enviado = True
+                registro_email.save()
 
-            else:
-                messages.warning(request, f"⚠️ {p.nombres} no tiene correo registrado.")
+                enviados_email += 1
+
+            p.enviado = True
+            p.save()
+
+        except Exception as e:
+            errores += 1
+            if registro_email:
+                registro_email.error = str(e)
+                registro_email.save()
+            logger.error(e, exc_info=True)
 
         finally:
-                try:
-                    if tmp_path and os.path.exists(tmp_path):
-                        os.remove(tmp_path)
-                except Exception as e:
-                    logger.error(f"Error limpiando tmp_path {tmp_path}: {e}", exc_info=True)
+            if tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
-            # Marcar como enviado
-        p.enviado = True
-        p.save()
-        
-           # ---------------------------
-    # 🔥 RETURN FINAL OBLIGATORIO
-    # ---------------------------
-    summary = f"✅ Finalizado. WhatsApp enviados: {enviados_whatsapp}. Correos: {enviados_email}. Errores: {errores}."
-    messages.success(request, summary)
-    logger.info(summary)
+    messages.success(
+        request,
+        f"✅ Finalizado | WhatsApp: {enviados_whatsapp} | Correos: {enviados_email} | Errores: {errores}"
+    )
 
     return redirect("registro_participante")
+
+
 
 #########################################################
 #########################################################

@@ -129,6 +129,42 @@ class Voucher(models.Model):
             return f"Voucher de {self.previaparticipante.nombres or self.previaparticipante.cod_part}"
         return "Voucher sin participante asignado"
 
+##################################################################################
+##################################################################################
+##################################################################################
+### MODELO DE LOS EMAIL ENVIADOS 
+##################################################################################
+##################################################################################
+##################################################################################
+
+class EmailEnviado(models.Model):
+    participante = models.ForeignKey(Previaparticipantes, on_delete=models.CASCADE, related_name="emails")
+    destinatario = models.EmailField()
+    asunto = models.CharField(max_length=255)
+    cuerpo_html = models.TextField()
+    
+    enviado = models.BooleanField(default=False)
+    error = models.TextField(blank=True, null=True)
+    
+    message_id = models.CharField(max_length=255, blank=True, null=True, help_text="Mesaage ID de SendGrid")
+    
+    fecha_envio = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f""
+
+
+
+
+
+
+
+
+
+
+
+
+
 ###############################################
 ###########################################
 ###################################################
@@ -217,4 +253,4 @@ class RegistroCorreo(models.Model):
         mensaje = models.TextField(blank=True)
 
         def __str__(self):
-            return f"{self.participante.nombres} - {self.fecha_envio}"
+            return f"{self.destinatario} - {self.asunto}"

@@ -732,6 +732,7 @@ def upload_buffer_to_imgbb(image_buffer, filename="entrada.jpg"):
         return None
 
 
+from .models import EmailEnviado
 
 
 def enviar_whatsapp_qr(request, cod_part):
@@ -910,13 +911,20 @@ def enviar_whatsapp_qr(request, cod_part):
             </body>
             </html>
             """
+            
+            registro_email = EmailEnviado.objects.create(
+                participante=participante,
+                destinario=participante.correo,
+                asunto=asunto,
+                cuerpo_html=html,
+            )
 
            # Crear el email
             email = EmailMessage(
                 subject=asunto,
                 body=html,
-                from_email=None, # Usa noreply@ede-evento.com
-                to=[participante.correo, "copias@ede-evento.com"],
+                from_email="EDE Evento <noreply@ede-evento.com>", # Usa noreply@ede-evento.com
+                to=[participante.correo],
             )
 
             email.content_subtype = "html"
@@ -931,11 +939,17 @@ def enviar_whatsapp_qr(request, cod_part):
 
             # Enviar
             email.send(fail_silently=False)
+            
+            registro_email.enviado = True
+            registro_email.save()
 
             messages.success(request, f"📧 Entrada enviada por correo a {participante.correo}")
             correo_enviado = True
 
         except Exception as e:
+            registro_email.error = str(e)
+            registro_email.save()
+            
             logger.error(f"Error enviando correo: {e}")
             messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
 

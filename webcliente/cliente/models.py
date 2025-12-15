@@ -143,6 +143,8 @@ class EmailEnviado(models.Model):
     asunto = models.CharField(max_length=255)
     cuerpo_html = models.TextField()
     
+    adjunto = models.ImageField(upload_to='email_adjuntos/', blank=True, null=True)
+    
     enviado = models.BooleanField(default=False)
     error = models.TextField(blank=True, null=True)
     

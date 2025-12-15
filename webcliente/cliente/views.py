@@ -733,6 +733,7 @@ def upload_buffer_to_imgbb(image_buffer, filename="entrada.jpg"):
 
 
 from .models import EmailEnviado
+from django.core.files import File
 
 
 def enviar_whatsapp_qr(request, cod_part):
@@ -920,6 +921,13 @@ def enviar_whatsapp_qr(request, cod_part):
                 asunto=asunto,
                 cuerpo_html=html,
             )
+            
+            with open(tmp_path, "rb") as f:
+                registro_email.adjunto.save(
+                    f"entrada_{participante.id}.jpg",
+                    File(f),
+                    save=True
+                )
 
            # Crear el email
             email = EmailMessage(
@@ -938,6 +946,8 @@ def enviar_whatsapp_qr(request, cod_part):
                     content=f.read(),
                     mimetype="image/jpeg",
                 )
+                
+                
 
             # Enviar
             email.send(fail_silently=False)

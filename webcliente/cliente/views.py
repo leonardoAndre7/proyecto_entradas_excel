@@ -821,6 +821,8 @@ def enviar_whatsapp_qr(request, cod_part):
     from django.core.mail import EmailMessage
     import base64
     
+    registro_email = None
+    
     
     if participante.correo:
         try:
@@ -914,7 +916,7 @@ def enviar_whatsapp_qr(request, cod_part):
             
             registro_email = EmailEnviado.objects.create(
                 participante=participante,
-                destinario=participante.correo,
+                destinatario=participante.correo,
                 asunto=asunto,
                 cuerpo_html=html,
             )
@@ -947,8 +949,9 @@ def enviar_whatsapp_qr(request, cod_part):
             correo_enviado = True
 
         except Exception as e:
-            registro_email.error = str(e)
-            registro_email.save()
+            if registro_email:
+                registro_email.error = str(e)
+                registro_email.save()
             
             logger.error(f"Error enviando correo: {e}")
             messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")

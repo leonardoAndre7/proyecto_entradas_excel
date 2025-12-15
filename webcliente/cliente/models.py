@@ -151,7 +151,7 @@ class EmailEnviado(models.Model):
     fecha_envio = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f""
+        return f"{self.destinatario} - {self.asunto}"
 
 
 

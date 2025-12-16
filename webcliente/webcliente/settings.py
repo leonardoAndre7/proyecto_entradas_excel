@@ -28,6 +28,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://proyecto-entradas-excel-1.onrender.com",
 ]
 
+
 # --- TWILIO / WHAPI / IMGBB ---
 TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID", default="")
 TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN", default="")
@@ -36,6 +37,20 @@ WHAPI_TOKEN = config("WHAPI_TOKEN", default="")
 IMGBB_API_KEY = config("IMGBB_API_KEY", default="")
 TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER", default="")
 BASE_URL = "https://proyecto-entradas-excel-1.onrender.com"
+
+
+CELERY_BROKER_URL = config('REDIS_URL')
+CELERY_RESULT_BACKEND = config('REDIS_URL')
+
+
+# ==========================
+# CELERY CONFIG
+# ==========================
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_BACKEND = "django-db"
+
 
 # --- APLICACIONES ---
 INSTALLED_APPS = [
@@ -46,6 +61,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'cliente',
+    "django_celery_results",
 ]
 
 # --- MIDDLEWARE ---

@@ -1222,14 +1222,15 @@ def leer_excel(archivo):
 ##################################################################################
 from django.shortcuts import redirect
 from django.contrib import messages
-from cliente.tasks import enviar_todos_whatsapp_task
+
+from cliente.tasks import enviar_todos_whatsapp_async
 
 
 def enviar_todos_whatsapp(request):
     if request.method != "POST":
         return redirect("registro_participante")
 
-    enviar_todos_whatsapp_task.delay()
+    enviar_todos_whatsapp_async()
 
     messages.success(
         request,
@@ -1237,6 +1238,7 @@ def enviar_todos_whatsapp(request):
     )
 
     return redirect("registro_participante")
+
 
 #########################################################
 #########################################################

@@ -39,9 +39,6 @@ TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER", default="")
 BASE_URL = "https://proyecto-entradas-excel-1.onrender.com"
 
 
-CELERY_BROKER_URL = config('REDIS_URL')
-CELERY_RESULT_BACKEND = config('REDIS_URL')
-
 
 # ==========================
 # CELERY CONFIG

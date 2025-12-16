@@ -2,7 +2,10 @@ import os
 import tempfile
 import logging
 
-from celery import shared_task
+import threading
+import time
+
+
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.core.files import File
@@ -17,14 +20,14 @@ from cliente.utils import (
 
 logger = logging.getLogger(__name__)
 
+TAMAÑO_LOTE = 5     # participantes por lote (recomendado bajo por WhatsApp)
+SLEEP = 1.5         # segundos entre envíos
+MAX_THREADS = 2     # Render safe
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_kwargs={"max_retries": 3, "countdown": 30},
-    retry_backoff=True
-)
-def enviar_todos_whatsapp_task(self):
+semaforo = threading.Semaphore(MAX_THREADS)
+
+
+def enviar_todos_whatsapp_thread():
     participantes = Previaparticipantes.objects.exclude(
         celular__isnull=True
     ).exclude(celular="").order_by("id")
@@ -250,3 +253,13 @@ def enviar_todos_whatsapp_task(self):
         "email": enviados_email,
         "errores": errores,
     }
+
+
+
+def enviar_todos_whatsapp_async():
+    hilo = threading.Thread(
+        target=enviar_todos_whatsapp_thread,  # ✅ FUNCIÓN CORRECTA
+        daemon=True
+    )
+    hilo.start()
+

@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from . import views  # 👈 Solo esta línea basta
 from .views import qr_preview
@@ -50,7 +50,13 @@ urlpatterns = [
 
 
    path("ingreso/<int:pk>/", views.marcar_ingreso, name="marcar_ingreso"),
-   path("qr/<uuid:token>/", qr_preview, name="qr_preview")
+   path("qr/<uuid:token>/", qr_preview, name="qr_preview"),
+   
+   path(
+        "enviar-todos-whatsapp/",
+        views.enviar_todos_whatsapp,
+        name="enviar_todos_whatsapp"
+    ),
 
 
 ]

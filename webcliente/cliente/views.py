@@ -1226,11 +1226,12 @@ from django.contrib import messages
 from cliente.tasks import enviar_todos_whatsapp_async
 
 
+
 def enviar_todos_whatsapp(request):
     if request.method != "POST":
         return redirect("registro_participante")
 
-    enviar_todos_whatsapp_async()
+    enviar_todos_whatsapp_async.delay() 
 
     messages.success(
         request,

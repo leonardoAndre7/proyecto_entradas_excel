@@ -1231,7 +1231,7 @@ def enviar_todos_whatsapp(request):
     if request.method != "POST":
         return redirect("registro_participante")
 
-    enviar_todos_whatsapp_async.delay() 
+    enviar_todos_whatsapp_async() 
 
     messages.success(
         request,

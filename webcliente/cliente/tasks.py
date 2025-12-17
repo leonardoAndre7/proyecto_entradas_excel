@@ -1,15 +1,12 @@
 import os
 import tempfile
 import logging
-
 import threading
 import time
-
 
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.core.files import File
-
 from twilio.rest import Client
 
 from cliente.models import Previaparticipantes, EmailEnviado
@@ -20,24 +17,24 @@ from cliente.utils import (
 
 logger = logging.getLogger(__name__)
 
-TAMAÑO_LOTE = 5     # participantes por lote (recomendado bajo por WhatsApp)
-SLEEP = 1.5         # segundos entre envíos
-MAX_THREADS = 2     # Render safe
+SLEEP = 1.5  # segundos entre envíos (Render safe)
 
-semaforo = threading.Semaphore(MAX_THREADS)
-
-
+# =====================================================
+# FUNCIÓN PRINCIPAL
+# =====================================================
 def enviar_todos_whatsapp_thread():
-    participantes = Previaparticipantes.objects.exclude(
-        celular__isnull=True
-    ).exclude(celular="").order_by("id")
+
+    # 🔴 SOLO LOS NO ENVIADOS
+    participantes = Previaparticipantes.objects.filter(
+        enviado=False
+    ).exclude(celular__isnull=True).exclude(celular="").order_by("id")
 
     enviados_whatsapp = 0
     enviados_email = 0
     errores = 0
 
     # ==========================
-    # INICIALIZAR TWILIO
+    # TWILIO
     # ==========================
     client = Client(
         settings.TWILIO_ACCOUNT_SID,
@@ -47,10 +44,11 @@ def enviar_todos_whatsapp_thread():
 
     for p in participantes:
         tmp_path = None
+        envio_ok = False  # ✅ CONTROL REAL
 
         try:
             # ==========================
-            # CREAR ENTRADA CON QR
+            # CREAR ENTRADA
             # ==========================
             entrada_buffer = crear_entrada_con_qr_transformado(p)
 
@@ -70,10 +68,10 @@ def enviar_todos_whatsapp_thread():
                 f"❌ Error creando entrada participante {p.id}: {e}",
                 exc_info=True
             )
-            continue  # sin entrada no tiene sentido seguir
+            continue
 
         # ==========================
-        # WHATSAPP (INDEPENDIENTE)
+        # WHATSAPP
         # ==========================
         try:
             celular = "".join(c for c in (p.celular or "") if c.isdigit())
@@ -87,7 +85,7 @@ def enviar_todos_whatsapp_thread():
                     f"entrada_{p.id}.jpg"
                 )
 
-                mensaje_whatsapp = (
+                mensaje = (
                     f"🎟️ *El Renacer del Asesor*\n\n"
                     f"Hola {p.nombres},\n\n"
                     "Tu entrada oficial ya está lista.\n"
@@ -98,11 +96,12 @@ def enviar_todos_whatsapp_thread():
                 client.messages.create(
                     from_=numero_twilio,
                     to=f"whatsapp:+{celular}",
-                    body=mensaje_whatsapp,
+                    body=mensaje,
                     media_url=[image_url] if image_url else None,
                 )
 
                 enviados_whatsapp += 1
+                envio_ok = True  # ✅
 
         except Exception as e:
             logger.error(
@@ -111,94 +110,93 @@ def enviar_todos_whatsapp_thread():
             )
 
         # ==========================
-        # EMAIL (INDEPENDIENTE)
+        # EMAIL
         # ==========================
         try:
             if p.correo:
                 asunto = "🎟️ Aquí tienes tu entrada para El Renacer del Asesor"
 
                 html = f"""
-                <html>
-                <body style="margin:0;padding:0;background:#f2f2f2;">
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                        <tr>
-                            <td align="center" style="padding:40px 0;">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El Renacer del Asesor</title>
+</head>
 
-                                <table width="600" cellpadding="0" cellspacing="0"
-                                    style="background:#ffffff;border-radius:12px;
-                                    font-family:Arial,sans-serif;
-                                    box-shadow:0 4px 25px rgba(0,0,0,.2);
-                                    padding:30px;">
+<body style="margin:0;padding:0;background:#f2f2f2;">
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td align="center" style="padding:40px 0;">
 
-                                    <tr>
-                                        <td align="center">
-                                            <h1 style="margin:0;color:#222;">
-                                                🎟️ El Renacer del Asesor
-                                            </h1>
-                                        </td>
-                                    </tr>
+<table width="600" cellpadding="0" cellspacing="0"
+style="background:#ffffff;border-radius:12px;
+font-family:Arial,sans-serif;
+box-shadow:0 4px 25px rgba(0,0,0,.2);
+padding:30px;">
 
-                                    <tr>
-                                        <td style="padding-top:20px;font-size:18px;color:#333;">
-                                            Hola <strong>{p.nombres}</strong>,
-                                        </td>
-                                    </tr>
+<tr>
+<td align="center">
+<h1 style="margin:0;color:#222;">🎟️ El Renacer del Asesor</h1>
+</td>
+</tr>
 
-                                    <tr>
-                                        <td style="padding-top:15px;font-size:16px;color:#444;">
-                                            ¡Gracias por ser parte de <strong>El Renacer del Asesor</strong>!
-                                            Tu entrada oficial está adjunta a este correo.
-                                        </td>
-                                    </tr>
+<tr>
+<td style="padding-top:20px;font-size:18px;color:#333;">
+Hola <strong>{p.nombres}</strong>,
+</td>
+</tr>
 
-                                    <tr>
-                                        <td style="padding-top:20px;">
-                                            <table width="100%"
-                                                style="background:#fafafa;
-                                                border-left:5px solid #007bff;
-                                                padding:20px;">
-                                                <tr>
-                                                    <td style="font-size:16px;color:#555;">
-                                                        📌 <strong>Detalles del evento</strong>
-                                                        <ul>
-                                                            <li>Evento: El Renacer del Asesor</li>
-                                                            <li>Ingreso con entrada adjunta</li>
-                                                        </ul>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                    </tr>
+<tr>
+<td style="padding-top:15px;font-size:16px;color:#444;">
+¡Gracias por ser parte de <strong>El Renacer del Asesor</strong>!
+Tu entrada oficial está adjunta a este correo.
+</td>
+</tr>
 
-                                    <tr>
-                                        <td style="padding-top:25px;font-size:16px;color:#007bff;">
-                                            Te recomendamos llegar con anticipación.
-                                        </td>
-                                    </tr>
+<tr>
+<td style="padding-top:20px;">
+<table width="100%"
+style="background:#fafafa;
+border-left:5px solid #007bff;
+padding:20px;">
+<tr>
+<td style="font-size:16px;color:#555;">
+📌 <strong>Detalles del evento</strong>
+<ul>
+<li>Evento: El Renacer del Asesor</li>
+<li>Ingreso con entrada adjunta</li>
+</ul>
+</td>
+</tr>
+</table>
+</td>
+</tr>
 
-                                    <tr>
-                                        <td style="padding-top:25px;font-size:16px;color:#444;">
-                                            ¡Nos vemos pronto!
-                                        </td>
-                                    </tr>
+<tr>
+<td style="padding-top:25px;font-size:16px;color:#007bff;">
+Te recomendamos llegar con anticipación.
+</td>
+</tr>
 
-                                    <tr>
-                                        <td style="padding-top:30px;font-size:16px;color:#444;">
-                                            Saludos,<br>
-                                            <strong>Equipo El Renacer del Asesor</strong>
-                                        </td>
-                                    </tr>
+<tr>
+<td style="padding-top:30px;font-size:16px;color:#444;">
+Saludos,<br>
+<strong>Equipo El Renacer del Asesor</strong>
+</td>
+</tr>
 
-                                </table>
+</table>
 
-                            </td>
-                        </tr>
-                    </table>
-                </body>
-                </html>
-                """
+</td>
+</tr>
+</table>
+</body>
+</html>
+"""
 
-                registro_email = EmailEnviado.objects.create(
+                registro = EmailEnviado.objects.create(
                     participante=p,
                     destinatario=p.correo,
                     asunto=asunto,
@@ -206,7 +204,7 @@ def enviar_todos_whatsapp_thread():
                 )
 
                 with open(tmp_path, "rb") as f:
-                    registro_email.adjunto.save(
+                    registro.adjunto.save(
                         f"entrada_{p.id}.jpg",
                         File(f),
                         save=True
@@ -229,10 +227,11 @@ def enviar_todos_whatsapp_thread():
 
                 email.send()
 
-                registro_email.enviado = True
-                registro_email.save()
+                registro.enviado = True
+                registro.save()
 
                 enviados_email += 1
+                envio_ok = True  # ✅
 
         except Exception as e:
             errores += 1
@@ -245,8 +244,14 @@ def enviar_todos_whatsapp_thread():
             if tmp_path and os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
-        p.enviado = True
-        p.save(update_fields=["enviado"])
+        # ==========================
+        # MARCAR SOLO SI ALGO SALIÓ BIEN
+        # ==========================
+        if envio_ok:
+            p.enviado = True
+            p.save(update_fields=["enviado"])
+
+        time.sleep(SLEEP)
 
     return {
         "whatsapp": enviados_whatsapp,
@@ -255,11 +260,11 @@ def enviar_todos_whatsapp_thread():
     }
 
 
-
+# =====================================================
+# ASÍNCRONO (THREAD)
+# =====================================================
 def enviar_todos_whatsapp_async():
-    hilo = threading.Thread(
-        target=enviar_todos_whatsapp_thread,  # ✅ FUNCIÓN CORRECTA
+    threading.Thread(
+        target=enviar_todos_whatsapp_thread,
         daemon=True
-    )
-    hilo.start()
-
+    ).start()

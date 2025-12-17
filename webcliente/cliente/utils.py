@@ -568,6 +568,33 @@ def crear_entrada_con_qr(participante):
         logger.error(f"Error creando entrada con QR: {e}", exc_info=True)
         raise
     
+import base64
+import requests
+      
+
+def upload_buffer_to_imgbb(image_buffer, filename="entrada.jpg"):
+    """Subir imagen desde buffer a ImgBB"""
+    try:
+        encoded_image = base64.b64encode(image_buffer.getvalue()).decode("utf-8")
+        
+        response = requests.post(
+            "https://api.imgbb.com/1/upload",
+            data={
+                "key": settings.IMGBB_API_KEY,
+                "image": encoded_image,
+                "name": filename
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            return response.json().get("data", {}).get("url")
+        else:
+            logger.error(f"ImgBB API error: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        logger.error(f"Error uploading to ImgBB: {e}")
+        return None
     
 
     

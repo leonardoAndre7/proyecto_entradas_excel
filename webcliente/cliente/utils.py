@@ -7,6 +7,7 @@ from django.core.mail import EmailMultiAlternatives, EmailMessage
 from django.conf import settings
 import pandas as pd
 import qrcode
+from django.urls import reverse
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from django.core.files import File
@@ -129,7 +130,6 @@ def sincronizar_excel_local():
 
 
 
-
 def generar_imagen_final(participante, partes_path_list, tipo_fuente="arial.ttf"):
     """
     Combina varias imágenes, coloca QR y texto según tipo de entrada.
@@ -242,3 +242,332 @@ def generar_qr(participante, logo_path='ruta/logo.png'):
     buffer.seek(0)
     participante.qr.save(f"{participante.cod_cliente}.png", File(buffer), save=False)
     participante.save(update_fields=['qr'])
+    
+    
+    
+    
+       
+    
+def crear_entrada_con_qr_transformado(participante):
+    """
+    Versión alternativa con transformación perspectiva para cuadrilátero irregular.
+    Agrega nombre del participante debajo del QR con tamaño dinámico.
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        
+        # 1. Generar QR base
+        qr_base = generar_qr_dinamico(participante, size=(600, 600))
+        
+        # 2. Obtener fondo
+        fondo_path = get_background_image()
+        if not fondo_path:
+            buffer = BytesIO()
+            qr_base.save(buffer, format="PNG")
+            buffer.seek(0)
+            return buffer
+        
+        fondo = Image.open(fondo_path)
+        if fondo.mode == "RGBA":
+            fondo = fondo.convert("RGB")
+        
+        # 3. Coordenadas aproximadas del cuadrilátero
+        ancho_promedio = ((735-170) + (737-168)) // 2
+        alto_promedio = ((974-405) + (979-410)) // 2
+        
+        pos_x = 168
+        pos_y = 405
+        
+        # 4. Redimensionar QR al tamaño aproximado
+        qr_img = qr_base.resize((ancho_promedio, alto_promedio), Image.Resampling.LANCZOS)
+        qr_width, qr_height = qr_img.size
+        
+        # 5. Crear copia del fondo y pegar QR
+        entrada_completa = fondo.copy()
+        entrada_completa.paste(qr_img, (pos_x, pos_y))
+        
+        # ============================================================
+        # ✨ AGREGAR NOMBRE DEL PARTICIPANTE DEBAJO DEL QR
+        # ============================================================
+        from PIL import ImageDraw, ImageFont
+
+        draw = ImageDraw.Draw(entrada_completa)
+        nombre = participante.nombres.upper()
+
+        # Ruta a la fuente que sí existe
+        font_path = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", "Roboto-Bold.ttf")
+
+        # Ajuste automático del tamaño
+        max_width = qr_width - 20
+        font_size = 80  # tamaño grande inicial
+
+        while font_size > 25:
+            try:
+                font = ImageFont.truetype(font_path, font_size)
+            except:
+                # fallback seguro
+                font = ImageFont.truetype(font_path, 60)
+                break
+
+            bbox = draw.textbbox((0, 0), nombre, font=font)
+            text_width = bbox[2] - bbox[0]
+
+            if text_width <= max_width:
+                break
+
+            font_size -= 10
+
+        # centrar texto
+        texto_x = pos_x + (qr_width // 2) - (text_width // 2)
+        texto_y = pos_y + qr_height + 35
+
+        # Dibujar texto en blanco con borde negro grueso
+        draw.text(
+            (texto_x, texto_y),
+            nombre,
+            font=font,
+            fill="white",
+            stroke_width=5,
+            stroke_fill="black"
+        )
+# ============================================================
+        # ============================================================
+
+        # 6. Guardar en buffer
+        buffer = BytesIO()
+        entrada_completa.save(buffer, format="JPEG", quality=95)
+        buffer.seek(0)
+        
+        return buffer
+    
+    except Exception as e:
+        logger.error(f"Error en transformación perspectiva: {e}", exc_info=True)
+        # Fallback a la versión simple
+        return crear_entrada_con_qr(participante)
+    
+import logging 
+
+# Configurar logger
+logger = logging.getLogger(__name__)
+
+def generar_qr_dinamico(participante, size=None):
+    """
+    Genera el QR dinámicamente con tamaño ajustable
+    """
+    try:
+        # URL del QR (igual que en qr_preview)
+        url = f"{settings.BASE_URL}{reverse('validar_entrada_previo', args=[str(participante.token)])}"
+        
+        # Crear QR (mismos parámetros que qr_preview)
+        qr = qrcode.QRCode(box_size=10, border=4)
+        qr.add_data(url)
+        qr.make(fit=True)
+        
+        # Crear imagen (mismos colores que qr_preview)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convertir a PIL Image
+        qr_img = img.get_image()
+        
+        # Redimensionar si se especifica tamaño
+        if size:
+            qr_img = qr_img.resize(size, Image.Resampling.LANCZOS)
+        
+        return qr_img
+        
+    except Exception as e:
+        logger.error(f"Error generando QR dinámico: {e}")
+        raise
+
+
+
+
+def get_background_image():
+    """Obtiene la imagen de fondo asesor.jpeg"""
+    fondo_path = os.path.join(settings.BASE_DIR, 'cliente', 'static', 'img', 'asesor.jpeg')
+    
+    if os.path.exists(fondo_path):
+        return fondo_path
+    
+    # Buscar en otras ubicaciones posibles
+    alternative_paths = [
+        os.path.join(settings.BASE_DIR, 'static', 'img', 'asesor.jpeg'),
+        os.path.join(settings.BASE_DIR, 'asesor.jpeg'),
+    ]
+    
+    for path in alternative_paths:
+        if os.path.exists(path):
+            return path
+    
+    return None
+
+
+
+def calcular_transformacion_cuadrilatero():
+    """
+    Calcula la transformación para el QR en un cuadrilátero irregular
+    
+    Coordenadas del cuadrilátero:
+    - Izquierda arriba: (170, 405)
+    - Izquierda abajo: (168, 974)
+    - Derecha arriba: (735, 410)
+    - Derecha abajo: (737, 979)
+    
+    Retorna: (pos_x, pos_y, ancho, alto) aproximados
+    """
+    # Como es casi un rectángulo, usamos aproximación
+    # Calcular ancho promedio
+    ancho_arriba = 735 - 170  # 565
+    ancho_abajo = 737 - 168   # 569
+    ancho = (ancho_arriba + ancho_abajo) // 2  # 567
+    
+    # Calcular alto promedio
+    alto_izquierda = 974 - 405  # 569
+    alto_derecha = 979 - 410    # 569
+    alto = (alto_izquierda + alto_derecha) // 2  # 569
+    
+    # Posición: usar la esquina superior izquierda como referencia
+    # Pero ajustar ligeramente porque no es perfectamente rectangular
+    pos_x = min(170, 168)  # 168
+    pos_y = min(405, 410)  # 405
+    
+    # Pequeños ajustes para centrar mejor
+    pos_x += (abs(170 - 168)) // 2  # Ajuste por diferencia izquierda
+    pos_y += (abs(405 - 410)) // 2  # Ajuste por diferencia superior
+    
+    return pos_x, pos_y, ancho, alto
+
+
+
+
+
+def crear_entrada_con_qr(participante):
+    """
+    Crea la entrada combinada: asesor.jpeg + QR ajustado al cuadrilátero
+    """
+    try:
+        # 1. Calcular dimensiones del cuadrilátero
+        pos_x, pos_y, qr_width, qr_height = calcular_transformacion_cuadrilatero()
+        
+        logger.info(f"Cuadrilátero: pos=({pos_x}, {pos_y}), tamaño={qr_width}x{qr_height}")
+        
+        # 2. Generar el QR con el tamaño exacto del cuadrilátero
+        qr_img = generar_qr_dinamico(participante, size=(qr_width, qr_height))
+        logger.info(f"QR generado con tamaño: {qr_img.size}")
+        
+        # 3. Obtener la imagen de fondo
+        fondo_path = get_background_image()
+        
+        if not fondo_path:
+            # Si no hay fondo, devolver solo el QR
+            logger.warning("No se encontró asesor.jpeg, usando solo QR")
+            buffer = BytesIO()
+            qr_img.save(buffer, format="PNG")
+            buffer.seek(0)
+            return buffer
+        
+        # 4. Cargar la imagen de fondo
+        fondo = Image.open(fondo_path)
+        
+        # Convertir formatos si es necesario
+        if fondo.mode == "RGBA":
+            fondo = fondo.convert("RGB")
+        
+        # 5. Crear máscara de transformación si es necesario
+        # Como las coordenadas forman casi un paralelogramo, 
+        # podemos usar una transformación simple
+        
+        # Opción A: Si el cuadrilátero es casi rectangular (como en este caso)
+        # Simplemente pegamos el QR en la posición calculada
+        
+        # 6. Crear copia del fondo
+        entrada_completa = fondo.copy()
+        
+        # 7. Pegar el QR en la posición calculada
+        # Nota: El QR ya tiene el tamaño correcto
+        entrada_completa.paste(qr_img, (pos_x, pos_y))
+        
+        # ============================================================
+        # 7.1 ✨ AGREGAR NOMBRE DEL PARTICIPANTE DEBAJO DEL QR (BLANCO)
+        # ============================================================
+        from PIL import ImageDraw, ImageFont
+
+        draw = ImageDraw.Draw(entrada_completa)
+        nombre = participante.nombres.upper()
+
+        # Ruta a la fuente que sí existe
+        font_path = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", "Roboto-Bold.ttf")
+
+        # Ajuste automático del tamaño
+        max_width = qr_width - 20
+        font_size = 120  # tamaño grande inicial
+
+        while font_size > 50:
+            try:
+                font = ImageFont.truetype(font_path, font_size)
+            except:
+                # fallback seguro
+                font = ImageFont.truetype(font_path, 60)
+                break
+
+            bbox = draw.textbbox((0, 0), nombre, font=font)
+            text_width = bbox[2] - bbox[0]
+
+            if text_width <= max_width:
+                break
+
+            font_size -= 10
+
+        # centrar texto
+        texto_x = pos_x + (qr_width // 2) - (text_width // 2)
+        texto_y = pos_y + qr_height + 35
+
+        # Dibujar texto en blanco con borde negro grueso
+        draw.text(
+            (texto_x, texto_y),
+            nombre,
+            font=font,
+            fill="white",
+            stroke_width=5,
+            stroke_fill="black"
+        )
+        # ============================================================
+        # ============================================================
+        # 8. Opcional: Dibujar el contorno del cuadrilátero para debug
+        if settings.DEBUG:
+            from PIL import ImageDraw
+            draw = ImageDraw.Draw(entrada_completa)
+            
+            # Dibujar el cuadrilátero
+            puntos = [
+                (170, 405),  # Izquierda arriba
+                (168, 974),  # Izquierda abajo
+                (737, 979),  # Derecha abajo
+                (735, 410),  # Derecha arriba
+            ]
+            
+            # Dibujar líneas
+            for i in range(4):
+                draw.line([puntos[i], puntos[(i+1)%4]], fill="red", width=2)
+            
+            # Marcar esquinas
+            for punto in puntos:
+                draw.ellipse([punto[0]-5, punto[1]-5, punto[0]+5, punto[1]+5], 
+                           fill="green", outline="yellow")
+        
+        # 9. Guardar en buffer
+        buffer = BytesIO()
+        entrada_completa.save(buffer, format="JPEG", quality=95, optimize=True)
+        buffer.seek(0)
+        
+        logger.info(f"Entrada creada exitosamente. Tamaño final: {entrada_completa.size}")
+        
+        return buffer
+        
+    except Exception as e:
+        logger.error(f"Error creando entrada con QR: {e}", exc_info=True)
+        raise
+    
+    
+
+    

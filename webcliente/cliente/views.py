@@ -795,12 +795,7 @@ def webhook_whatsapp(request):
         return HttpResponse("ERROR", status=500)
 
 
-
-
-
-
-
-
+import json
 
 
 ###################################################################################
@@ -863,9 +858,9 @@ def enviar_whatsapp_qr(request, cod_part):
                 from_=numero_twilio,
                 to=numero_destino,
                 content_sid="HXfc646dca146e4f3dd4a03d955c8c5b3a",  # 👈 SID DE TU PLANTILLA
-                content_variables={
-                    "1": participante.nombres  # {{1}}
-                }
+                content_variables=json.dumps({
+                    "1": participante.nombres
+                })
             )
 
             whatsapp_enviado = True

@@ -1,7 +1,7 @@
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from . import views  # 👈 Solo esta línea basta
-from .views import qr_preview
+from .views import qr_preview, webhook_whatsapp
 
 
 urlpatterns = [
@@ -57,6 +57,8 @@ urlpatterns = [
         views.enviar_todos_whatsapp,
         name="enviar_todos_whatsapp"
     ),
+   
+   path("webhook/whatsapp/", webhook_whatsapp, name="webhook_whatsapp"),
 
 
 ]

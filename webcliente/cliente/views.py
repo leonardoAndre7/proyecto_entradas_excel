@@ -732,6 +732,82 @@ def upload_buffer_to_imgbb(image_buffer, filename="entrada.jpg"):
         return None
 
 
+
+
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
+from twilio.twiml.messaging_response import MessagingResponse
+from twilio.rest import Client
+from django.conf import settings
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+@csrf_exempt
+def webhook_whatsapp(request):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+
+    try:
+        incoming_msg = request.POST.get("Body", "").strip().lower()
+        from_number = request.POST.get("From", "")
+
+        if not incoming_msg.startswith("ok"):
+            return HttpResponse("OK")
+
+        celular = from_number.replace("whatsapp:+51", "")
+
+        participante = Previaparticipantes.objects.filter(
+            celular__icontains=celular
+        ).first()
+
+        if not participante or participante.enviado:
+            return HttpResponse("OK")
+
+        entrada_buffer = crear_entrada_con_qr_transformado(participante)
+        image_url = upload_buffer_to_imgbb(
+            entrada_buffer,
+            f"entrada_{participante.id}.jpg"
+        )
+
+        client = Client(
+            settings.TWILIO_ACCOUNT_SID,
+            settings.TWILIO_AUTH_TOKEN
+        )
+
+        client.messages.create(
+            from_=f"whatsapp:{settings.TWILIO_PHONE_NUMBER}",
+            to=from_number,
+            body=f"🎟️ Aquí está tu entrada, {participante.nombres}. Guárdala para el ingreso 🚀",
+            media_url=[image_url]
+        )
+
+        participante.enviado = True
+        participante.save()
+
+        return HttpResponse("OK")
+
+    except Exception as e:
+        logger.error(f"Webhook WhatsApp error: {e}", exc_info=True)
+        return HttpResponse("ERROR", status=500)
+
+
+
+
+
+
+
+
+
+
+###################################################################################
+###################################################################################
+#### ENVIAR WHATSAPP Y CORREO POR PARTICIPANTE DE NEXO
+###################################################################################
+###################################################################################
 from .models import EmailEnviado
 from django.core.files import File
 
@@ -768,53 +844,40 @@ def enviar_whatsapp_qr(request, cod_part):
     whatsapp_enviado = False
     correo_enviado = False
     
-    # ======================================================
-    # 1️⃣ ENVÍO POR WHATSAPP
+   # ======================================================
+    # 1️⃣ ENVÍO POR WHATSAPP — PLANTILLA
     # ======================================================
     try:
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
         numero_twilio = f"whatsapp:{settings.TWILIO_PHONE_NUMBER}"
-        
+
         celular = participante.celular or ""
         celular = "".join([c for c in celular if c.isdigit()])
+
         if not celular:
             messages.warning(request, "❌ El participante no tiene número de celular.")
         else:
             numero_destino = f"whatsapp:+51{celular}"
-            image_url = upload_buffer_to_imgbb(entrada_buffer, f"entrada_{participante.id}.jpg")
-            
-            mensaje_texto = (
-                f"🎟️ *Aquí tienes tu entrada para El Renacer del Asesor*\n\n"
-                f"Hola {participante.nombres}:\n\n"
-                f"¡Gracias por ser parte de El Renacer del Asesor!\n"
-                f"Adjunto encontrarás tu entrada oficial para el evento. Por favor, descárgala y guárdala, ya que será necesaria para tu acceso el día del evento.\n\n"
-                f"*Detalles importantes:*\n\n"
-                f"• *Evento:* El Renacer del Asesor\n"
-                f"Te recomendamos llegar con anticipación para realizar el check-in sin inconvenientes.\n\n"
-                f"¡Nos vemos pronto para vivir una experiencia que marcará un antes y un después en tu camino como asesor! 🚀"
+
+            client.messages.create(
+                from_=numero_twilio,
+                to=numero_destino,
+                content_sid="HXfc646dca146e4f3dd4a03d955c8c5b3a",  # 👈 SID DE TU PLANTILLA
+                content_variables={
+                    "1": participante.nombres  # {{1}}
+                }
             )
-            
-            if image_url:
-                client.messages.create(
-                    from_=numero_twilio,
-                    to=numero_destino,
-                    body=mensaje_texto,
-                    media_url=[image_url]
-                )
-                messages.success(request, f"✅ Entrada enviada por WhatsApp a {participante.nombres}")
-            else:
-                client.messages.create(
-                    from_=numero_twilio,
-                    to=numero_destino,
-                    body=mensaje_texto + "\n\n⚠️ No se pudo adjuntar la entrada. Contacta al organizador."
-                )
-                messages.warning(request, f"⚠️ WhatsApp enviado sin imagen a {participante.nombres}")
-            
+
             whatsapp_enviado = True
+            messages.success(
+                request,
+                f"📲 WhatsApp enviado (plantilla) a {participante.nombres}"
+            )
 
     except Exception as e:
         logger.error(f"Error enviando WhatsApp: {e}")
         messages.error(request, f"❌ Error enviando WhatsApp: {str(e)[:100]}")
+
     
     # ======================================================
     # 2️⃣ ENVÍO POR CORREO — SendGrid
@@ -965,13 +1028,6 @@ def enviar_whatsapp_qr(request, cod_part):
             
             logger.error(f"Error enviando correo: {e}")
             messages.error(request, f"❌ Error enviando correo: {str(e)[:100]}")
-
-    # ======================================================
-    # Marcar participante como enviado solo si al menos un envío fue exitoso
-    # ======================================================
-    if whatsapp_enviado or correo_enviado:
-        participante.enviado = True
-        participante.save()
 
     # Limpiar temporal
     try:

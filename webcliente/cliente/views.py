@@ -854,19 +854,21 @@ def enviar_whatsapp_qr(request, cod_part):
         else:
             numero_destino = f"whatsapp:+51{celular}"
 
-            client.messages.create(
+            msg = client.messages.create(
                 from_=numero_twilio,
                 to=numero_destino,
-                content_sid="HXfc646dca146e4f3dd4a03d955c8c5b3a",  # 👈 SID DE TU PLANTILLA
+                content_sid="HXfc646dca146e4f3dd4a03d955c8c5b3a",  # SID plantilla
                 content_variables=json.dumps({
                     "1": participante.nombres
                 })
             )
 
+            logger.info(f"✅ WhatsApp enviado correctamente. SID: {msg.sid}")
+
             whatsapp_enviado = True
             messages.success(
                 request,
-                f"📲 WhatsApp enviado (plantilla) a {participante.nombres}"
+                f"📲 WhatsApp enviado a {participante.nombres} (SID: {msg.sid})"
             )
 
     except Exception as e:

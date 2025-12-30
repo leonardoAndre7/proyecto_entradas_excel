@@ -263,22 +263,35 @@ def marcar_ingreso(request, pk):
 
 
 
-
+from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Max, IntegerField
+from django.db.models.functions import Cast, Substr
+import openpyxl
+
+from cliente.models import Previaparticipantes
 
 
 ##############################################################################################
-# REGISTRO DE LOS CLIENTE 2     -------      EVENTO 2
+# REGISTRO DE LOS CLIENTES  -------  EVENTO 2
 ##############################################################################################
 def registro_participante(request):
-    # Generar el nuevo código automáticamente
-    ultimo = Previaparticipantes.objects.order_by('-id').first()
-    numero = int(ultimo.cod_part.replace('CLI', '')) + 1 if ultimo else 1
-    nuevo_cod = f"CLI{numero:03d}"
-    
-    queryset = Previaparticipantes.objects.all().order_by('-id')
-    
+
+    # 🔹 OBTENER EL SIGUIENTE CÓDIGO CLI CORRECTO
+    ultimo = Previaparticipantes.objects.annotate(
+        cod_num=Cast(Substr('cod_part', 4), IntegerField())
+    ).aggregate(max_cod=Max('cod_num'))
+
+    siguiente_numero = (ultimo['max_cod'] or 0) + 1
+    nuevo_cod = f"CLI{siguiente_numero:03d}"
+
+    # 🔹 LISTADO ORDENADO POR CÓDIGO REAL (NO POR ID)
+    queryset = Previaparticipantes.objects.annotate(
+        cod_num=Cast(Substr('cod_part', 4), IntegerField())
+    ).order_by('-cod_num')
+
+    # 🔹 BUSCADOR
     q = request.GET.get('q')
     if q:
         queryset = queryset.filter(
@@ -288,32 +301,46 @@ def registro_participante(request):
             Q(correo__icontains=q) |
             Q(cod_part__icontains=q)
         )
-  
-    queryset = queryset.order_by('cod_part')
 
+    # 🔹 PAGINACIÓN
     paginator = Paginator(queryset, 25)
     page_number = request.GET.get('page')
     participantes = paginator.get_page(page_number)
 
+    # 🔹 POST
     if request.method == 'POST':
-        # 1️⃣ Carga masiva desde Excel
+
         excel_file = request.FILES.get('excel_file')
+
+        # =======================
+        # 📥 CARGA MASIVA EXCEL
+        # =======================
         if excel_file:
             wb = openpyxl.load_workbook(excel_file)
             sheet = wb.active
+
+            # contador inicial
+            contador = siguiente_numero
+
             for row in sheet.iter_rows(min_row=2, values_only=True):
                 nombres, dni, celular, correo = row[:4]
-                ultimo = Previaparticipantes.objects.order_by('-id').first()
-                numero = int(ultimo.cod_part.replace('CLI', '')) + 1 if ultimo else 1
-                nuevo_cod_row = f"CLI{numero:03d}"
+
+                cod_part = f"CLI{contador:03d}"
+                contador += 1
+
                 Previaparticipantes.objects.create(
-                    cod_part=nuevo_cod_row,
+                    cod_part=cod_part,
                     nombres=nombres,
                     dni=dni,
                     celular=celular,
                     correo=correo
                 )
+
             messages.success(request, "Participantes cargados desde Excel correctamente.")
+
+        # =======================
+        # 🧍 REGISTRO INDIVIDUAL
+        # =======================
         else:
             participante = Previaparticipantes.objects.create(
                 cod_part=nuevo_cod,
@@ -322,13 +349,21 @@ def registro_participante(request):
                 celular=request.POST.get('celular'),
                 correo=request.POST.get('correo')
             )
-            messages.success(request, f"Participante {participante.nombres} registrado correctamente.")
+
+            messages.success(
+                request,
+                f"Participante {participante.nombres} registrado correctamente."
+            )
+
         return redirect('registro_participante')
 
+    # 🔹 RENDER
     return render(request, 'cliente/registro_participante.html', {
         'nuevo_cod': nuevo_cod,
         'participantes': participantes
     })
+
+    
 ####################################################################################
 ###################################################################################
 

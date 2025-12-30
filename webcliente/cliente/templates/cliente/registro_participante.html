@@ -44,6 +44,43 @@ form input::placeholder {
     color: #ddd !important;
 }
 
+/* PAGINACIÓN PROFESIONAL */
+.pagination {
+  gap: 8px;
+}
+
+.page-item .page-link {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #e1bee7;
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+  transition: all 0.25s ease;
+}
+
+.page-item .page-link:hover {
+  background: linear-gradient(135deg, #0000FF, #6a1b9a);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(156, 39, 176, 0.4);
+}
+
+.page-item.active .page-link {
+  background: linear-gradient(135deg, #0000FF, #4a148c); 
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 15px rgba(156, 39, 176, 0.6);
+}
+
+.page-item.disabled .page-link {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
+}
+
+
 </style>
 
 <div class="overlay-login">
@@ -107,21 +144,35 @@ form input::placeholder {
     </div>
 
     <!-- Buscador -->
-    <div class="search-box">
-      <i class="bi bi-search"></i>
-      <input type="text" id="searchInput" placeholder="Buscar por nombre o DNI...">
-    </div>
+    <form method="get" class="row g-2 mb-3">
+  <div class="col-md-10">
+    <input
+      type="text"
+      name="q"
+      value="{{ request.GET.q }}"
+      class="form-control"
+      placeholder="Buscar por nombre, DNI, celular, correo o código"
+    >
+  </div>
+
+  <div class="col-md-2 d-grid">
+    <button class="btn btn-primary" type="submit">
+      🔍 Buscar
+    </button>
+  </div>
+</form>
 
     <div class="table-container">
       <table id="participantesTable">
         <thead>
           <tr>
-            <th>Código</th>
+            <th>#</th>
+            {% comment %} <th>Código</th> {% endcomment %}
             <th>Nombre</th>
             <th>DNI</th>
-            <th>Celular</th>
+            {% comment %} <th>Celular</th> {% endcomment %}
             <th>Correo</th>
-            <th>QR</th>
+            {% comment %} <th>QR</th> {% endcomment %}
             <th>WhatsApp / Correo</th>
             <th>Ingreso</th>
             <th>Acciones</th>
@@ -130,14 +181,21 @@ form input::placeholder {
         <tbody>
           {% for p in participantes %}
           <tr>
-            <td>{{ p.cod_part }}</td>
+            <td>
+              {{ p.id }}
+            </td>
+
+            {% comment %} <td>{{ p.cod_part }}</td> {% endcomment %}
             <td>{{ p.nombres }}</td>
             <td>{{ p.dni }}</td>
-            <td>{{ p.celular }}</td>
+            {% comment %} <td>{{ p.celular }}</td> {% endcomment %}
             <td>{{ p.correo }}</td>
-            <td>
+            {% comment %} <td>
                 <a href="{% url 'qr_preview' p.token %}">Ver QR</a>
-            </td>
+            </td> {% endcomment %}
+            {% comment %} <td>
+                <a href="{% url 'qr_preview' p.token %}">Ver QR</a>
+            </td> {% endcomment %}
 
             <td>
             {% if p.enviado %}
@@ -192,6 +250,47 @@ form input::placeholder {
         </tbody>
       </table>
     </div>
+
+ <nav class="mt-4">
+  <ul class="pagination justify-content-center">
+
+    {% if participantes.has_previous %}
+      <li class="page-item">
+        <a class="page-link"
+           href="?page={{ participantes.previous_page_number }}">
+          Anterior
+        </a>
+      </li>
+    {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">Anterior</span>
+      </li>
+    {% endif %}
+
+    <li class="page-item disabled">
+      <span class="page-link">
+        Página {{ participantes.number }} de {{ participantes.paginator.num_pages }}
+      </span>
+    </li>
+
+    {% if participantes.has_next %}
+      <li class="page-item">
+        <a class="page-link"
+           href="?q={{ request.GET.q }}&page={{ participantes.next_page_number }}">
+          Siguiente
+        </a>
+      </li>
+    {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">Siguiente</span>
+      </li>
+    {% endif %}
+
+  </ul>
+</nav>
+
+
+
   </div>
 </div>
 

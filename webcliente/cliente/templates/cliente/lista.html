@@ -126,6 +126,39 @@
             background: rgba(123,31,162,0.6);
             border-radius: 4px;
         }
+
+
+        .pagination {
+  gap: 6px;
+}
+
+.page-link {
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: #e1bee7;
+  border-radius: 10px;
+  padding: 6px 12px;
+  backdrop-filter: blur(6px);
+  transition: all 0.25s ease;
+}
+
+.page-link:hover {
+  background: linear-gradient(135deg, #4b1979, #9c27b0);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+.page-item.active .page-link {
+  background: linear-gradient(135deg, #7b1fa2, #4a148c);
+  color: #fff;
+  font-weight: 600;
+}
+
+.page-item.disabled .page-link {
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.3);
+}
+
     </style>
 </head>
 <body>
@@ -185,42 +218,45 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th><i class="bi bi-person-badge"></i> Código</th>
+                        {% comment %} <th><i class="bi bi-person-badge"></i> Código</th> {% endcomment %}
                         <th><i class="bi bi-person-fill"></i> Nombre</th>
-                        <th><i class="bi bi-person-fill"></i> Apellido</th>
+                        {% comment %} <th><i class="bi bi-person-fill"></i> Apellido</th> {% endcomment %}
                         <th><i class="bi bi-credit-card-2-front"></i> DNI</th>
-                        <th><i class="bi bi-telephone-fill"></i> Celular</th>
+                        {% comment %} <th><i class="bi bi-telephone-fill"></i> Celular</th> {% endcomment %}
                         <th><i class="bi bi-envelope-fill"></i> Correo</th>
-                        <th><i class="bi bi-person-badge"></i> Vendedor</th>
+                        {% comment %} <th><i class="bi bi-person-badge"></i> Vendedor</th> {% endcomment %}
                         <th><i class="bi bi-ticket-perforated-fill"></i> Tipo Entrada</th>
-                        <th><i class="bi bi-hash"></i> Cant.</th>
+                        {% comment %} <th><i class="bi bi-hash"></i> Cant.</th>
                         <th><i class="bi bi-currency-dollar"></i> Precio</th>
-                        <th><i class="bi bi-paperclip"></i> Vouchers</th>
-                        <th><i class="bi bi-cash-stack"></i> Total</th>
+                        <th><i class="bi bi-paperclip"></i> Vouchers</th> {% endcomment %}
+                        {% comment %} <th><i class="bi bi-cash-stack"></i> Total</th> {% endcomment %}
                          <th><i class="bi bi-shield-check"></i> Admin.</th>
                          <th><i class="bi bi-check2-square"></i> Contab.</th>
                         <th><i class="bi bi-credit-card-fill"></i> Pago</th>
                         <th><i class="bi bi-check2-circle"></i> Confirm.</th>
-                        <th><i class="bi bi-door-open-fill"></i> Ingreso</th> 
+                        <th><i class="bi bi-door-open-fill"></i> Ingreso</th>
                         <th><i class="bi bi-gear-fill"></i> Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for p in object_list %}
+                    {% for p in Participante %}
                     <tr>
-                        <td class="fw-bold text-secondary">{{ p.id }}</td>
-                        <td class="text-primary">{{ p.cod_cliente }}</td>
+                        <td class="fw-bold text-secondary">
+                           {{ p.id }}
+                        </td>
+
+                        {% comment %}td class="text-primary">{{ p.cod_cliente }}</td> {% endcomment %}
                         <td>{{ p.nombres }}</td>
-                        <td>{{ p.apellidos }}</td>
+                        {% comment %} <td>{{ p.apellidos }}</td> {% endcomment %}
                         <td>{{ p.dni }}</td>
-                        <td>{{ p.celular }}</td>
+                        {% comment %} <td>{{ p.celular }}</td> {% endcomment %}
                         <td>{{ p.correo }}</td>
-                        <td>{{ p.vendedor }}</td>
+                        {% comment %} <td>{{ p.vendedor }}</td> {% endcomment %}
                         <td><span class="badge badge-info">{{ p.tipo_entrada }}</span></td>
-                        <td>{{ p.cantidad }}</td>
-                        <td>{{ p.precio }}</td>
-                
-                        <td>
+                        {% comment %} <td>{{ p.cantidad }}</td>
+                        <td>{{ p.precio }}</td> {% endcomment %}
+
+                        {% comment %} <td>
                             {% if p.vouchers.all %}
                                 {% for v in p.vouchers.all %}
                                     <a href="{{ v.imagen.url }}" target="_blank" class="btn btn-sm btn-outline-info mb-1" title="Ver voucher {{ forloop.counter }}">
@@ -230,10 +266,10 @@
                             {% else %}
                                 <span class="text-muted small"><i class="bi bi-dash"></i> Sin vouchers</span>
                             {% endif %}
-                        </td>
+                        </td> {% endcomment %}
 
 
-                        <td class="fw-bold text-success">S/ {{ p.total_pagar }}</td>
+                        {% comment %} <td class="fw-bold text-success">S/ {{ p.total_pagar }}</td> {% endcomment %}
                         <td>
                             {% if p.validado_admin %}
                                 <span class="badge bg-success"><i class="bi bi-check2-square"></i></span>
@@ -270,7 +306,7 @@
                                     <i class="bi bi-door-open"></i> Marcar
                                 </a>
                             {% endif %}
-                        </td> 
+                        </td>
                         <td>
                             <a href="{% url 'participante_editar' p.pk %}" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil-square"></i></a>
                             <a href="{% url 'participante_eliminar' p.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
@@ -287,6 +323,70 @@
                 </tbody>
             </table>
         </div>
+
+
+    {% if is_paginated %}
+<nav class="mt-4">
+  <ul class="pagination justify-content-center align-items-center">
+
+    <!-- Anterior -->
+    <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+  {% if page_obj.has_previous %}
+    <a class="page-link"
+       href="?q={{ request.GET.q }}&page={{ page_obj.previous_page_number }}">
+      <i class="bi bi-chevron-left"></i>
+    </a>
+  {% else %}
+    <span class="page-link">
+      <i class="bi bi-chevron-left"></i>
+    </span>
+  {% endif %}
+</li>
+
+
+    <!-- Números -->
+    {% for num in paginator.page_range %}
+      {% if page_obj.number == num %}
+        <li class="page-item active">
+          <span class="page-link">{{ num }}</span>
+        </li>
+      {% elif num > page_obj.number|add:-3 and num < page_obj.number|add:3 %}
+        <li class="page-item">
+          <a class="page-link"
+             href="?q={{ request.GET.q }}&page={{ num }}">
+            {{ num }}
+          </a>
+        </li>
+      {% endif %}
+    {% endfor %}
+
+    <!-- Siguiente -->
+    <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+  {% if page_obj.has_next %}
+    <a class="page-link"
+       href="?q={{ request.GET.q }}&page={{ page_obj.next_page_number }}">
+      <i class="bi bi-chevron-right"></i>
+    </a>
+  {% else %}
+    <span class="page-link">
+      <i class="bi bi-chevron-right"></i>
+    </span>
+  {% endif %}
+</li>
+
+
+  </ul>
+
+  <p class="text-center mt-2 text-light opacity-75">
+    Página {{ page_obj.number }} de {{ paginator.num_pages }}
+  </p>
+</nav>
+{% endif %}
+
+
+
+
+
     </div>
 
 </div>

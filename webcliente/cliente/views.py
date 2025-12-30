@@ -264,7 +264,8 @@ def marcar_ingreso(request, pk):
 
 
 
-
+from django.core.paginator import Paginator
+from django.db.models import Q
 
 
 ##############################################################################################
@@ -275,10 +276,24 @@ def registro_participante(request):
     ultimo = Previaparticipantes.objects.order_by('-id').first()
     numero = int(ultimo.cod_part.replace('CLI', '')) + 1 if ultimo else 1
     nuevo_cod = f"CLI{numero:03d}"
+    
+    queryset = Previaparticipantes.objects.all().order_by('-id')
+    
+    q = request.GET.get('q')
+    if q:
+        queryset = queryset.filter(
+            Q(nombres__icontains=q) |
+            Q(dni__icontains=q) |
+            Q(celular__icontains=q) |
+            Q(correo__icontains=q) |
+            Q(cod_part__icontains=q)
+        )
+  
+    queryset = queryset.order_by('cod_part')
 
-    # Siempre obtenemos todos los participantes
-    participantes = Previaparticipantes.objects.order_by('cod_part')
-
+    paginator = Paginator(queryset, 25)
+    page_number = request.GET.get('page')
+    participantes = paginator.get_page(page_number)
 
     if request.method == 'POST':
         # 1️⃣ Carga masiva desde Excel
@@ -1299,6 +1314,7 @@ def enviar_todos_whatsapp(request):
 
 
 
+
 ####################################################
 #####################################################
 ####################################################
@@ -1338,10 +1354,9 @@ def login_view(request):
 #################################################################
 ##############################################################3##
 
-
-
 def index(request):
     return render(request, "cliente/index.html")
+
 
 @login_required
 def formulario_clientes(request):
@@ -1496,7 +1511,7 @@ def confirmar_pago(request, pk):
     )
     if not created:
         registro.enviado = True
-        registro.fecha_envio = timezone.now()
+        registro.fecha_envio = timezone.now()  
         registro.save()
 
     messages.success(request, "✅ Pago confirmado, correo y WhatsApp enviados.")
@@ -1518,9 +1533,6 @@ def escalar_a_a4(imagen):
 
     imagen_redimensionada = imagen.resize((nuevo_ancho, nuevo_alto), Image.ANTIALIAS)
     return imagen_redimensionada
-
-
-
 
 
 
@@ -1591,13 +1603,13 @@ def generar_imagen_personalizada(nombre_cliente, qr_img=None, paquete=None):
             lineas = [
                 f"Hola {nombre_cliente},",
                 "",
-                "Gracias por unirte a EL DESPERTAR DEL EMPRENDEDOR",
+                "Gracias por unirte a EL DESPERTAR DEL EMPRENDEDOR",   
                 "",
                 "Adjunto tu entrada personalizada:",
                 "",
                 "No olvides guardarla y mostrarla el",
-                "     día del evento"
-            ]
+                "día del evento"
+          ]
             for i_linea, linea in enumerate(lineas):
                 if i_linea == 0:
                     draw_centered(draw, y_text, linea, font_name)
@@ -1713,7 +1725,6 @@ def generar_imagen_personalizada(nombre_cliente, qr_img=None, paquete=None):
 
 
 
-
 def limpiar_tipo_entrada(valor):
     if not isinstance(valor, str):
         return "EMPRENDEDOR"  # valor por defecto si es vacío
@@ -1724,11 +1735,11 @@ def limpiar_tipo_entrada(valor):
         tipo = "EMPRENDEDOR"  # default
     return tipo
 
+
+
+
 from django.conf import settings
-
 from decimal import Decimal
-
-
 
 class ParticipanteCreateView(CreateView):
     model = Participante
@@ -1810,6 +1821,8 @@ class ParticipanteDeleteView(DeleteView):
     template_name = 'cliente/participante_confirm_delete.html'
     success_url = reverse_lazy('participante_lista')
  
+ 
+ 
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
 
@@ -1817,7 +1830,9 @@ from django.contrib.auth.decorators import login_required
 class ParticipanteListView(ListView):
     model = Participante
     template_name = 'cliente/lista.html'
-    ordering = ['id']
+    context_object_name = 'Participante'
+    paginate_by = 30
+    ordering = ['-id']  # importar para que se vea las ultimas filas creadas
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -2066,7 +2081,7 @@ def marcar_ingreso(request, pk):
 
 def exportar_excel(request):
     # Obtener datos de los participantes
-    participantes = Participante.objects.all().values()
+    participantes = Participante.objects.all().values().order_by('id')[:200]
     if not participantes:
         return HttpResponse("No hay participantes para exportar.", content_type="text/plain")
 
@@ -2377,6 +2392,8 @@ def preview_imagen_final(request):
 
     # 7. Retornar la imagen como <img src="data:..."> en la plantilla
     return render(request, 'cliente/preview_imagen.html', {'img_base64': img_base64})
+
+
 
 from .forms import VoucherForm 
 

@@ -1,0 +1,22 @@
+services:
+  web:
+    build: .
+    container_name: django_prod
+    command: >
+      gunicorn wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      --threads 2
+      --timeout 120
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    # ⚠️ QUITA EL VOLUMEN EN WINDOWS (CLAVE)
+    # volumes:
+    #   - .:/app
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G

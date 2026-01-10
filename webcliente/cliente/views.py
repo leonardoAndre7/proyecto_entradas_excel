@@ -817,7 +817,7 @@ def webhook_whatsapp(request):
         if not participante or participante.enviado:
             return HttpResponse("OK")
 
-        entrada_buffer = crear_entrada_con_qr_transformado(participante)
+        entrada_buffer = crear_entrada_doble_con_texto(participante)
         image_url = upload_buffer_to_imgbb(
             entrada_buffer,
             f"entrada_{participante.id}.jpg"
@@ -847,6 +847,125 @@ def webhook_whatsapp(request):
 
 import json
 
+###################################################################################
+###################################################################################
+#### FUNCION PARA CREAR LA ENTRADA CON TEXTO Y QR
+###################################################################################
+###################################################################################
+from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
+import os
+from django.conf import settings
+
+def crear_entrada_doble_con_texto(participante):
+    """
+    Genera la entrada final con QR y texto centrado en blanco.
+    Devuelve un buffer en memoria.
+    """
+
+    # Rutas absolutas a las imágenes base
+    ruta_1 = os.path.join(settings.BASE_DIR, "cliente", "static", "img", "entrada_asesor_1.jpg")
+    ruta_2 = os.path.join(settings.BASE_DIR, "cliente", "static", "img", "entrada_asesor_2.jpg")
+
+    # Abrir imágenes
+    img1 = Image.open(ruta_1).convert("RGB")
+    img2 = Image.open(ruta_2).convert("RGB")
+
+    # ================================
+    # CARGAR FUENTES ABSOLUTAS
+    # ================================
+    font_bold = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", "Poppins-Bold.ttf")
+    font_regular = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", "Poppins-Regular.ttf")
+
+    try:
+        font_titulo = ImageFont.truetype(font_bold, 42)
+        font_texto  = ImageFont.truetype(font_regular, 28)
+    except:
+        font_titulo = ImageFont.load_default()
+        font_texto  = ImageFont.load_default()
+
+    # ================================
+    # AREA DEL TEXTO (PIXEL PERFECT)
+    # ================================
+    X1, Y1 = 42, 44
+    X2, Y2 = 782, 700
+    ANCHO = X2 - X1
+    ALTO  = Y2 - Y1
+
+    draw = ImageDraw.Draw(img1)
+
+    # Texto personalizado
+    nombre = participante.nombres.upper() if participante and getattr(participante, "nombres", None) else "PARTICIPANTE"
+
+    lineas = [
+        "TU ENTRADA AL EVENTO",
+        "EL RENACER DEL ASESOR",
+        f"HOLA {nombre}",
+        "GRACIAS POR UNIRTE AL EVENTO",
+        "ADJUNTO TU ENTRADA PERSONALIZADA",
+        "NO OLVIDES GUARDARLA Y MOSTRARLA",
+        "EL DÍA DEL EVENTO",
+    ]
+
+    # Posición vertical inicial
+    y_actual = Y1 + 10
+
+    for texto in lineas:
+        # Fuente grande para títulos, regular para resto
+        font = font_titulo if texto in ["TU ENTRADA AL EVENTO", "EL RENACER DEL ASESOR"] else font_texto
+        # Ajuste automático si el texto es muy largo
+        ancho_texto = draw.textlength(texto, font=font)
+        if ancho_texto > ANCHO:
+            factor = ANCHO / ancho_texto
+            size = max(12, int(font.size * factor))
+            font = ImageFont.truetype(font_bold if "TITULO" in texto else font_regular, size)
+            ancho_texto = draw.textlength(texto, font=font)
+        x_texto = X1 + (ANCHO - ancho_texto) / 2  # centrar horizontal
+        draw.text((x_texto, y_actual), texto, fill="white", font=font)
+        y_actual += font.size + 10
+
+    # ================================
+    # INSERTAR QR DINÁMICO EN img2
+    # ================================
+    QR_X_IZQ, QR_Y_ARR = 537, 362
+    QR_X_DER, QR_Y_ABA = 752, 546
+    QR_ANCHO = QR_X_DER - QR_X_IZQ
+    QR_ALTO  = QR_Y_ABA - QR_Y_ARR
+
+    if participante and getattr(participante, "qr_image", None):
+        try:
+            qr = Image.open(participante.qr_image.path).convert("RGBA")
+            qr = qr.resize((QR_ANCHO, QR_ALTO), Image.LANCZOS)
+            img2.paste(qr, (QR_X_IZQ, QR_Y_ARR), qr)
+        except Exception as e:
+            print("⚠️ Error pegando QR:", e)
+
+    # ================================
+    # UNIR IMÁGENES VERTICALMENTE
+    # ================================
+    ancho_final = max(img1.width, img2.width)
+
+    def ajustar(im):
+        if im.width == ancho_final:
+            return im
+        alto = int(im.height * ancho_final / im.width)
+        return im.resize((ancho_final, alto), Image.LANCZOS)
+
+    img1 = ajustar(img1)
+    img2 = ajustar(img2)
+
+    final = Image.new("RGB", (ancho_final, img1.height + img2.height), "white")
+    final.paste(img1, (0, 0))
+    final.paste(img2, (0, img1.height))
+
+    # ================================
+    # EXPORTAR A MEMORIA
+    # ================================
+    buffer = BytesIO()
+    final.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
+
 
 ###################################################################################
 ###################################################################################
@@ -869,14 +988,14 @@ def enviar_whatsapp_qr(request, cod_part):
     
     # Crear la entrada combinada
     try:
-        entrada_buffer = crear_entrada_con_qr_transformado(participante)
+        entrada_buffer = crear_entrada_doble_con_texto(participante)
     except Exception as e:
         messages.error(request, f"❌ Error al crear la entrada: {e}")
         logger.error(f"Error creando entrada: {e}", exc_info=True)
         return redirect("registro_participante")
     
     # Guardar temporalmente para correo
-    tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{participante.id}.jpg")
+    tmp_path = os.path.join(tempfile.gettempdir(), f"entrada_{participante.id}.png")
     try:
         with open(tmp_path, 'wb') as f:
             f.write(entrada_buffer.getvalue())
@@ -1034,7 +1153,7 @@ def enviar_whatsapp_qr(request, cod_part):
             
             with open(tmp_path, "rb") as f:
                 registro_email.adjunto.save(
-                    f"entrada_{participante.id}.jpg",
+                    f"entrada_{participante.id}.png",
                     File(f),
                     save=True
                 )
@@ -1052,9 +1171,9 @@ def enviar_whatsapp_qr(request, cod_part):
             # Adjuntar archivo
             with open(tmp_path, "rb") as f:
                 email.attach(
-                    filename=f"entrada_{participante.id}.jpg",
+                    filename=f"entrada_{participante.id}.png",
                     content=f.read(),
-                    mimetype="image/jpeg",
+                    mimetype="image/png",
                 )
                 
                 

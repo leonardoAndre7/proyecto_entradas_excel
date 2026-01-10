@@ -403,43 +403,53 @@ def get_background_image():
 
 
 
-def calcular_transformacion_cuadrilatero():
-    """
-    Calcula la transformación para el QR en un cuadrilátero irregular
-    
-    Coordenadas del cuadrilátero:
-    - Izquierda arriba: (170, 405)
-    - Izquierda abajo: (168, 974)
-    - Derecha arriba: (735, 410)
-    - Derecha abajo: (737, 979)
-    
-    Retorna: (pos_x, pos_y, ancho, alto) aproximados
-    """
-    # Como es casi un rectángulo, usamos aproximación
-    # Calcular ancho promedio
-    ancho_arriba = 735 - 170  # 565
-    ancho_abajo = 737 - 168   # 569
-    ancho = (ancho_arriba + ancho_abajo) // 2  # 567
-    
-    # Calcular alto promedio
-    alto_izquierda = 974 - 405  # 569
-    alto_derecha = 979 - 410    # 569
-    alto = (alto_izquierda + alto_derecha) // 2  # 569
-    
-    # Posición: usar la esquina superior izquierda como referencia
-    # Pero ajustar ligeramente porque no es perfectamente rectangular
-    pos_x = min(170, 168)  # 168
-    pos_y = min(405, 410)  # 405
-    
-    # Pequeños ajustes para centrar mejor
-    pos_x += (abs(170 - 168)) // 2  # Ajuste por diferencia izquierda
-    pos_y += (abs(405 - 410)) // 2  # Ajuste por diferencia superior
-    
-    return pos_x, pos_y, ancho, alto
 
 
 
 
+
+
+
+def generar_qr_en_memoria(participante, size):
+    import qrcode
+    from PIL import Image
+
+    if participante:
+        qr_content = f"{participante.cod_cliente}-{participante.dni}"
+    else:
+        qr_content = "QR-DE-PRUEBA"
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(qr_content)
+    qr.make(fit=True)
+
+    img = qr.make_image(
+        fill_color="darkblue",
+        back_color="white"
+    ).convert("RGB")  # 🔥 CAMBIO CLAVE
+
+    img = img.resize(size, Image.LANCZOS)
+
+    return img
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################
+###############################################################
 
 def crear_entrada_con_qr(participante):
     """

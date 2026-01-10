@@ -68,29 +68,43 @@
 
         /* Tabla estilizada */
         .card-table {
-            background: rgba(255,255,255,0.05); /* menos opaca para ver la imagen */
-            backdrop-filter: blur(5px); /* menos blur */
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+            background: rgba(255, 255, 255, 0.08); /* más transparente */
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+            border: 1px solid rgba(255,255,255,0.15);
         }
+        .table {
+            color: #ffffff;
+        }
+
+        .table td, 
+        .table th {
+            border-color: rgba(255,255,255,0.15);
+        }
+
         .table-container {
             max-height: 550px;
             overflow-y: auto;
         }
         .table thead th {
-            vertical-align: middle;
-            background: linear-gradient(90deg, #4b1979, #7b1fa2);
-            color: #fff;
-            border-bottom: 2px solid #5c1d99;
-        }
+                background: linear-gradient(135deg, rgba(123,31,162,0.9), rgba(74,20,140,0.9));
+                color: #ffffff;
+                border-bottom: none;
+                text-transform: uppercase;
+                font-size: 0.8rem;
+                letter-spacing: 0.05em;
+            }
+
         .table tbody tr {
-            transition: all 0.3s ease;
+        transition: background 0.25s ease, transform 0.15s ease;
         }
+
         .table tbody tr:hover {
-            background: rgba(255,255,255,0.2);
-            color: #fff;
+            background: rgba(255,255,255,0.15);
         }
+
 
         /* Badges */
         .badge-info {
@@ -111,12 +125,39 @@
         .form-control::placeholder { color: #e0e0e0; }
 
         /* Botones */
-        .btn-primary { background-color: #7b1fa2; border-color: #7b1fa2; }
+        .btn-primary {
+            background: linear-gradient(135deg, #7b1fa2, #512da8);
+            border: none;
+        }
         .btn-primary:hover { background-color: #9c27b0; border-color: #9c27b0; }
-        .btn-success { background-color: #4caf50; border-color: #4caf50; }
-        .btn-warning { background-color: #ff9800; border-color: #ff9800; }
-        .btn-info { background-color: #0dcaf0; border-color: #0dcaf0; color: #fff; }
+        .btn-success {
+            background: linear-gradient(135deg, #2e7d32, #66bb6a);
+            border: none;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f57c00, #ffb74d);
+            border: none;
+            color: #212121;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #0288d1, #26c6da);
+            border: none;
+            color: #fff;
+        }
         .btn-info:hover { background-color: #0bb8e0; }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #c62828, #ef5350);
+            border: none;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.25);
+            backdrop-filter: blur(6px);
+        }
 
         /* Scroll tabla */
         .table-container::-webkit-scrollbar {
@@ -126,6 +167,36 @@
             background: rgba(123,31,162,0.6);
             border-radius: 4px;
         }
+        .table tbody td:first-child {
+    color: #e1bee7;
+    font-weight: 600;
+}
+.badge {
+    font-size: 0.75rem;
+    padding: 0.4em 0.7em;
+    border-radius: 12px;
+}
+.table-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.25);
+    border-radius: 6px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+
+.card-table:hover {
+    transform: translateY(-2px);
+    transition: transform 0.3s ease;
+}
+
+
+
 
 
         .pagination {
@@ -159,6 +230,143 @@
   color: rgba(255,255,255,0.3);
 }
 
+.titulo-animado {
+    white-space: nowrap;
+    animation: scrollTexto 8s linear infinite;
+}
+
+@keyframes scrollTexto {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(100%);
+    }
+}
+
+/* FORZAR TRANSPARENCIA REAL EN BOOTSTRAP TABLE */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-accent-bg: transparent;
+    background-color: transparent !important;
+}
+
+.table > :not(caption) > * > * {
+    background-color: transparent !important;
+}
+
+.table tbody tr {
+    background: rgba(255,255,255,0.03);
+}
+
+.table tbody tr:hover {
+    background: rgba(255,255,255,0.15);
+}
+
+/* FORZAR TEXTO BLANCO EN TODA LA TABLA */
+.table,
+.table th,
+.table td,
+.table tbody td,
+.table thead th {
+    color: #ffffff !important;
+}
+
+/* Texto secundario (IDs, muted, etc.) */
+.table .text-secondary,
+.table .text-muted {
+    color: rgba(255,255,255,0.75) !important;
+}
+
+/* Links dentro de la tabla */
+.table a {
+    color: #e1bee7;
+}
+
+.table a:hover {
+    color: #ffffff;
+}
+
+/* Iconos Bootstrap dentro de la tabla */
+.table i {
+    color: #ffffff;
+}
+
+/* ===== BOTONES PROFESIONALES ===== */
+.btn {
+    border-radius: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0.55rem 1rem;
+    transition: all 0.25s ease;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+}
+
+/* Hover elegante */
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+}
+
+/* Click */
+.btn:active {
+    transform: scale(0.97);
+}
+
+/* Tamaño íconos */
+.btn i {
+    font-size: 1rem;
+}
+
+/* Botones pequeños de acciones */
+.table .btn-sm {
+    padding: 0.35rem 0.55rem;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+.table .btn-outline-warning {
+    color: #ffca28;
+    border-color: rgba(255,202,40,0.4);
+}
+
+.table .btn-outline-danger {
+    color: #ef5350;
+    border-color: rgba(239,83,80,0.4);
+}
+
+.table .btn-outline-primary {
+    color: #90caf9;
+    border-color: rgba(144,202,249,0.4);
+}
+
+.table .btn-outline-success {
+    color: #81c784;
+    border-color: rgba(129,199,132,0.4);
+}
+
+.table .btn-outline-success:hover,
+.table .btn-outline-primary:hover,
+.table .btn-outline-warning:hover,
+.table .btn-outline-danger:hover {
+    background: rgba(255,255,255,0.12);
+}
+
+.toolbar {
+    background: rgba(0,0,0,0.35);
+    padding: 14px;
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+
+
+
     </style>
 </head>
 <body>
@@ -167,8 +375,11 @@
 
     <!-- Banner -->
     <div class="header-banner">
-        <h1><i class="bi bi-people-fill"></i> Lista de Participantes</h1>
+        <h1 class="titulo-animado">
+            <i class="bi bi-people-fill"></i> Lista de Participantes
+        </h1>
     </div>
+
 
     <!-- Toolbar de acciones -->
     <div class="toolbar">

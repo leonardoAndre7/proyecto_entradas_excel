@@ -878,8 +878,8 @@ def crear_entrada_doble_con_texto(participante):
     font_regular = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", "Poppins-Regular.ttf")
 
     try:
-        font_titulo = ImageFont.truetype(font_bold, 42)
-        font_texto  = ImageFont.truetype(font_regular, 28)
+        font_titulo = ImageFont.truetype(font_bold, 47)
+        font_texto  = ImageFont.truetype(font_regular, 20)
     except:
         font_titulo = ImageFont.load_default()
         font_texto  = ImageFont.load_default()
@@ -887,10 +887,11 @@ def crear_entrada_doble_con_texto(participante):
     # ================================
     # AREA DEL TEXTO (PIXEL PERFECT)
     # ================================
-    X1, Y1 = 42, 44
-    X2, Y2 = 782, 700
+    X1, Y1 = 42, 444
+    X2, Y2 = 792, 700
+
     ANCHO = X2 - X1
-    ALTO  = Y2 - Y1
+    ALTO = Y2 - Y1
 
     draw = ImageDraw.Draw(img1)
 
@@ -908,7 +909,7 @@ def crear_entrada_doble_con_texto(participante):
     ]
 
     # Posición vertical inicial
-    y_actual = Y1 + 10
+    y_actual = Y1 + 30
 
     for texto in lineas:
         # Fuente grande para títulos, regular para resto

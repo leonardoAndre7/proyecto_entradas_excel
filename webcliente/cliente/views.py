@@ -1266,10 +1266,20 @@ def enviar_whatsapp_qr(request, cod_part):
             os.remove(tmp_path)
     except Exception as e:
         logger.error(f"Error eliminando archivo temporal: {e}")
+        
+        
+    # =====================================
+    # MARCAR QR COMO ENVIADO
+    # =====================================
+    if whatsapp_enviado or correo_enviado:
+        participante.enviado = True
+        participante.save()
+
 
     return redirect("registro_participante")
 
-
+#######################################################
+#######################################################
 
 
 def visualizar_cuadrilatero():

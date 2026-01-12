@@ -303,7 +303,7 @@ def registro_participante(request):
         )
 
     # 🔹 PAGINACIÓN
-    paginator = Paginator(queryset, 5)
+    paginator = Paginator(queryset, 15)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 

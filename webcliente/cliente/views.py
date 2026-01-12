@@ -846,6 +846,11 @@ def webhook_whatsapp(request):
 
 
 import json
+from PIL import ImageFilter
+import qrcode
+from qrcode.image.styledpil import StyledPilImage
+from qrcode.image.styles.moduledrawers import RoundedModuleDrawer
+from qrcode.image.styles.colormasks import SolidFillColorMask
 
 ###################################################################################
 ###################################################################################
@@ -938,26 +943,64 @@ def crear_entrada_doble_con_texto(participante):
             # URL de validación usando token
             url_qr = f"{settings.BASE_URL}{reverse('validar_entrada_previo', args=[str(participante.token)])}"
 
-            # Generar QR
+            # ================================
+            # GENERAR QR BONITO (REDONDEADO)
+            # ================================
+
             qr = qrcode.QRCode(
-                version=1,
+                version=3,
                 error_correction=qrcode.constants.ERROR_CORRECT_H,
                 box_size=10,
-                border=2,
+                border=1,
             )
             qr.add_data(url_qr)
             qr.make(fit=True)
-
-            img_qr = qr.make_image(
+            
+            qr_img = qr.make_image(
                 fill_color="black",
                 back_color="white"
             ).convert("RGBA")
 
-            # Redimensionar EXACTO al área definida
-            img_qr = img_qr.resize((QR_ANCHO, QR_ALTO), Image.LANCZOS)
+            qr_img = qr.make_image(
+                fill_color="black",
+                back_color="white"
+            ).convert("RGBA")
 
-            # Pegar QR sobre la imagen 2
-            img2.paste(img_qr, (QR_X, QR_Y), img_qr)
+            # ================================
+            # CONFIGURACIÓN VISUAL
+            # ================================
+            PADDING = 12        # espacio blanco interno
+            RADIUS = 30         # bordes redondeados
+
+            # Tamaño real del QR (más pequeño)
+            qr_inner_size = (
+                QR_ANCHO - PADDING * 2,
+                QR_ALTO - PADDING * 2,
+            )
+
+            qr_img = qr_img.resize(qr_inner_size, Image.LANCZOS)
+
+            # Contenedor blanco
+            qr_container = Image.new("RGBA", (QR_ANCHO, QR_ALTO), (255, 255, 255, 255))
+
+            # Pegar QR centrado
+            qr_container.paste(qr_img, (PADDING, PADDING), qr_img)
+
+            # Máscara para bordes redondeados (DEL CONTENEDOR)
+            mask = Image.new("L", (QR_ANCHO, QR_ALTO), 0)
+            draw_mask = ImageDraw.Draw(mask)
+            draw_mask.rounded_rectangle(
+                (0, 0, QR_ANCHO, QR_ALTO),
+                radius=RADIUS,
+                fill=255
+            )
+
+            qr_container.putalpha(mask)
+
+            # Pegar en la imagen final
+            img2.paste(qr_container, (QR_X, QR_Y), qr_container)
+
+
 
         except Exception as e:
             print("⚠️ Error generando o pegando QR:", e)

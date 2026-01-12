@@ -80,6 +80,72 @@ form input::placeholder {
   cursor: not-allowed;
 }
 
+/* BOTON QR GENERAL */
+.btn-qr {
+    border-radius: 50px;               /* redondeado tipo pill */
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    transition: all 0.25s ease;
+}
+
+/* ENVIAR */
+.btn-qr.enviar {
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    color: #fff;
+}
+
+.btn-qr.enviar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 15px rgba(18,140,126,0.35);
+}
+
+/* ENVIADO */
+.btn-qr.enviado {
+    background: linear-gradient(135deg, #6c757d, #495057);
+    color: #fff;
+    cursor: not-allowed;
+    opacity: 0.85;
+}
+
+/* BADGE ENTRADA */
+.badge-entrada {
+    border-radius: 30px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* YA ENTRO */
+.entrada-ok {
+    background: linear-gradient(135deg, #198754, #28a745);
+    color: #fff;
+}
+
+/* BOTON MARCAR */
+.btn-entrada.marcar {
+    border-radius: 30px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #0d6efd;
+    border: 1px solid #0d6efd;
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+.btn-entrada.marcar:hover {
+    background: #0d6efd;
+    color: #fff;
+}
+
 
 </style>
 
@@ -197,38 +263,39 @@ form input::placeholder {
                 <a href="{% url 'qr_preview' p.token %}">Ver QR</a>
             </td> {% endcomment %}
 
-            <td>
-            {% if p.enviado %}
-              <button class="btn btn-secondary btn-sm btn-table" disabled>
-                <i class="bi bi-check2-circle"></i> Enviado
-              </button>
-            {% else %}
-              <form method="post" action="{% url 'enviar_whatsapp_qr' p.cod_part %}" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-success btn-sm btn-table d-flex align-items-center gap-1"
-                        style="background: linear-gradient(90deg, #25D366, #128C7E); border: none;">
-                  <i class="bi bi-whatsapp"></i>
-                  <i class="bi bi-envelope-fill"></i>
-                  <span>Enviar QR</span>
+            <td class="text-center">
+              {% if p.enviado %}
+                <button class="btn btn-sm btn-qr enviado" disabled>
+                  <i class="bi bi-check-circle-fill"></i>
+                  QR enviado
                 </button>
-              </form>
-
-            {% endif %}
+              {% else %}
+                <form method="post" action="{% url 'enviar_whatsapp_qr' p.cod_part %}" class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-qr enviar">
+                    <i class="bi bi-whatsapp"></i>
+                    <i class="bi bi-envelope-fill"></i>
+                    Enviar QR
+                  </button>
+                </form>
+              {% endif %}
             </td>
 
 
 
-            <td>
-                {% if p.entrada_usada %}
-                    <span class="badge bg-success">
-                        <i class="bi bi-check-circle-fill"></i> Entró
-                    </span>
-                {% else %}
-                    <a href="{% url 'marcar_ingreso' p.pk %}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-door-open"></i> Marcar
-                    </a>
-                {% endif %}
+
+            <td class="text-center">
+              {% if p.entrada_usada %}
+                <span class="badge badge-entrada entrada-ok">
+                  <i class="bi bi-check-circle-fill"></i> Entró
+                </span>
+              {% else %}
+                <a href="{% url 'marcar_ingreso' p.pk %}" class="btn btn-sm btn-entrada marcar">
+                  <i class="bi bi-door-open"></i> Marcar ingreso
+                </a>
+              {% endif %}
             </td>
+
 
             <td>
               <div class="d-flex justify-content-center gap-2">

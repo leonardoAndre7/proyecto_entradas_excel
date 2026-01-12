@@ -303,9 +303,9 @@ def registro_participante(request):
         )
 
     # 🔹 PAGINACIÓN
-    paginator = Paginator(queryset, 25)
+    paginator = Paginator(queryset, 5)
     page_number = request.GET.get('page')
-    participantes = paginator.get_page(page_number)
+    page_obj = paginator.get_page(page_number)
 
     # 🔹 POST
     if request.method == 'POST':
@@ -360,7 +360,7 @@ def registro_participante(request):
     # 🔹 RENDER
     return render(request, 'cliente/registro_participante.html', {
         'nuevo_cod': nuevo_cod,
-        'participantes': participantes
+        'page_obj': page_obj,
     })
 
     

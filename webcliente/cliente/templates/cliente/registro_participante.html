@@ -245,11 +245,13 @@ form input::placeholder {
           </tr>
         </thead>
         <tbody>
-          {% for p in participantes %}
+          {% for p in page_obj %}
           <tr>
-            <td>
-              {{ p.id }}
-            </td>
+            <td>{{ forloop.counter0|add:page_obj.start_index }}</td>
+
+
+
+
 
             {% comment %} <td>{{ p.cod_part }}</td> {% endcomment %}
             <td>{{ p.nombres }}</td>
@@ -321,10 +323,10 @@ form input::placeholder {
  <nav class="mt-4">
   <ul class="pagination justify-content-center">
 
-    {% if participantes.has_previous %}
+    {% if page_obj.has_previous %}
       <li class="page-item">
         <a class="page-link"
-           href="?page={{ participantes.previous_page_number }}">
+           href="?q={{ request.GET.q }}&page={{ page_obj.previous_page_number }}">
           Anterior
         </a>
       </li>
@@ -336,14 +338,14 @@ form input::placeholder {
 
     <li class="page-item disabled">
       <span class="page-link">
-        Página {{ participantes.number }} de {{ participantes.paginator.num_pages }}
+        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
       </span>
     </li>
 
-    {% if participantes.has_next %}
+    {% if page_obj.has_next %}
       <li class="page-item">
         <a class="page-link"
-           href="?q={{ request.GET.q }}&page={{ participantes.next_page_number }}">
+           href="?q={{ request.GET.q }}&page={{ page_obj.next_page_number }}">
           Siguiente
         </a>
       </li>
@@ -355,6 +357,7 @@ form input::placeholder {
 
   </ul>
 </nav>
+
 
 
 

@@ -926,20 +926,41 @@ def crear_entrada_doble_con_texto(participante):
         y_actual += font.size + 10
 
     # ================================
-    # INSERTAR QR DINÁMICO EN img2
+    # GENERAR QR DINÁMICO Y PEGARLO
     # ================================
-    QR_X_IZQ, QR_Y_ARR = 537, 362
-    QR_X_DER, QR_Y_ABA = 752, 546
-    QR_ANCHO = QR_X_DER - QR_X_IZQ
-    QR_ALTO  = QR_Y_ABA - QR_Y_ARR
+    QR_X = 534
+    QR_Y = 359
+    QR_ANCHO = 759 - 534   # 225 px
+    QR_ALTO  = 550 - 359   # 191 px
 
-    if participante and getattr(participante, "qr_image", None):
+    if participante:
         try:
-            qr = Image.open(participante.qr_image.path).convert("RGBA")
-            qr = qr.resize((QR_ANCHO, QR_ALTO), Image.LANCZOS)
-            img2.paste(qr, (QR_X_IZQ, QR_Y_ARR), qr)
+            # URL de validación usando token
+            url_qr = f"{settings.BASE_URL}{reverse('validar_entrada_previo', args=[str(participante.token)])}"
+
+            # Generar QR
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,
+                box_size=10,
+                border=2,
+            )
+            qr.add_data(url_qr)
+            qr.make(fit=True)
+
+            img_qr = qr.make_image(
+                fill_color="black",
+                back_color="white"
+            ).convert("RGBA")
+
+            # Redimensionar EXACTO al área definida
+            img_qr = img_qr.resize((QR_ANCHO, QR_ALTO), Image.LANCZOS)
+
+            # Pegar QR sobre la imagen 2
+            img2.paste(img_qr, (QR_X, QR_Y), img_qr)
+
         except Exception as e:
-            print("⚠️ Error pegando QR:", e)
+            print("⚠️ Error generando o pegando QR:", e)
 
     # ================================
     # UNIR IMÁGENES VERTICALMENTE

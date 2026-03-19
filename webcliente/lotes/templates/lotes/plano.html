@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Plano</title>
+
+<style>
+body{
+margin:0;
+overflow:hidden;
+}
+
+#container{
+position:relative;
+width:100vw;
+height:100vh;
+overflow:hidden;
+background:#eee;
+}
+
+#plano,#draw-layer{
+position:absolute;
+left:0;
+top:0;
+transform-origin: top left;
+}
+
+.panel{
+position:fixed;
+top:10px;
+left:10px;
+z-index:10;
+background:white;
+padding:10px;
+border-radius:10px;
+box-shadow:0 0 10px rgba(0,0,0,0.2);
+}
+</style>
+</head>
+
+<body>
+
+<div id="container">
+<img id="plano" src="{{ plano.imagen.url }}">
+<canvas id="draw-layer"></canvas>
+<input type="hidden" id="plano_id" value="{{ plano.id }}">
+</div>
+
+{% if es_admin %}
+<div class="panel">
+<button onclick="setModo('vendido')">🔴 Vendido</button>
+<button onclick="setModo('reservado')">🟡 Reservado</button>
+<button onclick="deshacer()">↩ Deshacer</button>
+</div>
+{% endif %}
+
+<script>
+
+const esAdmin = "{{ es_admin|yesno:'true,false' }}" === "true";
+
+let lotes = JSON.parse('{{ lotes|escapejs }}');
+let historial = [];
+
+let modo = "vendido";
+
+function setModo(n){
+modo = n;
+}
+
+const plano = document.getElementById("plano");
+const canvas = document.getElementById("draw-layer");
+const container = document.getElementById("container");
+
+const ctx = canvas.getContext("2d");
+
+let scale = 1;
+let minScale = 1;
+
+let posX = 0;
+let posY = 0;
+
+let isDragging = false;
+let startX, startY;
+
+let isDrawing = false;
+let startDrawX = 0;
+let startDrawY = 0;
+
+
+/* INICIAR */
+
+function iniciar(){
+
+canvas.width = plano.naturalWidth;
+canvas.height = plano.naturalHeight;
+
+let cw = container.clientWidth;
+let ch = container.clientHeight;
+
+let scaleX = cw / plano.naturalWidth;
+let scaleY = ch / plano.naturalHeight;
+
+minScale = Math.max(scaleX, scaleY);
+scale = minScale;
+
+actualizarTransform();
+dibujarLotes();
+
+}
+
+plano.onload = iniciar;
+if(plano.complete){ iniciar(); }
+
+
+/* DIBUJAR LOTES */
+
+function dibujarLotes(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+lotes.forEach(lote=>{
+
+if(lote.estado === "vendido"){
+ctx.fillStyle = "rgba(255,0,0,0.4)";
+}
+else if(lote.estado === "reservado"){
+ctx.fillStyle = "rgba(255,255,0,0.4)";
+}
+else{
+return;
+}
+
+ctx.fillRect(lote.x, lote.y, lote.width, lote.height);
+
+});
+
+}
+
+
+/* BUSCAR LOTE */
+
+function obtenerLoteEn(x, y){
+
+for(let i = lotes.length - 1; i >= 0; i--){
+
+let l = lotes[i];
+
+if(
+x >= l.x &&
+x <= l.x + l.width &&
+y >= l.y &&
+y <= l.y + l.height
+){
+return l;
+}
+
+}
+
+return null;
+}
+
+
+/* ELIMINAR */
+
+function eliminarLote(lote){
+
+lotes = lotes.filter(l => l.id !== lote.id);
+
+fetch("/lotes/eliminar-lote/",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"X-CSRFToken":getCookie("csrftoken")
+},
+body:JSON.stringify({
+id: lote.id
+})
+});
+
+dibujarLotes();
+
+}
+
+
+/* ZOOM */
+
+container.addEventListener("wheel",function(e){
+
+e.preventDefault();
+
+if(e.deltaY < 0){
+scale += 0.1;
+}else{
+scale -= 0.1;
+}
+
+if(scale < minScale) scale = minScale;
+if(scale > 5) scale = 5;
+
+limitar();
+actualizarTransform();
+
+});
+
+
+/* MOUSEDOWN */
+
+container.addEventListener("mousedown",function(e){
+
+let rect = canvas.getBoundingClientRect();
+
+let x = (e.clientX - rect.left) / scale;
+let y = (e.clientY - rect.top) / scale;
+
+
+// 🔥 ALT + CLICK = ELIMINAR
+if(e.altKey && esAdmin){
+
+let lote = obtenerLoteEn(x,y);
+
+if(lote){
+eliminarLote(lote);
+return;
+}
+
+}
+
+
+// 🔥 SHIFT = DIBUJAR
+if(e.shiftKey && esAdmin){
+
+isDrawing = true;
+
+startDrawX = x;
+startDrawY = y;
+
+}else{
+
+isDragging = true;
+
+startX = e.clientX - posX;
+startY = e.clientY - posY;
+
+}
+
+});
+
+
+/* MOUSEMOVE */
+
+document.addEventListener("mousemove",function(e){
+
+if(isDragging){
+
+posX = e.clientX - startX;
+posY = e.clientY - startY;
+
+limitar();
+actualizarTransform();
+
+}
+
+if(isDrawing){
+
+let rect = canvas.getBoundingClientRect();
+
+let currentX = (e.clientX - rect.left) / scale;
+let currentY = (e.clientY - rect.top) / scale;
+
+let width = currentX - startDrawX;
+let height = currentY - startDrawY;
+
+dibujarLotes();
+
+ctx.strokeStyle = "blue";
+ctx.lineWidth = 2;
+ctx.strokeRect(startDrawX, startDrawY, width, height);
+
+}
+
+});
+
+
+/* MOUSEUP */
+
+document.addEventListener("mouseup",function(e){
+
+isDragging = false;
+
+if(isDrawing && esAdmin){
+
+let rect = canvas.getBoundingClientRect();
+
+let endX = (e.clientX - rect.left) / scale;
+let endY = (e.clientY - rect.top) / scale;
+
+let width = endX - startDrawX;
+let height = endY - startDrawY;
+
+if(width < 0){
+startDrawX += width;
+width = Math.abs(width);
+}
+
+if(height < 0){
+startDrawY += height;
+height = Math.abs(height);
+}
+
+guardarLote(startDrawX, startDrawY, width, height);
+
+}
+
+isDrawing = false;
+
+});
+
+
+/* GUARDAR */
+
+function guardarLote(x,y,width,height){
+
+const planoId = document.getElementById("plano_id").value;
+
+fetch("/lotes/guardar-lote/",{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json",
+"X-CSRFToken":getCookie("csrftoken")
+},
+
+body:JSON.stringify({
+x:x,
+y:y,
+width:width,
+height:height,
+estado: modo,
+plano_id: planoId
+})
+
+})
+.then(res=>res.json())
+.then(data=>{
+
+const nuevo = {
+id: data.id,
+x:x,
+y:y,
+width:width,
+height:height,
+estado: modo
+};
+
+lotes.push(nuevo);
+historial.push(nuevo);
+
+dibujarLotes();
+
+});
+
+}
+
+
+/* DESHACER */
+
+function deshacer(){
+
+if(historial.length === 0) return;
+
+let ultimo = historial.pop();
+
+eliminarLote(ultimo);
+
+}
+
+
+/* LIMITES */
+
+function limitar(){
+
+let w = plano.naturalWidth * scale;
+let h = plano.naturalHeight * scale;
+
+let minX = container.clientWidth - w;
+let minY = container.clientHeight - h;
+
+if(posX > 0) posX = 0;
+if(posY > 0) posY = 0;
+
+if(posX < minX) posX = minX;
+if(posY < minY) posY = minY;
+
+}
+
+
+/* TRANSFORM */
+
+function actualizarTransform(){
+
+let transform = `translate(${posX}px,${posY}px) scale(${scale})`;
+
+plano.style.transform = transform;
+canvas.style.transform = transform;
+
+}
+
+
+/* CSRF */
+
+function getCookie(name){
+
+let cookieValue = null;
+
+if(document.cookie && document.cookie !== ''){
+
+let cookies = document.cookie.split(';');
+
+for(let i=0;i<cookies.length;i++){
+
+let cookie = cookies[i].trim();
+
+if(cookie.substring(0,name.length+1) === (name+'=')){
+cookieValue = decodeURIComponent(cookie.substring(name.length+1));
+break;
+}
+
+}
+
+}
+
+return cookieValue;
+
+}
+
+</script>
+
+</body>
+</html>

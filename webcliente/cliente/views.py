@@ -65,6 +65,32 @@ import openpyxl
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.views.decorators.http import require_POST
+from lotes import views
+from lotes.models import Plano, Lote
+from django.shortcuts import render
+
+def plano(request):
+    return render(request, "lotes/plano.html", {"plano": plano})
+
+
+
+def guardar_lote(request):
+
+    if request.method == "POST":
+
+        data = json.loads(request.body)
+
+        plano = Plano.objects.first()
+
+        lote = Lote.objects.create(
+            plano=plano,
+            x=data["x"],
+            y=data["y"],
+            width=data["width"],
+            height=data["height"]
+        )
+
+        return JsonResponse({"status":"ok"})
 
 
 

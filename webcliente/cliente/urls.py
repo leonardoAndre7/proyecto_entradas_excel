@@ -2,7 +2,8 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from . import views  # 👈 Solo esta línea basta
 from .views import qr_preview, webhook_whatsapp
-
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('', views.ParticipanteListView.as_view(), name='participante_lista'),
@@ -59,6 +60,9 @@ urlpatterns = [
     ),
    
    path("webhook/whatsapp/", webhook_whatsapp, name="webhook_whatsapp"),
-
+ 
+   path('plano/', views.plano, name="plano"),
 
 ]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

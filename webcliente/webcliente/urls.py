@@ -24,7 +24,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.index, name='index'), 
     path('participantes/', include('cliente.urls')),
+    path('plano/', views.plano, name="plano"),
+    path('lotes/', include('lotes.urls')),
 ]
-
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

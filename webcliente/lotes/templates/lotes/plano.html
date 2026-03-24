@@ -1,9 +1,7 @@
 <!DOCTYPE html>
-
 <html>
 <head>
 <title>Plano</title>
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
 <style>
@@ -36,7 +34,6 @@ border-radius:10px;
 box-shadow:0 0 10px rgba(0,0,0,0.2);
 }
 </style>
-
 </head>
 
 <body>
@@ -48,7 +45,6 @@ box-shadow:0 0 10px rgba(0,0,0,0.2);
 </div>
 
 {% if es_admin %}
-
 <div class="panel">
 <button onclick="setModo('vendido')">🔴 Vendido</button>
 <button onclick="setModo('reservado')">🟡 Reservado</button>
@@ -58,22 +54,15 @@ box-shadow:0 0 10px rgba(0,0,0,0.2);
 {% endif %}
 
 <script>
-
 const esAdmin = "{{ es_admin|yesno:'true,false' }}" === "true";
 
-/* 🔥 LOTES SEGURO */
 let lotes = [];
-try{
-    lotes = JSON.parse('{{ lotes|escapejs }}');
-}catch(e){
-    console.log("Error lotes", e);
-}
-console.log("LOTES:", lotes);
-
+try{ lotes = JSON.parse('{{ lotes|escapejs }}'); }catch(e){ console.log("Error lotes", e); }
 let historial = [];
 
-let modo = "vendido";
-let modoDibujo = "rect";
+let modo="vendido";
+let modoDibujo="rect";
+let puntos=[];
 
 function setModo(n){ modo=n; modoDibujo="rect"; }
 function activarPoligono(){ modoDibujo="poligono"; puntos=[]; }
@@ -85,216 +74,131 @@ const ctx = canvas.getContext("2d");
 
 let scale=1, minScale=1;
 let posX=0, posY=0;
-
 let isDragging=false;
-let startX, startY;
-
+let startX,startY;
 let isDrawingRect=false;
 let rectStartX=0, rectStartY=0;
-
 let lastDistance=null;
-let puntos=[];
 
-/* 🔥 INIT FIX */
+/* INIT */
 function iniciar(){
-
-if(!plano.naturalWidth){
-    setTimeout(iniciar,100);
-    return;
-}
+if(!plano.naturalWidth){ setTimeout(iniciar,100); return; }
 
 canvas.width = plano.naturalWidth;
 canvas.height = plano.naturalHeight;
 
 let cw = container.clientWidth;
 let ch = container.clientHeight;
-
 minScale = Math.max(cw/plano.naturalWidth, ch/plano.naturalHeight);
 scale = minScale;
 
 actualizarTransform();
 dibujarLotes();
 }
-
 plano.onload=iniciar;
 if(plano.complete) iniciar();
 
-/* DRAW */
+/* DIBUJAR LOTES */
 function dibujarLotes(){
-
 ctx.clearRect(0,0,canvas.width,canvas.height);
-
 lotes.forEach(l=>{
-
-let color = l.estado==="vendido"
-? "rgba(255,0,0,0.4)"
-: "rgba(255,255,0,0.4)";
-
-if(l.width!=null){
-ctx.fillStyle=color;
-ctx.fillRect(l.x,l.y,l.width,l.height);
-}
-
-if(l.puntos && l.puntos.length>=2){
-ctx.strokeStyle="black";
-ctx.lineWidth=18;
-
-ctx.beginPath();
-l.puntos.forEach((p,i)=>{
-if(i===0) ctx.moveTo(p.x,p.y);
-else ctx.lineTo(p.x,p.y);
+    let color = l.estado==="vendido" ? "rgba(255,0,0,0.4)" : "rgba(255,255,0,0.4)";
+    if(l.width!=null){ ctx.fillStyle=color; ctx.fillRect(l.x,l.y,l.width,l.height); }
+    if(l.puntos && l.puntos.length>=2){
+        ctx.strokeStyle="black";
+        ctx.lineWidth=18;
+        ctx.beginPath();
+        l.puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y) );
+        ctx.closePath();
+        ctx.stroke();
+    }
 });
-ctx.closePath();
-ctx.stroke();
 }
 
-});
-
-}
-
-/* DETECTAR */
+/* DETECTAR LOTE */
 function obtenerLoteEn(x,y){
-
 for(let i=lotes.length-1;i>=0;i--){
-
-let l=lotes[i];
-
-if(l.width!=null){
-if(x>=l.x && x<=l.x+l.width && y>=l.y && y<=l.y+l.height){
-return l;
-}
-}
-
-if(l.puntos && l.puntos.length>=3){
-let dentro=false;
-for(let j=0,k=l.puntos.length-1;j<l.puntos.length;k=j++){
-let xi=l.puntos[j].x, yi=l.puntos[j].y;
-let xj=l.puntos[k].x, yj=l.puntos[k].y;
-
-let intersect=((yi>y)!=(yj>y)) &&
-(x < (xj-xi)*(y-yi)/(yj-yi)+xi);
-
-if(intersect) dentro=!dentro;
-}
-if(dentro) return l;
-}
-
+    let l=lotes[i];
+    if(l.width!=null && x>=l.x && x<=l.x+l.width && y>=l.y && y<=l.y+l.height) return l;
+    if(l.puntos && l.puntos.length>=3){
+        let dentro=false;
+        for(let j=0,k=l.puntos.length-1;j<l.puntos.length;k=j++){
+            let xi=l.puntos[j].x, yi=l.puntos[j].y;
+            let xj=l.puntos[k].x, yj=l.puntos[k].y;
+            let intersect=((yi>y)!=(yj>y)) && (x<(xj-xi)*(y-yi)/(yj-yi)+xi);
+            if(intersect) dentro=!dentro;
+        }
+        if(dentro) return l;
+    }
 }
 return null;
 }
 
-/* ELIMINAR */
+/* ELIMINAR LOTE */
 function eliminarLote(lote){
-
 lotes = lotes.filter(l=>l.id!==lote.id);
-
 fetch("/lotes/eliminar-lote/",{
-method:"POST",
-headers:{
-"Content-Type":"application/json",
-"X-CSRFToken":getCookie("csrftoken")
-},
-body:JSON.stringify({id:lote.id})
+    method:"POST",
+    headers:{ "Content-Type":"application/json","X-CSRFToken":getCookie("csrftoken") },
+    body:JSON.stringify({id:lote.id})
 });
-
 dibujarLotes();
 }
 
 /* MOUSE */
 container.addEventListener("mousedown",function(e){
-
 let rect = canvas.getBoundingClientRect();
-let x = (e.clientX - rect.left)/scale;
-let y = (e.clientY - rect.top)/scale;
+let x=(e.clientX-rect.left)/scale;
+let y=(e.clientY-rect.top)/scale;
 
-/* ALT BORRAR */
-if(e.altKey && esAdmin){
-let lote = obtenerLoteEn(x,y);
-if(lote){
-eliminarLote(lote);
-return;
-}
-}
+if(e.altKey && esAdmin){ let lote=obtenerLoteEn(x,y); if(lote){ eliminarLote(lote); return; } }
 
-if(e.shiftKey && esAdmin && modoDibujo==="rect"){
-isDrawingRect=true;
-rectStartX=x;
-rectStartY=y;
-}else{
-isDragging=true;
-startX=e.clientX-posX;
-startY=e.clientY-posY;
-}
-
+if(e.shiftKey && esAdmin && modoDibujo==="rect"){ isDrawingRect=true; rectStartX=x; rectStartY=y; }
+else{ isDragging=true; startX=e.clientX-posX; startY=e.clientY-posY; }
 });
 
 document.addEventListener("mousemove",function(e){
-
-if(isDragging){
-posX=e.clientX-startX;
-posY=e.clientY-startY;
-limitar();
-actualizarTransform();
-}
-
+if(isDragging){ posX=e.clientX-startX; posY=e.clientY-startY; limitar(); actualizarTransform(); }
 if(isDrawingRect){
-
-let rect = canvas.getBoundingClientRect();
-let x = (e.clientX - rect.left)/scale;
-let y = (e.clientY - rect.top)/scale;
-
-dibujarLotes();
-ctx.strokeStyle="black";
-ctx.strokeRect(rectStartX,rectStartY,x-rectStartX,y-rectStartY);
-
+    let rect = canvas.getBoundingClientRect();
+    let x=(e.clientX-rect.left)/scale;
+    let y=(e.clientY-rect.top)/scale;
+    dibujarLotes();
+    ctx.strokeStyle="black";
+    ctx.strokeRect(rectStartX,rectStartY,x-rectStartX,y-rectStartY);
 }
-
 });
 
 document.addEventListener("mouseup",function(e){
-
 isDragging=false;
-
 if(isDrawingRect){
-
-let rect = canvas.getBoundingClientRect();
-let x = (e.clientX - rect.left)/scale;
-let y = (e.clientY - rect.top)/scale;
-
-guardarRect(rectStartX,rectStartY,x-rectStartX,y-rectStartY);
-isDrawingRect=false;
-
+    let rect = canvas.getBoundingClientRect();
+    let x=(e.clientX-rect.left)/scale;
+    let y=(e.clientY-rect.top)/scale;
+    guardarRect(rectStartX,rectStartY,x-rectStartX,y-rectStartY);
+    isDrawingRect=false;
 }
-
 });
 
-/* POLIGONO */
+/* POLIGONO - CLICK IZQUIERDO */
 container.addEventListener("click",function(e){
-
-if(!esAdmin) return;
-if(modoDibujo!=="poligono") return;
-
-let rect = canvas.getBoundingClientRect();
-let x = (e.clientX - rect.left)/scale;
-let y = (e.clientY - rect.top)/scale;
-
+if(!esAdmin || modoDibujo!=="poligono") return;
+let rect=canvas.getBoundingClientRect();
+let x=(e.clientX-rect.left)/scale;
+let y=(e.clientY-rect.top)/scale;
 puntos.push({x,y});
-
 dibujarLotes();
-
 ctx.strokeStyle="black";
 ctx.lineWidth=18;
-
 ctx.beginPath();
-puntos.forEach((p,i)=>{
-if(i===0) ctx.moveTo(p.x,p.y);
-else ctx.lineTo(p.x,p.y);
-});
+puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
 ctx.stroke();
-
 });
 
-container.addEventListener("dblclick",function(){
+/* POLIGONO - CLICK DERECHO FINALIZA */
+container.addEventListener("contextmenu",function(e){
+e.preventDefault();
+if(!esAdmin || modoDibujo!=="poligono") return;
 if(puntos.length<3) return;
 guardarPoligono(puntos);
 puntos=[];
@@ -313,126 +217,47 @@ actualizarTransform();
 
 /* TOUCH */
 container.addEventListener("touchstart",function(e){
-if(e.touches.length===1){
-let t=e.touches[0];
-isDragging=true;
-startX=t.clientX-posX;
-startY=t.clientY-posY;
-}
-if(e.touches.length===2){
-lastDistance=getDistance(e.touches);
-}
+if(e.touches.length===1){ let t=e.touches[0]; isDragging=true; startX=t.clientX-posX; startY=t.clientY-posY; }
+if(e.touches.length===2){ lastDistance=getDistance(e.touches); }
 },{passive:false});
 
 container.addEventListener("touchmove",function(e){
 e.preventDefault();
-
-if(e.touches.length===1 && isDragging){
-let t=e.touches[0];
-posX=t.clientX-startX;
-posY=t.clientY-startY;
-limitar();
-actualizarTransform();
-}
-
-if(e.touches.length===2){
-let newDist=getDistance(e.touches);
-if(lastDistance){
-scale += (newDist-lastDistance)*0.005;
-if(scale<minScale) scale=minScale;
-if(scale>5) scale=5;
-limitar();
-actualizarTransform();
-}
-lastDistance=newDist;
-}
-
+if(e.touches.length===1 && isDragging){ let t=e.touches[0]; posX=t.clientX-startX; posY=t.clientY-startY; limitar(); actualizarTransform(); }
+if(e.touches.length===2){ let newDist=getDistance(e.touches); if(lastDistance){ scale+=(newDist-lastDistance)*0.005; if(scale<minScale) scale=minScale; if(scale>5) scale=5; limitar(); actualizarTransform(); } lastDistance=newDist; }
 },{passive:false});
 
 container.addEventListener("touchend",function(e){
 isDragging=false;
-
 let now=new Date().getTime();
 let diff=now-(window.lastTap||0);
-
-if(diff<300 && puntos.length>=3){
-guardarPoligono(puntos);
-puntos=[];
-modoDibujo="rect";
-}
-
+if(diff<300 && puntos.length>=3){ guardarPoligono(puntos); puntos=[]; modoDibujo="rect"; }
 window.lastTap=now;
 lastDistance=null;
 });
 
-/* DIST */
-function getDistance(t){
-let dx=t[0].clientX-t[1].clientX;
-let dy=t[0].clientY-t[1].clientY;
-return Math.sqrt(dx*dx+dy*dy);
-}
-
-/* LIMIT */
-function limitar(){
-let w=plano.naturalWidth*scale;
-let h=plano.naturalHeight*scale;
-
-let minX=container.clientWidth-w;
-let minY=container.clientHeight-h;
-
-if(posX>0) posX=0;
-if(posY>0) posY=0;
-
-if(posX<minX) posX=minX;
-if(posY<minY) posY=minY;
-}
-
-/* TRANSFORM */
-function actualizarTransform(){
-let t=`translate(${posX}px,${posY}px) scale(${scale})`;
-plano.style.transform=t;
-canvas.style.transform=t;
-}
-
-/* GUARDAR */
+/* GUARDAR RECT */
 function guardarRect(x,y,w,h){
-
 const planoId=document.getElementById("plano_id").value;
-
 fetch("/lotes/guardar-lote/",{
 method:"POST",
-headers:{
-"Content-Type":"application/json",
-"X-CSRFToken":getCookie("csrftoken")
-},
+headers:{ "Content-Type":"application/json","X-CSRFToken":getCookie("csrftoken") },
 body:JSON.stringify({x,y,width:w,height:h,estado:modo,plano_id:planoId})
 })
 .then(r=>r.json())
-.then(d=>{
-lotes.push({id:d.id,x,y,width:w,height:h,estado:modo});
-historial.push(d.id);
-dibujarLotes();
-});
+.then(d=>{ lotes.push({id:d.id,x,y,width:w,height:h,estado:modo}); historial.push(d.id); dibujarLotes(); });
 }
 
+/* GUARDAR POLIGONO */
 function guardarPoligono(puntos){
-
 const planoId=document.getElementById("plano_id").value;
-
 fetch("/lotes/guardar-lote/",{
 method:"POST",
-headers:{
-"Content-Type":"application/json",
-"X-CSRFToken":getCookie("csrftoken")
-},
+headers:{ "Content-Type":"application/json","X-CSRFToken":getCookie("csrftoken") },
 body:JSON.stringify({puntos,estado:modo,plano_id:planoId})
 })
 .then(r=>r.json())
-.then(d=>{
-lotes.push({id:d.id,puntos,estado:modo});
-historial.push(d.id);
-dibujarLotes();
-});
+.then(d=>{ lotes.push({id:d.id,puntos,estado:modo}); historial.push(d.id); dibujarLotes(); });
 }
 
 /* DESHACER */
@@ -440,16 +265,11 @@ function deshacer(){
 if(historial.length===0) return;
 let id=historial.pop();
 lotes=lotes.filter(l=>l.id!==id);
-
 fetch("/lotes/eliminar-lote/",{
 method:"POST",
-headers:{
-"Content-Type":"application/json",
-"X-CSRFToken":getCookie("csrftoken")
-},
+headers:{ "Content-Type":"application/json","X-CSRFToken":getCookie("csrftoken") },
 body:JSON.stringify({id})
 });
-
 dibujarLotes();
 }
 
@@ -457,16 +277,34 @@ dibujarLotes();
 function getCookie(name){
 let v=null;
 if(document.cookie){
-document.cookie.split(';').forEach(c=>{
-c=c.trim();
-if(c.startsWith(name+'=')){
-v=decodeURIComponent(c.substring(name.length+1));
-}
-});
+document.cookie.split(';').forEach(c=>{ c=c.trim(); if(c.startsWith(name+'=')){ v=decodeURIComponent(c.substring(name.length+1)); } });
 }
 return v;
 }
 
+/* DISTANCIA TOUCH */
+function getDistance(t){
+let dx=t[0].clientX-t[1].clientX;
+let dy=t[0].clientY-t[1].clientY;
+return Math.sqrt(dx*dx+dy*dy);
+}
+
+/* LIMIT Y TRANSFORM */
+function limitar(){
+let w=plano.naturalWidth*scale;
+let h=plano.naturalHeight*scale;
+let minX=container.clientWidth-w;
+let minY=container.clientHeight-h;
+if(posX>0) posX=0;
+if(posY>0) posY=0;
+if(posX<minX) posX=minX;
+if(posY<minY) posY=minY;
+}
+function actualizarTransform(){
+let t=`translate(${posX}px,${posY}px) scale(${scale})`;
+plano.style.transform=t;
+canvas.style.transform=t;
+}
 </script>
 
 </body>

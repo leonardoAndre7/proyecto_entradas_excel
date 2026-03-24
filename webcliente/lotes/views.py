@@ -28,7 +28,7 @@ def ver_plano(request):
             "height": l.height,
             "estado": l.estado,
             # 🔥 ASEGURAR LISTA REAL
-            "puntos": l.puntos if l.puntos else None
+            "puntos": list(l.puntos) if l.puntos else None
         })
 
     return render(request, "lotes/plano.html", {

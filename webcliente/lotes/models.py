@@ -19,7 +19,6 @@ class Lote(models.Model):
     y = models.FloatField(null=True, blank=True)
     width = models.FloatField(null=True, blank=True)
     height = models.FloatField(null=True, blank=True)
-    puntos = models.JSONField(null=True, blank=True)
 
     estado = models.CharField(
         max_length=20,

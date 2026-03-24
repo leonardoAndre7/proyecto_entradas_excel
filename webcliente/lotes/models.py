@@ -12,11 +12,14 @@ class Lote(models.Model):
 
     plano = models.ForeignKey(Plano, on_delete=models.CASCADE)
 
-    x = models.FloatField()
-    y = models.FloatField()
+    # 🔥 NUEVO: guardar polígono
+    puntos = models.JSONField(null=True, blank=True)
 
-    width = models.FloatField()
-    height = models.FloatField()
+    x = models.FloatField(null=True, blank=True)
+    y = models.FloatField(null=True, blank=True)
+    width = models.FloatField(null=True, blank=True)
+    height = models.FloatField(null=True, blank=True)
+    puntos = models.JSONField(null=True, blank=True)
 
     estado = models.CharField(
         max_length=20,

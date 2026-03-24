@@ -4,12 +4,10 @@ from .models import Plano, Lote
 import json
 from django.contrib.auth.decorators import login_required
 
-
 def ver_plano(request):
 
     plano = Plano.objects.first()
 
-    # 🔥 Si no hay plano, evitar error
     if not plano:
         return render(request, "lotes/plano.html", {
             "plano": None,
@@ -17,18 +15,30 @@ def ver_plano(request):
             "es_admin": request.user.is_staff
         })
 
-    # 🔥 SOLO LOTES DE ESTE PLANO
-    lotes = list(
-        Lote.objects.filter(plano=plano).values(
-            "id", "x", "y", "width", "height", "estado"
-        )
-    )
+    lotes_qs = Lote.objects.filter(plano=plano)
+
+    lotes = []
+
+    for l in lotes_qs:
+        lotes.append({
+            "id": l.id,
+            "x": l.x,
+            "y": l.y,
+            "width": l.width,
+            "height": l.height,
+            "estado": l.estado,
+            # 🔥 ASEGURAR LISTA REAL
+            "puntos": l.puntos if l.puntos else None
+        })
 
     return render(request, "lotes/plano.html", {
         "plano": plano,
         "lotes": json.dumps(lotes),
-        "es_admin": request.user.is_staff  # 🔥 SOLO ADMIN REAL
+        "es_admin": request.user.is_staff
     })
+
+
+
 
 
 @login_required
@@ -36,7 +46,6 @@ def guardar_lote(request):
 
     if request.method == "POST":
 
-        # 🔒 SOLO ADMIN
         if not request.user.is_staff:
             return JsonResponse({"error": "No autorizado"}, status=403)
 
@@ -44,21 +53,27 @@ def guardar_lote(request):
 
         plano = get_object_or_404(Plano, id=data["plano_id"])
 
+        # 🔥 detectar si es polígono o rectángulo
+        puntos = data.get("puntos", None)
+
         lote = Lote.objects.create(
             plano=plano,
-            x=data["x"],
-            y=data["y"],
-            width=data["width"],
-            height=data["height"],
-            estado=data["estado"]  # 🔥 IMPORTANTE
+            puntos=puntos,  # puede ser None o lista
+
+            # 🔥 SOLO si es rectángulo
+            x=data.get("x"),
+            y=data.get("y"),
+            width=data.get("width"),
+            height=data.get("height"),
+
+            estado=data["estado"]
         )
 
         return JsonResponse({
             "status": "ok",
             "id": lote.id
         })
-
-    return JsonResponse({"error": "Método no permitido"}, status=405)
+    
 
 
 @login_required

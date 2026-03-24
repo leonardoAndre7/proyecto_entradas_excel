@@ -49,6 +49,7 @@ box-shadow:0 0 10px rgba(0,0,0,0.2);
 <div class="panel">
 <button onclick="setModo('vendido')">🔴 Vendido</button>
 <button onclick="setModo('reservado')">🟡 Reservado</button>
+<button onclick="activarPoligono()">✏️ Polígono</button>
 <button onclick="deshacer()">↩ Deshacer</button>
 </div>
 {% endif %}
@@ -61,15 +62,21 @@ let lotes = JSON.parse('{{ lotes|escapejs }}');
 let historial = [];
 
 let modo = "vendido";
+let modoDibujo = "rect";
 
-function setModo(n){
-modo = n;
+function setModo(n){ 
+    modo = n; 
+    modoDibujo = "rect";
+}
+
+function activarPoligono(){
+    modoDibujo = "poligono";
+    puntos = [];
 }
 
 const plano = document.getElementById("plano");
 const canvas = document.getElementById("draw-layer");
 const container = document.getElementById("container");
-
 const ctx = canvas.getContext("2d");
 
 let scale = 1;
@@ -81,15 +88,16 @@ let posY = 0;
 let isDragging = false;
 let startX, startY;
 
-let isDrawing = false;
-let startDrawX = 0;
-let startDrawY = 0;
+let isDrawingRect = false;
+let rectStartX = 0;
+let rectStartY = 0;
+
+let puntos = [];
 
 
 /* INICIAR */
 
 function iniciar(){
-
 canvas.width = plano.naturalWidth;
 canvas.height = plano.naturalHeight;
 
@@ -104,45 +112,21 @@ scale = minScale;
 
 actualizarTransform();
 dibujarLotes();
-
 }
 
 plano.onload = iniciar;
 if(plano.complete){ iniciar(); }
 
 
-/* DIBUJAR LOTES */
-
-function dibujarLotes(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height);
-
-lotes.forEach(lote=>{
-
-if(lote.estado === "vendido"){
-ctx.fillStyle = "rgba(255,0,0,0.4)";
-}
-else if(lote.estado === "reservado"){
-ctx.fillStyle = "rgba(255,255,0,0.4)";
-}
-else{
-return;
-}
-
-ctx.fillRect(lote.x, lote.y, lote.width, lote.height);
-
-});
-
-}
-
-
-/* BUSCAR LOTE */
+/* DETECTAR CLICK EN LOTE */
 
 function obtenerLoteEn(x, y){
 
 for(let i = lotes.length - 1; i >= 0; i--){
 
 let l = lotes[i];
+
+if(l.width != null){
 
 if(
 x >= l.x &&
@@ -151,6 +135,29 @@ y >= l.y &&
 y <= l.y + l.height
 ){
 return l;
+}
+
+}
+
+if(l.puntos && l.puntos.length >= 3){
+
+let dentro = false;
+
+for(let j=0, k=l.puntos.length-1; j<l.puntos.length; k=j++){
+
+let xi = l.puntos[j].x;
+let yi = l.puntos[j].y;
+let xj = l.puntos[k].x;
+let yj = l.puntos[k].y;
+
+let intersect = ((yi > y) !== (yj > y)) &&
+(x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+
+if(intersect) dentro = !dentro;
+}
+
+if(dentro) return l;
+
 }
 
 }
@@ -171,12 +178,50 @@ headers:{
 "Content-Type":"application/json",
 "X-CSRFToken":getCookie("csrftoken")
 },
-body:JSON.stringify({
-id: lote.id
-})
+body:JSON.stringify({ id: lote.id })
 });
 
 dibujarLotes();
+}
+
+
+/* DIBUJAR */
+
+function dibujarLotes(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+lotes.forEach(lote=>{
+
+let color = lote.estado === "vendido"
+? "rgba(255,0,0,0.4)"
+: "rgba(255,255,0,0.4)";
+
+if(lote.width != null){
+ctx.fillStyle = color;
+ctx.fillRect(lote.x, lote.y, lote.width, lote.height);
+}
+
+if(lote.puntos && lote.puntos.length >= 2){
+
+ctx.strokeStyle = "black";
+ctx.lineWidth = 20;
+
+ctx.beginPath();
+
+lote.puntos.forEach((p,i)=>{
+if(i===0){
+ctx.moveTo(p.x,p.y);
+}else{
+ctx.lineTo(p.x,p.y);
+}
+});
+
+ctx.closePath();
+ctx.stroke();
+}
+
+});
 
 }
 
@@ -187,17 +232,60 @@ container.addEventListener("wheel",function(e){
 
 e.preventDefault();
 
-if(e.deltaY < 0){
-scale += 0.1;
-}else{
-scale -= 0.1;
-}
+scale += (e.deltaY < 0 ? 0.1 : -0.1);
 
 if(scale < minScale) scale = minScale;
 if(scale > 5) scale = 5;
 
 limitar();
 actualizarTransform();
+});
+
+
+/* CLICK POLÍGONO */
+
+container.addEventListener("click",function(e){
+
+if(!esAdmin) return;
+if(modoDibujo !== "poligono") return;
+
+let rect = canvas.getBoundingClientRect();
+
+let x = (e.clientX - rect.left) / scale;
+let y = (e.clientY - rect.top) / scale;
+
+puntos.push({x,y});
+
+dibujarLotes();
+
+ctx.strokeStyle = "black";
+ctx.lineWidth = 16;
+
+ctx.beginPath();
+
+puntos.forEach((p,i)=>{
+if(i===0){
+ctx.moveTo(p.x,p.y);
+}else{
+ctx.lineTo(p.x,p.y);
+}
+});
+
+ctx.stroke();
+
+});
+
+
+/* DOBLE CLICK */
+
+container.addEventListener("dblclick",function(){
+
+if(puntos.length < 3) return;
+
+guardarPoligono(puntos);
+
+puntos = [];
+modoDibujo = "rect";
 
 });
 
@@ -211,8 +299,6 @@ let rect = canvas.getBoundingClientRect();
 let x = (e.clientX - rect.left) / scale;
 let y = (e.clientY - rect.top) / scale;
 
-
-// 🔥 ALT + CLICK = ELIMINAR
 if(e.altKey && esAdmin){
 
 let lote = obtenerLoteEn(x,y);
@@ -224,19 +310,16 @@ return;
 
 }
 
+if(e.shiftKey && esAdmin && modoDibujo==="rect"){
 
-// 🔥 SHIFT = DIBUJAR
-if(e.shiftKey && esAdmin){
+isDrawingRect = true;
 
-isDrawing = true;
-
-startDrawX = x;
-startDrawY = y;
+rectStartX = x;
+rectStartY = y;
 
 }else{
 
 isDragging = true;
-
 startX = e.clientX - posX;
 startY = e.clientY - posY;
 
@@ -245,9 +328,17 @@ startY = e.clientY - posY;
 });
 
 
-/* MOUSEMOVE */
+/* 🔥 OPTIMIZACIÓN SIN CAMBIAR LÓGICA */
+
+let ticking = false;
 
 document.addEventListener("mousemove",function(e){
+
+if(ticking) return;
+
+ticking = true;
+
+requestAnimationFrame(()=>{
 
 if(isDragging){
 
@@ -256,109 +347,101 @@ posY = e.clientY - startY;
 
 limitar();
 actualizarTransform();
-
 }
 
-if(isDrawing){
+if(isDrawingRect){
 
 let rect = canvas.getBoundingClientRect();
 
-let currentX = (e.clientX - rect.left) / scale;
-let currentY = (e.clientY - rect.top) / scale;
+let x = (e.clientX - rect.left) / scale;
+let y = (e.clientY - rect.top) / scale;
 
-let width = currentX - startDrawX;
-let height = currentY - startDrawY;
+let w = x - rectStartX;
+let h = y - rectStartY;
 
 dibujarLotes();
 
-ctx.strokeStyle = "blue";
-ctx.lineWidth = 2;
-ctx.strokeRect(startDrawX, startDrawY, width, height);
+ctx.strokeStyle = "black";
+ctx.lineWidth = 3;
+ctx.strokeRect(rectStartX, rectStartY, w, h);
 
 }
 
+ticking = false;
+
 });
 
+});
 
-/* MOUSEUP */
 
 document.addEventListener("mouseup",function(e){
 
 isDragging = false;
 
-if(isDrawing && esAdmin){
+if(isDrawingRect){
 
 let rect = canvas.getBoundingClientRect();
 
-let endX = (e.clientX - rect.left) / scale;
-let endY = (e.clientY - rect.top) / scale;
+let x = (e.clientX - rect.left) / scale;
+let y = (e.clientY - rect.top) / scale;
 
-let width = endX - startDrawX;
-let height = endY - startDrawY;
+let w = x - rectStartX;
+let h = y - rectStartY;
 
-if(width < 0){
-startDrawX += width;
-width = Math.abs(width);
+guardarRect(rectStartX, rectStartY, w, h);
+
+isDrawingRect = false;
 }
-
-if(height < 0){
-startDrawY += height;
-height = Math.abs(height);
-}
-
-guardarLote(startDrawX, startDrawY, width, height);
-
-}
-
-isDrawing = false;
 
 });
 
 
 /* GUARDAR */
 
-function guardarLote(x,y,width,height){
+function guardarRect(x,y,w,h){
 
 const planoId = document.getElementById("plano_id").value;
 
 fetch("/lotes/guardar-lote/",{
-
 method:"POST",
-
 headers:{
 "Content-Type":"application/json",
 "X-CSRFToken":getCookie("csrftoken")
 },
-
 body:JSON.stringify({
-x:x,
-y:y,
-width:width,
-height:height,
-estado: modo,
-plano_id: planoId
+x:x,y:y,width:w,height:h,estado:modo,plano_id:planoId
 })
-
 })
 .then(res=>res.json())
 .then(data=>{
-
-const nuevo = {
-id: data.id,
-x:x,
-y:y,
-width:width,
-height:height,
-estado: modo
-};
-
-lotes.push(nuevo);
-historial.push(nuevo);
-
+lotes.push({id:data.id,x,y,width:w,height:h,estado:modo});
+historial.push(data.id);
 dibujarLotes();
-
 });
+}
 
+function guardarPoligono(puntos){
+
+const planoId = document.getElementById("plano_id").value;
+
+fetch("/lotes/guardar-lote/",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"X-CSRFToken":getCookie("csrftoken")
+},
+body:JSON.stringify({
+puntos:puntos,
+estado:modo,
+plano_id:planoId
+})
+})
+.then(res=>res.json())
+.then(data=>{
+lotes.push({id:data.id,puntos:puntos,estado:modo});
+historial.push(data.id);
+dibujarLotes();
+});
 }
 
 
@@ -366,12 +449,22 @@ dibujarLotes();
 
 function deshacer(){
 
-if(historial.length === 0) return;
+if(historial.length===0) return;
 
-let ultimo = historial.pop();
+let id = historial.pop();
 
-eliminarLote(ultimo);
+lotes = lotes.filter(l=>l.id!==id);
 
+fetch("/lotes/eliminar-lote/",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"X-CSRFToken":getCookie("csrftoken")
+},
+body:JSON.stringify({id:id})
+});
+
+dibujarLotes();
 }
 
 
@@ -390,7 +483,6 @@ if(posY > 0) posY = 0;
 
 if(posX < minX) posX = minX;
 if(posY < minY) posY = minY;
-
 }
 
 
@@ -398,39 +490,29 @@ if(posY < minY) posY = minY;
 
 function actualizarTransform(){
 
-let transform = `translate(${posX}px,${posY}px) scale(${scale})`;
+let t = `translate(${posX}px,${posY}px) scale(${scale})`;
 
-plano.style.transform = transform;
-canvas.style.transform = transform;
-
+plano.style.transform = t;
+canvas.style.transform = t;
 }
 
 
 /* CSRF */
 
 function getCookie(name){
+let cookieValue=null;
 
-let cookieValue = null;
+if(document.cookie){
+let cookies=document.cookie.split(';');
 
-if(document.cookie && document.cookie !== ''){
-
-let cookies = document.cookie.split(';');
-
-for(let i=0;i<cookies.length;i++){
-
-let cookie = cookies[i].trim();
-
-if(cookie.substring(0,name.length+1) === (name+'=')){
-cookieValue = decodeURIComponent(cookie.substring(name.length+1));
-break;
+for(let c of cookies){
+c=c.trim();
+if(c.startsWith(name+'=')){
+cookieValue=decodeURIComponent(c.substring(name.length+1));
 }
-
 }
-
 }
-
 return cookieValue;
-
 }
 
 </script>

@@ -55,7 +55,6 @@ box-shadow:0 0 10px rgba(0,0,0,0.2);
 
 <script>
 const esAdmin = "{{ es_admin|yesno:'true,false' }}" === "true";
-
 let lotes = [];
 try{ lotes = JSON.parse('{{ lotes|escapejs }}'); }catch(e){ console.log("Error lotes", e); }
 let historial = [];
@@ -83,15 +82,12 @@ let lastDistance=null;
 /* INIT */
 function iniciar(){
 if(!plano.naturalWidth){ setTimeout(iniciar,100); return; }
-
 canvas.width = plano.naturalWidth;
 canvas.height = plano.naturalHeight;
-
 let cw = container.clientWidth;
 let ch = container.clientHeight;
 minScale = Math.max(cw/plano.naturalWidth, ch/plano.naturalHeight);
 scale = minScale;
-
 actualizarTransform();
 dibujarLotes();
 }
@@ -108,7 +104,7 @@ lotes.forEach(l=>{
         ctx.strokeStyle="black";
         ctx.lineWidth=18;
         ctx.beginPath();
-        l.puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y) );
+        l.puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
         ctx.closePath();
         ctx.stroke();
     }
@@ -152,7 +148,6 @@ let x=(e.clientX-rect.left)/scale;
 let y=(e.clientY-rect.top)/scale;
 
 if(e.altKey && esAdmin){ let lote=obtenerLoteEn(x,y); if(lote){ eliminarLote(lote); return; } }
-
 if(e.shiftKey && esAdmin && modoDibujo==="rect"){ isDrawingRect=true; rectStartX=x; rectStartY=y; }
 else{ isDragging=true; startX=e.clientX-posX; startY=e.clientY-posY; }
 });
@@ -180,7 +175,7 @@ if(isDrawingRect){
 }
 });
 
-/* POLIGONO - CLICK IZQUIERDO */
+/* POLIGONO */
 container.addEventListener("click",function(e){
 if(!esAdmin || modoDibujo!=="poligono") return;
 let rect=canvas.getBoundingClientRect();
@@ -195,7 +190,7 @@ puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
 ctx.stroke();
 });
 
-/* POLIGONO - CLICK DERECHO FINALIZA */
+/* CLICK DERECHO = FINALIZAR POLIGONO */
 container.addEventListener("contextmenu",function(e){
 e.preventDefault();
 if(!esAdmin || modoDibujo!=="poligono") return;

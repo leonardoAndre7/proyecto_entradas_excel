@@ -61,7 +61,15 @@ box-shadow:0 0 10px rgba(0,0,0,0.2);
 
 const esAdmin = "{{ es_admin|yesno:'true,false' }}" === "true";
 
-let lotes = JSON.parse('{{ lotes|escapejs }}');
+/* 🔥 LOTES SEGURO */
+let lotes = [];
+try{
+    lotes = JSON.parse('{{ lotes|escapejs }}');
+}catch(e){
+    console.log("Error lotes", e);
+}
+console.log("LOTES:", lotes);
+
 let historial = [];
 
 let modo = "vendido";
@@ -87,8 +95,14 @@ let rectStartX=0, rectStartY=0;
 let lastDistance=null;
 let puntos=[];
 
-/* INIT */
+/* 🔥 INIT FIX */
 function iniciar(){
+
+if(!plano.naturalWidth){
+    setTimeout(iniciar,100);
+    return;
+}
+
 canvas.width = plano.naturalWidth;
 canvas.height = plano.naturalHeight;
 
@@ -101,10 +115,11 @@ scale = minScale;
 actualizarTransform();
 dibujarLotes();
 }
+
 plano.onload=iniciar;
 if(plano.complete) iniciar();
 
-/* DIBUJAR */
+/* DRAW */
 function dibujarLotes(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -134,9 +149,10 @@ ctx.stroke();
 }
 
 });
+
 }
 
-/* DETECTAR LOTE */
+/* DETECTAR */
 function obtenerLoteEn(x,y){
 
 for(let i=lotes.length-1;i>=0;i--){
@@ -184,14 +200,14 @@ body:JSON.stringify({id:lote.id})
 dibujarLotes();
 }
 
-/* MOUSE DOWN */
+/* MOUSE */
 container.addEventListener("mousedown",function(e){
 
 let rect = canvas.getBoundingClientRect();
 let x = (e.clientX - rect.left)/scale;
 let y = (e.clientY - rect.top)/scale;
 
-/* 🔥 ALT BORRAR */
+/* ALT BORRAR */
 if(e.altKey && esAdmin){
 let lote = obtenerLoteEn(x,y);
 if(lote){
@@ -212,7 +228,6 @@ startY=e.clientY-posY;
 
 });
 
-/* MOVE */
 document.addEventListener("mousemove",function(e){
 
 if(isDragging){
@@ -253,7 +268,7 @@ isDrawingRect=false;
 
 });
 
-/* POLIGONO CLICK */
+/* POLIGONO */
 container.addEventListener("click",function(e){
 
 if(!esAdmin) return;
@@ -279,7 +294,6 @@ ctx.stroke();
 
 });
 
-/* DOBLE CLICK */
 container.addEventListener("dblclick",function(){
 if(puntos.length<3) return;
 guardarPoligono(puntos);

@@ -18,7 +18,7 @@ width:100vw;
 height:100vh;
 overflow:hidden;
 background:#eee;
-touch-action: none; /* 🔥 clave para mobile */
+touch-action: none;
 }
 
 #plano,#draw-layer{
@@ -100,8 +100,11 @@ let posY = 0;
 let isDragging = false;
 let startX, startY;
 
-let lastDistance = null;
+let isDrawingRect = false;
+let rectStartX = 0;
+let rectStartY = 0;
 
+let lastDistance = null;
 let puntos = [];
 
 /* INIT */
@@ -128,9 +131,11 @@ if(plano.complete){ iniciar(); }
 
 /* DRAW */
 function dibujarLotes(){
+
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
 lotes.forEach(lote=>{
+
 let color = lote.estado === "vendido"
 ? "rgba(255,0,0,0.4)"
 : "rgba(255,255,0,0.4)";
@@ -139,14 +144,34 @@ if(lote.width != null){
 ctx.fillStyle = color;
 ctx.fillRect(lote.x, lote.y, lote.width, lote.height);
 }
+
+if(lote.puntos && lote.puntos.length >= 2){
+
+ctx.strokeStyle = "black";
+ctx.lineWidth = 20;
+
+ctx.beginPath();
+
+lote.puntos.forEach((p,i)=>{
+if(i===0) ctx.moveTo(p.x,p.y);
+else ctx.lineTo(p.x,p.y);
 });
+
+ctx.closePath();
+ctx.stroke();
+}
+
+});
+
 }
 
 /* ZOOM PC */
 container.addEventListener("wheel",function(e){
+
 e.preventDefault();
 
 scale += (e.deltaY < 0 ? 0.1 : -0.1);
+
 if(scale < minScale) scale = minScale;
 if(scale > 5) scale = 5;
 
@@ -156,27 +181,69 @@ actualizarTransform();
 
 /* MOUSE */
 container.addEventListener("mousedown",function(e){
+
+let rect = canvas.getBoundingClientRect();
+let x = (e.clientX - rect.left) / scale;
+let y = (e.clientY - rect.top) / scale;
+
+if(e.shiftKey && esAdmin){
+isDrawingRect = true;
+rectStartX = x;
+rectStartY = y;
+}else{
 isDragging = true;
 startX = e.clientX - posX;
 startY = e.clientY - posY;
+}
+
 });
 
 document.addEventListener("mousemove",function(e){
-if(!isDragging) return;
 
+if(isDragging){
 posX = e.clientX - startX;
 posY = e.clientY - startY;
-
 limitar();
 actualizarTransform();
+}
+
+if(isDrawingRect){
+
+let rect = canvas.getBoundingClientRect();
+let x = (e.clientX - rect.left) / scale;
+let y = (e.clientY - rect.top) / scale;
+
+let w = x - rectStartX;
+let h = y - rectStartY;
+
+dibujarLotes();
+
+ctx.strokeStyle = "black";
+ctx.lineWidth = 3;
+ctx.strokeRect(rectStartX, rectStartY, w, h);
+
+}
+
 });
 
-document.addEventListener("mouseup",function(){
+document.addEventListener("mouseup",function(e){
+
 isDragging = false;
+
+if(isDrawingRect){
+
+let rect = canvas.getBoundingClientRect();
+let x = (e.clientX - rect.left) / scale;
+let y = (e.clientY - rect.top) / scale;
+
+guardarRect(rectStartX, rectStartY, x-rectStartX, y-rectStartY);
+isDrawingRect = false;
+
+}
+
 });
 
-/* TOUCH - DRAG + PINCH */
-
+/* TOUCH */
 container.addEventListener("touchstart", function(e){
 
 if(e.touches.length === 1){
@@ -212,7 +279,6 @@ if(e.touches.length === 2){
 let newDist = getDistance(e.touches);
 
 if(lastDistance){
-
 let delta = newDist - lastDistance;
 scale += delta * 0.005;
 
@@ -233,10 +299,10 @@ isDragging = false;
 lastDistance = null;
 });
 
-/* DISTANCIA ENTRE DEDOS */
-function getDistance(touches){
-let dx = touches[0].clientX - touches[1].clientX;
-let dy = touches[0].clientY - touches[1].clientY;
+/* DISTANCIA */
+function getDistance(t){
+let dx = t[0].clientX - t[1].clientX;
+let dy = t[0].clientY - t[1].clientY;
 return Math.sqrt(dx*dx + dy*dy);
 }
 
@@ -260,6 +326,63 @@ function actualizarTransform(){
 let t = `translate(${posX}px,${posY}px) scale(${scale})`;
 plano.style.transform = t;
 canvas.style.transform = t;
+}
+
+/* GUARDAR */
+function guardarRect(x,y,w,h){
+
+const planoId = document.getElementById("plano_id").value;
+
+fetch("/lotes/guardar-lote/",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"X-CSRFToken":getCookie("csrftoken")
+},
+body:JSON.stringify({x,y,width:w,height:h,estado:modo,plano_id:planoId})
+})
+.then(r=>r.json())
+.then(data=>{
+lotes.push({id:data.id,x,y,width:w,height:h,estado:modo});
+historial.push(data.id);
+dibujarLotes();
+});
+}
+
+/* DESHACER */
+function deshacer(){
+
+if(historial.length===0) return;
+
+let id = historial.pop();
+
+lotes = lotes.filter(l=>l.id!==id);
+
+fetch("/lotes/eliminar-lote/",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+"X-CSRFToken":getCookie("csrftoken")
+},
+body:JSON.stringify({id:id})
+});
+
+dibujarLotes();
+}
+
+/* CSRF */
+function getCookie(name){
+let cookieValue=null;
+if(document.cookie){
+let cookies=document.cookie.split(';');
+for(let c of cookies){
+c=c.trim();
+if(c.startsWith(name+'=')){
+cookieValue=decodeURIComponent(c.substring(name.length+1));
+}
+}
+}
+return cookieValue;
 }
 
 </script>

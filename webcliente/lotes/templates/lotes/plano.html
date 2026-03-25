@@ -105,7 +105,7 @@ function dibujarLotes(){
       if(l.width!=null){ ctx.fillStyle=color; ctx.fillRect(l.x,l.y,l.width,l.height); }
       if(l.puntos && l.puntos.length>=2){
           ctx.strokeStyle="black";
-          ctx.lineWidth=18;
+          ctx.lineWidth=7;
           ctx.beginPath();
           l.puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
           ctx.closePath();

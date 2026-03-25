@@ -15,13 +15,24 @@ DEBUG = True
 
 
 # ✅ Cambia por tu dominio Render (lo obtendrás al desplegar)
+# ALLOWED_HOSTS = [
+#     'ede-evento.com',
+#     'www.ede-evento.com',
+#     'proyecto-entradas-excel-1.onrender.com',
+#     'localhost',
+#     '127.0.0.1',
+# ]
+
+
 ALLOWED_HOSTS = [
-    'ede-evento.com',
-    'www.ede-evento.com',
-    'proyecto-entradas-excel-1.onrender.com',
     'localhost',
     '127.0.0.1',
+    '.ngrok-free.dev'
 ]
+
+
+
+
 
 # Para CSRF (Render requiere esto)
 CSRF_TRUSTED_ORIGINS = [

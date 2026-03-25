@@ -14,7 +14,7 @@ DEBUG = True
 
 
 
-✅ Cambia por tu dominio Render (lo obtendrás al desplegar)
+#✅ Cambia por tu dominio Render (lo obtendrás al desplegar)
 ALLOWED_HOSTS = [
     'ede-evento.com',
     'www.ede-evento.com',
@@ -22,6 +22,8 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
 ]
+
+
 
 
 

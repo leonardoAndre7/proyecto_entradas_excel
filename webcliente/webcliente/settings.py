@@ -23,11 +23,8 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
 ]
 
-
-
-
-
-
+# # settings.py
+# ALLOWED_HOSTS = ['*']  # solo para pruebas, no producción
 
 
 # Para CSRF (Render requiere esto)

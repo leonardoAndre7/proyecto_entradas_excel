@@ -14,21 +14,15 @@ DEBUG = True
 
 
 
-# ✅ Cambia por tu dominio Render (lo obtendrás al desplegar)
-# ALLOWED_HOSTS = [
-#     'ede-evento.com',
-#     'www.ede-evento.com',
-#     'proyecto-entradas-excel-1.onrender.com',
-#     'localhost',
-#     '127.0.0.1',
-# ]
-
-
+✅ Cambia por tu dominio Render (lo obtendrás al desplegar)
 ALLOWED_HOSTS = [
+    'ede-evento.com',
+    'www.ede-evento.com',
+    'proyecto-entradas-excel-1.onrender.com',
     'localhost',
     '127.0.0.1',
-    '.ngrok-free.dev'
 ]
+
 
 
 

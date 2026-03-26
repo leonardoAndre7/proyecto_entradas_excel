@@ -104,13 +104,15 @@ function dibujarLotes(){
       let color = l.estado==="vendido" ? "rgba(255,0,0,0.4)" : "rgba(255,255,0,0.4)";
       if(l.width!=null){ ctx.fillStyle=color; ctx.fillRect(l.x,l.y,l.width,l.height); }
       if(l.puntos && l.puntos.length>=2){
-          ctx.strokeStyle="black";
-          ctx.lineWidth=7;
-          ctx.beginPath();
-          l.puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-          ctx.closePath();
-          ctx.stroke();
-      }
+            ctx.fillStyle = "rgba(255,0,0,0.3)";  // rojo transparente
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 4;                     // grosor de línea (puedes ajustar)
+            ctx.beginPath();
+            l.puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+            ctx.closePath();
+            ctx.fill();    // relleno
+            //ctx.stroke();  // borde
+        }
   });
 }
 

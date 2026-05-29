@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if evento %}Editar{% else %}Crear{% endif %} Evento | Círculo 50k</title>
+    <title>{% if evento %}Editar{% else %}Crear{% endif %} Evento | Sistema de Entradas</title>
     <!-- Bootstrap 5 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -121,7 +121,7 @@
         <div class="container-fluid px-4">
             <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white" href="{% url 'dashboard_eventos' %}">
                 <span class="fs-4">🎟️</span>
-                <span>Círculo 50k - Central</span>
+                <span>Sistema de Entradas</span>
             </a>
             <div class="d-flex align-items-center gap-3 ms-auto">
                 <a href="{% url 'dashboard_eventos' %}" class="btn btn-glass btn-sm rounded-pill px-3 py-1 gap-1">
@@ -212,9 +212,27 @@
                         </div>
                     </div>
 
-                    <!-- Sección 4: Integraciones (Twilio & ImgBB) -->
-                    <h5 class="border-bottom border-light border-opacity-10 pb-2 mt-4 mb-3 text-info"><i class="bi bi-plugin"></i> Integraciones Opcionales</h5>
-                    <div class="row g-3">
+                    <!-- Sección 4: Integraciones (WhatsApp & ImgBB) -->
+                    <h5 class="border-bottom border-light border-opacity-10 pb-2 mt-4 mb-3 text-info"><i class="bi bi-plugin"></i> Integraciones de Notificación (WhatsApp & ImgBB)</h5>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Proveedor de WhatsApp (Inactivo por Defecto)</label>
+                            <select id="whatsapp_provider" name="whatsapp_provider" class="form-control" onchange="toggleWhatsappFields()">
+                                <option value="INACTIVE" {% if evento.whatsapp_provider == 'INACTIVE' or not evento.whatsapp_provider %}selected{% endif %}>🔴 Inactivo</option>
+                                <option value="TWILIO" {% if evento.whatsapp_provider == 'TWILIO' %}selected{% endif %}>🔵 Twilio (Legacy)</option>
+                                <option value="CUSTOM_API" {% if evento.whatsapp_provider == 'CUSTOM_API' %}selected{% endif %}>🟢 Custom API Gateway (YCloud, Whapi, yclud, etc.)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">ImgBB API Key (Almacenamiento temporal del boleto para WhatsApp)</label>
+                            <input type="text" name="imgbb_api_key" class="form-control" placeholder="Ej: a1b2c3d4..." value="{{ evento.imgbb_api_key|default:'' }}">
+                        </div>
+                    </div>
+
+                    <!-- Div Twilio (se muestra/oculta según selección) -->
+                    <div id="section_twilio" class="row g-3 mb-4" style="display: none;">
+                        <div class="col-12"><strong class="text-white-50"><i class="bi bi-whatsapp"></i> Configuración de Twilio WhatsApp</strong></div>
                         <div class="col-md-6">
                             <label class="form-label">Twilio Account SID</label>
                             <input type="text" name="twilio_account_sid" class="form-control" placeholder="AC..." value="{{ evento.twilio_account_sid|default:'' }}">
@@ -223,17 +241,40 @@
                             <label class="form-label">Twilio Auth Token</label>
                             <input type="password" name="twilio_auth_token" class="form-control" placeholder="Token" value="{{ evento.twilio_auth_token|default:'' }}">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Número Twilio Móvil</label>
+                        <div class="col-md-6">
+                            <label class="form-label">Número Twilio Móvil (SMS)</label>
                             <input type="text" name="twilio_phone_number" class="form-control" placeholder="+1..." value="{{ evento.twilio_phone_number|default:'' }}">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Número Twilio WhatsApp</label>
                             <input type="text" name="twilio_whatsapp_number" class="form-control" placeholder="+1..." value="{{ evento.twilio_whatsapp_number|default:'' }}">
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">ImgBB API Key</label>
-                            <input type="text" name="imgbb_api_key" class="form-control" placeholder="Llave API" value="{{ evento.imgbb_api_key|default:'' }}">
+                    </div>
+
+                    <!-- Div Custom API Gateway (se muestra/oculta según selección) -->
+                    <div id="section_custom_api" class="row g-3 mb-4" style="display: none;">
+                        <div class="col-12"><strong class="text-white-50"><i class="bi bi-link-45deg"></i> Configuración de API de WhatsApp de Terceros (YCloud, Whapi, yclud, etc.)</strong></div>
+                        <div class="col-md-6">
+                            <label class="form-label">URL de la API (Endpoint POST)</label>
+                            <input type="text" name="whatsapp_api_url" class="form-control" placeholder="https://api.ycloud.com/v1/whatsapp/messages" value="{{ evento.whatsapp_api_url|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Cabeceras HTTP (Una cabecera por línea)</label>
+                            <textarea name="whatsapp_api_headers" rows="2" class="form-control" placeholder="Authorization: Bearer su-token&#10;X-API-Key: su-api-key">{{ evento.whatsapp_api_headers|default:'' }}</textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Cuerpo JSON de la Petición (Payload)</label>
+                            <textarea name="whatsapp_api_payload" rows="5" class="form-control" placeholder='{&#10;  "to": "{celular}",&#10;  "type": "image",&#10;  "image": {&#10;    "link": "{url_imagen}"&#10;  },&#10;  "caption": "¡Hola {nombres}! Aquí tienes tu entrada para {evento}."&#10;}'>{{ evento.whatsapp_api_payload|default:'' }}</textarea>
+                            <small class="text-white-50 mt-1 d-block">
+                                💡 Puedes usar etiquetas dinámicas:
+                                <ul>
+                                    <li><code>{celular}</code>: Celular del participante en formato internacional (Ej: 51999888777).</li>
+                                    <li><code>{nombres}</code>: Nombre completo del participante.</li>
+                                    <li><code>{evento}</code>: Nombre del evento.</li>
+                                    <li><code>{entradas}</code>: Cantidad de entradas compradas.</li>
+                                    <li><code>{url_imagen}</code>: URL del código QR o boleto en imagen almacenada temporalmente en ImgBB.</li>
+                                </ul>
+                            </small>
                         </div>
                     </div>
 
@@ -298,5 +339,26 @@
 
     <!-- Bootstrap Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        function toggleWhatsappFields() {
+            var provider = document.getElementById("whatsapp_provider").value;
+            var twilio = document.getElementById("section_twilio");
+            var customApi = document.getElementById("section_custom_api");
+            
+            if (provider === "TWILIO") {
+                twilio.style.display = "flex";
+                customApi.style.display = "none";
+            } else if (provider === "CUSTOM_API") {
+                twilio.style.display = "none";
+                customApi.style.display = "flex";
+            } else {
+                twilio.style.display = "none";
+                customApi.style.display = "none";
+            }
+        }
+        // Ejecutar al cargar la página
+        window.addEventListener('DOMContentLoaded', toggleWhatsappFields);
+    </script>
 </body>
 </html>

@@ -30,7 +30,31 @@ class Evento(models.Model):
         verbose_name="Remitente por Defecto"
     )
     
-    # 📱 Configuración WhatsApp Twilio (Dinámico)
+    # 📱 Configuración WhatsApp (Dinámico & Extensible)
+    whatsapp_provider = models.CharField(
+        max_length=20, 
+        default='INACTIVE', 
+        choices=[
+            ('INACTIVE', 'Inactivo'),
+            ('TWILIO', 'Twilio (Legacy)'),
+            ('CUSTOM_API', 'Custom API Gateway (YCloud, Whapi, etc.)')
+        ],
+        verbose_name="Proveedor de WhatsApp"
+    )
+    whatsapp_api_url = models.CharField(max_length=500, blank=True, null=True, verbose_name="URL de la API de WhatsApp")
+    whatsapp_api_headers = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Cabeceras HTTP (Key: Value por línea)",
+        help_text="Ej:\nAuthorization: Bearer mi-token\nX-API-Key: mi-key"
+    )
+    whatsapp_api_payload = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Cuerpo JSON de la API (Payload)",
+        help_text="Puedes usar variables como: {celular}, {nombres}, {evento}, {entradas}, {url_imagen}"
+    )
+
     twilio_account_sid = models.CharField(max_length=255, blank=True, null=True, verbose_name="Twilio Account SID")
     twilio_auth_token = models.CharField(max_length=255, blank=True, null=True, verbose_name="Twilio Auth Token")
     twilio_whatsapp_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="Número WhatsApp Twilio")

@@ -114,6 +114,12 @@ def evento_crear_editar(request, pk=None):
         smtp_password = request.POST.get("smtp_password")
         default_from_email = request.POST.get("default_from_email")
         
+        # WhatsApp Provider configuration
+        whatsapp_provider = request.POST.get("whatsapp_provider", "INACTIVE")
+        whatsapp_api_url = request.POST.get("whatsapp_api_url", "")
+        whatsapp_api_headers = request.POST.get("whatsapp_api_headers", "")
+        whatsapp_api_payload = request.POST.get("whatsapp_api_payload", "")
+        
         # Twilio & ImgBB
         twilio_account_sid = request.POST.get("twilio_account_sid", "")
         twilio_auth_token = request.POST.get("twilio_auth_token", "")
@@ -134,6 +140,10 @@ def evento_crear_editar(request, pk=None):
                 smtp_user=smtp_user,
                 smtp_password=smtp_password,
                 default_from_email=default_from_email,
+                whatsapp_provider=whatsapp_provider,
+                whatsapp_api_url=whatsapp_api_url,
+                whatsapp_api_headers=whatsapp_api_headers,
+                whatsapp_api_payload=whatsapp_api_payload,
                 twilio_account_sid=twilio_account_sid,
                 twilio_auth_token=twilio_auth_token,
                 twilio_phone_number=twilio_phone_number,
@@ -154,6 +164,10 @@ def evento_crear_editar(request, pk=None):
             if smtp_password:
                 evento.smtp_password = smtp_password
             evento.default_from_email = default_from_email
+            evento.whatsapp_provider = whatsapp_provider
+            evento.whatsapp_api_url = whatsapp_api_url
+            evento.whatsapp_api_headers = whatsapp_api_headers
+            evento.whatsapp_api_payload = whatsapp_api_payload
             evento.twilio_account_sid = twilio_account_sid
             evento.twilio_auth_token = twilio_auth_token
             evento.twilio_phone_number = twilio_phone_number
@@ -483,30 +497,75 @@ def confirmar_pago(request, evento_id, pk):
         except Exception as e:
             logger.error(f"Error subiendo imagen a ImgBB: {e}")
 
-    # Enviar WhatsApp Twilio (si está configurado)
-    if evento.twilio_account_sid and evento.twilio_auth_token and participante.celular:
-        try:
-            client = Client(evento.twilio_account_sid, evento.twilio_auth_token)
-            wsp_num = f"whatsapp:{evento.twilio_whatsapp_number or evento.twilio_phone_number}"
-            
-            num_limpio = "".join(filter(str.isdigit, participante.celular))
-            if not num_limpio.startswith("51"):
-                num_limpio = "51" + num_limpio
-            wsp_dest = f"whatsapp:+{num_limpio}"
+    # 📱 Despachar WhatsApp según el proveedor configurado (Dinámico y Extensible)
+    if participante.celular:
+        provider = getattr(evento, 'whatsapp_provider', 'INACTIVE')
+        
+        num_limpio = "".join(filter(str.isdigit, participante.celular))
+        if not num_limpio.startswith("51"):
+            num_limpio = "51" + num_limpio
 
-            msg_body = (
-                f"¡Hola {participante.nombres}! 👋\n\n"
-                f"Tu pago fue confirmado con éxito para *{evento.nombre}* ✅\n"
-                f"Adquiriste {participante.cantidad} boletos 🎟️.\n\n"
-                f"Adjuntamos tu entrada digital para el ingreso. ¡Te esperamos! 🚀"
-            )
+        msg_body = (
+            f"¡Hola {participante.nombres}! 👋\n\n"
+            f"Tu pago fue confirmado con éxito para *{evento.nombre}* ✅\n"
+            f"Adquiriste {participante.cantidad} boletos 🎟️.\n\n"
+            f"Adjuntamos tu entrada digital para el ingreso. ¡Te esperamos! 🚀"
+        )
 
-            if imgbb_url:
-                client.messages.create(from_=wsp_num, to=wsp_dest, body=msg_body, media_url=[imgbb_url])
-            else:
-                client.messages.create(from_=wsp_num, to=wsp_dest, body=msg_body)
-        except Exception as e:
-            logger.error(f"Error enviando mensaje WhatsApp Twilio: {e}")
+        if provider == 'TWILIO' and evento.twilio_account_sid and evento.twilio_auth_token:
+            try:
+                client = Client(evento.twilio_account_sid, evento.twilio_auth_token)
+                wsp_num = f"whatsapp:{evento.twilio_whatsapp_number or evento.twilio_phone_number}"
+                wsp_dest = f"whatsapp:+{num_limpio}"
+
+                if imgbb_url:
+                    client.messages.create(from_=wsp_num, to=wsp_dest, body=msg_body, media_url=[imgbb_url])
+                else:
+                    client.messages.create(from_=wsp_num, to=wsp_dest, body=msg_body)
+                logger.info(f"📱 WhatsApp enviado vía Twilio a {num_limpio}")
+            except Exception as e:
+                logger.error(f"Error enviando mensaje WhatsApp Twilio: {e}")
+
+        elif provider == 'CUSTOM_API' and evento.whatsapp_api_url:
+            try:
+                # 1. Armar headers
+                headers = {"Content-Type": "application/json"}
+                if evento.whatsapp_api_headers:
+                    for line in evento.whatsapp_api_headers.splitlines():
+                        if ":" in line:
+                            k, v = line.split(":", 1)
+                            headers[k.strip()] = v.strip()
+
+                # 2. Armar y reemplazar variables en el payload
+                payload_str = evento.whatsapp_api_payload or ""
+                if not payload_str:
+                    # Fallback simple
+                    import json
+                    payload_dict = {
+                        "to": num_limpio,
+                        "message": msg_body
+                    }
+                    if imgbb_url:
+                        payload_dict["media_url"] = imgbb_url
+                    payload_str = json.dumps(payload_dict)
+                else:
+                    payload_str = payload_str.replace("{celular}", num_limpio)
+                    payload_str = payload_str.replace("{nombres}", participante.nombres or "")
+                    payload_str = payload_str.replace("{evento}", evento.nombre)
+                    payload_str = payload_str.replace("{entradas}", str(participante.cantidad))
+                    payload_str = payload_str.replace("{url_imagen}", imgbb_url or "")
+
+                # 3. Enviar petición HTTP POST
+                import json
+                try:
+                    payload_json = json.loads(payload_str)
+                    resp = requests.post(evento.whatsapp_api_url, json=payload_json, headers=headers, timeout=15)
+                except ValueError:
+                    resp = requests.post(evento.whatsapp_api_url, data=payload_str, headers=headers, timeout=15)
+
+                logger.info(f"📱 WhatsApp Custom API enviado a {evento.whatsapp_api_url} - Status: {resp.status_code}")
+            except Exception as e:
+                logger.error(f"Error enviando WhatsApp Custom API: {e}")
 
     messages.success(request, "✅ Pago confirmado y notificaciones (Correo / WhatsApp) despachadas.")
     return redirect('participante_lista', evento_id=evento.id)

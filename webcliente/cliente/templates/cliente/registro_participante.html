@@ -497,7 +497,7 @@
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" action="{% url 'limpiar_historial_previa' %}">
+                <form method="POST" action="{% url 'limpiar_historial_previa' evento_id=evento.id %}">
                     {% csrf_token %}
                     <div class="modal-body py-4">
                         <p class="mb-3 text-white-50">

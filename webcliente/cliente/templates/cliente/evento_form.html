@@ -156,6 +156,14 @@
                             <label class="form-label">Fecha del Evento</label>
                             <input type="date" name="fecha_evento" class="form-control" value="{{ evento.fecha_evento|date:'Y-m-d'|default:'' }}">
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Aforo Máximo (Capacidad)</label>
+                            <input type="number" name="aforo_maximo" class="form-control" placeholder="Ej: 500" value="{{ evento.aforo_maximo|default:500 }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Límite de Entradas por Persona (Antireventa)</label>
+                            <input type="number" name="limite_entradas_persona" class="form-control" placeholder="Ej: 5" value="{{ evento.limite_entradas_persona|default:5 }}" required>
+                        </div>
                         <div class="col-12">
                             <label class="form-label">Descripción</label>
                             <textarea name="descripcion" rows="2" class="form-control" placeholder="Escribe detalles del evento...">{{ evento.descripcion|default:'' }}</textarea>

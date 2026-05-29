@@ -30,6 +30,10 @@ class Evento(models.Model):
         verbose_name="Remitente por Defecto"
     )
     
+    # 🎟️ Límites de Inventario y Antireventa
+    aforo_maximo = models.IntegerField(default=500, verbose_name="Aforo Máximo")
+    limite_entradas_persona = models.IntegerField(default=5, verbose_name="Límite de Entradas por Persona")
+    
     # 📱 Configuración WhatsApp (Dinámico & Extensible)
     whatsapp_provider = models.CharField(
         max_length=20, 

@@ -400,31 +400,73 @@
                 </div>
             </div>
 
+            <!-- Live Metrics Row (Charts and Stats) -->
+            <div class="row g-3 mb-4">
+                <!-- Stat 1: Ventas -->
+                <div class="col-md-3">
+                    <div class="p-3 rounded-4 h-100" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);">
+                        <div class="text-white-50 small mb-1"><i class="bi bi-wallet2 text-success"></i> Recaudado Confirmado</div>
+                        <h4 class="fw-bold text-success m-0">S/ {{ ingresos_recaudados }}</h4>
+                        <div class="text-white-50 small mt-2">Ventas de Preventas y Puerta</div>
+                    </div>
+                </div>
+                <!-- Stat 2: Aforo y Llenado -->
+                <div class="col-md-3">
+                    <div class="p-3 rounded-4 h-100" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);">
+                        <div class="text-white-50 small mb-1"><i class="bi bi-people-fill text-info"></i> Control de Aforo</div>
+                        <h4 class="fw-bold text-info m-0">{{ total_vendidos }} / {{ evento.aforo_maximo|default:500 }}</h4>
+                        <div class="progress mt-2" style="height: 6px; background: rgba(255,255,255,0.1);">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {% if total_vendidos and evento.aforo_maximo %}{% widthratio total_vendidos evento.aforo_maximo 100 %}%{% else %}0%{% endif %}"></div>
+                        </div>
+                        <div class="text-white-50 small mt-2">Capacidad máxima del recinto</div>
+                    </div>
+                </div>
+                <!-- Chart 1: Check-in / Asistencia -->
+                <div class="col-md-3">
+                    <div class="p-3 rounded-4 text-center d-flex flex-column align-items-center justify-content-center" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); min-height: 120px;">
+                        <div class="text-white-50 small mb-2"><i class="bi bi-qr-code-scan text-warning"></i> Check-in Puerta (En Vivo)</div>
+                        <div style="width: 80px; height: 80px; position: relative;">
+                            <canvas id="checkinChart"></canvas>
+                        </div>
+                        <div class="text-white-50 small mt-1 font-monospace">{{ total_ingresados }} de {{ total_vendidos }} ingresados</div>
+                    </div>
+                </div>
+                <!-- Chart 2: Ventas por Categoría -->
+                <div class="col-md-3">
+                    <div class="p-3 rounded-4 text-center d-flex flex-column align-items-center justify-content-center" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); min-height: 120px;">
+                        <div class="text-white-50 small mb-2"><i class="bi bi-bar-chart-fill text-primary"></i> Categorías de Entrada</div>
+                        <div style="width: 140px; height: 80px; position: relative;">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Toolbar Grid -->
             <div class="toolbar d-flex flex-wrap align-items-center justify-content-between">
                 <div class="d-flex flex-wrap gap-2">
-                    <a href="{% url 'participante_agregar' %}" class="btn btn-primary-glow">
+                    <a href="{% url 'participante_agregar' evento_id=evento.id %}" class="btn btn-primary-glow">
                         <i class="bi bi-person-plus-fill"></i> Agregar Entrada
                     </a>
-                    <a href="{% url 'exportar_excel' %}" class="btn btn-success-glow">
+                    <a href="{% url 'exportar_excel' evento_id=evento.id %}" class="btn btn-success-glow">
                         <i class="bi bi-file-earmark-excel"></i> Exportar Excel
                     </a>
                     <button type="button" class="btn btn-info-glow" data-bs-toggle="modal" data-bs-target="#importExcelModal">
                         <i class="bi bi-file-earmark-arrow-up-fill"></i> Importar Excel
                     </button>
-                    <a href="{% url 'enviar_masivo' %}" class="btn btn-danger-glow" onsubmit="return confirm('¿Estás seguro de enviar la entrada por correo y whatsapp a todos los aprobados?');">
+                    <a href="{% url 'enviar_masivo' evento_id=evento.id %}" class="btn btn-danger-glow" onsubmit="return confirm('¿Estás seguro de enviar la entrada por correo y whatsapp a todos los aprobados?');">
                        <i class="bi bi-send-fill"></i> Enviar Masivo Aprobados
                     </a>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
-                    <form method="post" action="{% url 'check_admin_masivo' %}" class="d-inline" onsubmit="return confirm('¿Estás seguro de marcar Administración como validado para TODOS los participantes?');">
+                    <form method="post" action="{% url 'check_admin_masivo' evento_id=evento.id %}" class="d-inline" onsubmit="return confirm('¿Estás seguro de marcar Administración como validado para TODOS los participantes?');">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-success-glow btn-sm">
                             <i class="bi bi-shield-check"></i> Validar Todo Admin
                         </button>
                     </form>
-                    <form method="post" action="{% url 'check_contabilidad_masivo' %}" class="d-inline" onsubmit="return confirm('¿Estás seguro de marcar Contabilidad como validado para TODOS los participantes?');">
+                    <form method="post" action="{% url 'check_contabilidad_masivo' evento_id=evento.id %}" class="d-inline" onsubmit="return confirm('¿Estás seguro de marcar Contabilidad como validado para TODOS los participantes?');">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-info-glow btn-sm">
                             <i class="bi bi-check2-square"></i> Validar Todo Contab
@@ -581,7 +623,7 @@
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" action="{% url 'importar_excel' %}" enctype="multipart/form-data">
+                <form method="POST" action="{% url 'importar_excel' evento_id=evento.id %}" enctype="multipart/form-data">
                     {% csrf_token %}
                     <div class="modal-body py-4">
                         <p class="text-white-50 mb-3">Selecciona el archivo Excel que contiene la información de los participantes.</p>
@@ -606,7 +648,7 @@
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" action="{% url 'limpiar_historial' %}">
+                <form method="POST" action="{% url 'limpiar_historial' evento_id=evento.id %}">
                     {% csrf_token %}
                     <div class="modal-body py-4">
                         <p class="mb-3 text-white-50">
@@ -629,6 +671,9 @@
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <script>
         // Modal Confirm Text Check
         document.addEventListener("DOMContentLoaded", () => {
@@ -644,6 +689,67 @@
                         submitBtn.classList.add("opacity-50");
                     }
                 });
+            }
+
+            // --- 📊 Gráficos de Estadísticas en Vivo (Chart.js) ---
+            try {
+                // 1. Gráfico de Dona para Check-in / Asistencia
+                const checkinCtx = document.getElementById('checkinChart').getContext('2d');
+                new Chart(checkinCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Ingresados', 'Restantes'],
+                        datasets: [{
+                            data: [{{ total_ingresados }}, {{ total_no_ingresados }}],
+                            backgroundColor: ['#00e676', 'rgba(255, 255, 255, 0.15)'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: true }
+                        },
+                        cutout: '75%'
+                    }
+                });
+
+                // 2. Gráfico de Barras para Ventas por Categoría
+                const salesCtx = document.getElementById('salesChart').getContext('2d');
+                new Chart(salesCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Full', 'Emp', 'Empr'],
+                        datasets: [{
+                            label: 'Vendidos',
+                            data: [{{ full_access_count }}, {{ empresarial_count }}, {{ emprendedor_count }}],
+                            backgroundColor: ['#9c27b0', '#2196f3', '#4caf50'],
+                            borderRadius: 6,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { 
+                                display: true, 
+                                grid: { display: false }, 
+                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 9, family: 'Outfit' } } 
+                            },
+                            y: { display: false }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: true }
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("Error inicializando gráficos Chart.js:", err);
             }
         });
     </script>

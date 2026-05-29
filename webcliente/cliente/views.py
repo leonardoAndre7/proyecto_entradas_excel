@@ -107,6 +107,10 @@ def evento_crear_editar(request, pk=None):
         descripcion = request.POST.get("descripcion")
         fecha = request.POST.get("fecha_evento")
         
+        # Límites
+        aforo_maximo = int(request.POST.get("aforo_maximo", 500) or 500)
+        limite_entradas_persona = int(request.POST.get("limite_entradas_persona", 5) or 5)
+
         # SMTP
         smtp_host = request.POST.get("smtp_host", "smtp.sendgrid.net")
         smtp_port = request.POST.get("smtp_port", 587)
@@ -135,6 +139,8 @@ def evento_crear_editar(request, pk=None):
                 nombre=nombre,
                 descripcion=descripcion,
                 fecha_evento=fecha or None,
+                aforo_maximo=aforo_maximo,
+                limite_entradas_persona=limite_entradas_persona,
                 smtp_host=smtp_host,
                 smtp_port=smtp_port or 587,
                 smtp_user=smtp_user,
@@ -158,6 +164,8 @@ def evento_crear_editar(request, pk=None):
             evento.descripcion = descripcion
             if fecha:
                 evento.fecha_evento = fecha
+            evento.aforo_maximo = aforo_maximo
+            evento.limite_entradas_persona = limite_entradas_persona
             evento.smtp_host = smtp_host
             evento.smtp_port = smtp_port or 587
             evento.smtp_user = smtp_user
@@ -314,6 +322,29 @@ class ParticipanteListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['evento'] = self.evento
+        
+        # 📈 Métricas de Ventas y Asistencia en Vivo
+        total_vendidos = Participante.objects.filter(evento=self.evento, pago_confirmado=True).count()
+        total_esperados = Participante.objects.filter(evento=self.evento).count()
+        total_ingresados = Participante.objects.filter(evento=self.evento, entrada_usada=True).count()
+        total_no_ingresados = max(0, total_vendidos - total_ingresados)
+        ingresos_recaudados = Participante.objects.filter(evento=self.evento, pago_confirmado=True).aggregate(total=Sum('total_pagar'))['total'] or Decimal('0.00')
+
+        # Conteo de categorías para el gráfico de barras
+        full_access_count = Participante.objects.filter(evento=self.evento, tipo_entrada='FULL ACCESS', pago_confirmado=True).count()
+        empresarial_count = Participante.objects.filter(evento=self.evento, tipo_entrada='EMPRESARIAL', pago_confirmado=True).count()
+        emprendedor_count = Participante.objects.filter(evento=self.evento, tipo_entrada='EMPRENDEDOR', pago_confirmado=True).count()
+
+        context['total_vendidos'] = total_vendidos
+        context['total_esperados'] = total_esperados
+        context['total_ingresados'] = total_ingresados
+        context['total_no_ingresados'] = total_no_ingresados
+        context['ingresos_recaudados'] = ingresos_recaudados
+        
+        context['full_access_count'] = full_access_count
+        context['empresarial_count'] = empresarial_count
+        context['emprendedor_count'] = headcount = a_count = emprendedor_count
+        
         return context
 
 
@@ -340,6 +371,19 @@ class ParticipanteCreateView(CreateView):
         return reverse('participante_lista', kwargs={'evento_id': self.evento.pk})
 
     def form_valid(self, form):
+        cantidad = form.cleaned_data.get('cantidad', 1) or 1
+        total_actual = Participante.objects.filter(evento=self.evento).count()
+        
+        # 🛡️ Validar Aforo Máximo
+        if self.evento.aforo_maximo and (total_actual + cantidad > self.evento.aforo_maximo):
+            messages.error(self.request, f"❌ No se puede registrar al participante. Se supera el aforo máximo del evento ({self.evento.aforo_maximo} personas).")
+            return self.form_invalid(form)
+
+        # 🛡️ Validar Límite por Persona (Antireventa)
+        if self.evento.limite_entradas_persona and (cantidad > self.evento.limite_entradas_persona):
+            messages.error(self.request, f"❌ No se puede registrar. La cantidad de entradas ({cantidad}) supera el límite por persona ({self.evento.limite_entradas_persona}).")
+            return self.form_invalid(form)
+
         participante = form.save(commit=False)
         participante.evento = self.evento
 

@@ -1,91 +1,369 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Entrada Ya Usada</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boleto Duplicado | {{ evento.nombre|default:"Control de Accesos" }}</title>
+    <!-- Bootstrap 5 & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
-        /* Ocupa toda la pantalla */
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-family: 'Arial Black', Arial, sans-serif;
+        :root {
+            --brand-color: {{ evento.color_primario|default:"#7b1fa2" }};
+            --danger-color: #ff334b;
+            --danger-glow: rgba(255, 51, 75, 0.4);
+            --glass-bg: rgba(20, 5, 10, 0.65);
+            --glass-border: rgba(255, 51, 75, 0.15);
+            --card-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 50%, rgba(35, 8, 15, 0.88) 0%, rgba(8, 2, 5, 0.99) 100%), 
+                        {% if evento.imagen_fondo %} url("{{ evento.imagen_fondo.url }}") {% else %} url("{% static 'img/exponentes.jpeg' %}") {% endif %} no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Outfit', sans-serif;
+            color: #f8f9fa;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: 1.5rem;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Ambient Glow Behind Card */
+        .ambient-glow {
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            background: var(--danger-glow);
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: 1;
+            pointer-events: none;
+            animation: pulse-glow 2.5s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: scale(1); opacity: 0.4; }
+            100% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        /* Glassmorphism Card */
+        .validation-card {
+            width: 100%;
+            max-width: 520px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-radius: 30px;
+            border: 2px solid var(--danger-border);
+            padding: 3rem 2.5rem;
+            box-shadow: 0 0 45px rgba(255, 51, 75, 0.18), var(--card-shadow);
+            text-align: center;
+            z-index: 2;
+            position: relative;
+            animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* Event Title branding */
+        .event-branding {
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .event-logo {
+            max-height: 60px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+        }
+
+        .event-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #ffb3b8;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+
+        /* Danger SVG Animation */
+        .danger-animation {
+            margin: 0.5rem auto 1.5rem auto;
+            width: 120px;
+            height: 120px;
+            position: relative;
+        }
+
+        .danger-circle {
+            stroke-width: 4;
+            stroke: var(--danger-color);
+            fill: none;
+            stroke-dasharray: 166;
+            stroke-dashoffset: 0;
+            transform-origin: center;
+            animation: rotate-circle 2s linear infinite;
+        }
+
+        .danger-cross-1 {
+            stroke-dasharray: 40;
+            stroke-dashoffset: 40;
+            stroke-width: 5;
+            stroke: var(--danger-color);
+            fill: none;
+            stroke-linecap: round;
+            animation: draw-line 0.3s ease-out 0.4s forwards;
+        }
+
+        .danger-cross-2 {
+            stroke-dasharray: 40;
+            stroke-dashoffset: 40;
+            stroke-width: 5;
+            stroke: var(--danger-color);
+            fill: none;
+            stroke-linecap: round;
+            animation: draw-line 0.3s ease-out 0.6s forwards;
+        }
+
+        @keyframes draw-line {
+            100% { stroke-dashoffset: 0; }
+        }
+
+        @keyframes rotate-circle {
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Result Heading */
+        .result-title {
+            font-size: 2.1rem;
+            font-weight: 800;
+            color: var(--danger-color);
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 15px rgba(255, 51, 75, 0.3);
+            letter-spacing: -0.02em;
+        }
+
+        .result-subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+            font-weight: 400;
+            line-height: 1.4;
+        }
+
+        /* Participant info grid */
+        .info-grid {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: left;
+            margin-bottom: 2rem;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .info-item:first-child {
+            padding-top: 0;
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .info-value.badge-danger {
+            background: rgba(255, 51, 75, 0.15);
+            color: var(--danger-color);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(255, 51, 75, 0.3);
+        }
+
+        .info-value.first-ingress {
+            color: #ffb3b8;
+            font-weight: 800;
+            animation: pulse-red-text 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-red-text {
+            0% { text-shadow: 0 0 2px rgba(255, 51, 75, 0); }
+            100% { text-shadow: 0 0 10px rgba(255, 51, 75, 0.6); }
+        }
+
+        /* Actions */
+        .action-container {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .btn-action {
+            border-radius: 14px;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            transition: all 0.25s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-action-primary {
+            background: var(--brand-color);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-action-primary:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
             color: #fff;
         }
 
-        /* Fondo que ocupa toda la web */
-        body {
-            background-image: url("{% static 'img/nexo_logo_01.png' %}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
+        .btn-action-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            color: rgba(255, 255, 255, 0.7);
         }
 
-        /* Diseño del ticket azul transparente moderno */
-        .ticket {
-            background: rgba(0, 102, 204, 0.35); /* Azul translúcido */
-            backdrop-filter: blur(12px); /* Difuminado elegante */
-            width: 90%;
-            max-width: 900px;
-            padding: 60px 40px;
-            border-radius: 25px;
-            box-shadow: 0 12px 35px rgba(0,0,0,0.6);
-            text-align: center;
-            border: 3px solid rgba(0, 140, 255, 0.6); /* borde azul */
-            animation: glow 2s infinite alternate;
-        }
-
-        h1 {
-            color: #ff4d4d; /* rojo suave */
-            font-size: 4em;
-            margin-bottom: 25px;
-            text-shadow: 2px 2px 10px rgba(0,0,0,0.7);
-        }
-
-        p {
-            font-size: 1.8em;
-            margin: 15px 0;
-            text-shadow: 1px 1px 5px rgba(0,0,0,0.6);
-        }
-
-        b {
-            font-weight: bold;
-            color: #cfe6ff; /* celeste suave */
-        }
-
-        /* Animación del contorno */
-        @keyframes glow {
-            0% { border-color: rgba(0, 140, 255, 0.4); }
-            100% { border-color: rgba(0, 180, 255, 0.9); }
-        }
-
-        /* Responsivo */
-        @media (max-width: 768px) {
-            .ticket {
-                padding: 40px 20px;
-            }
-            h1 {
-                font-size: 2.5em;
-            }
-            p {
-                font-size: 1.2em;
-            }
+        .btn-action-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
         }
     </style>
 </head>
-
 <body>
-    <div class="ticket">
-        <h1>❌ Entrada Ya Usada</h1>
-        <p>El código de esta entrada ya fue validado anteriormente.</p>
-        <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
-        <p>DNI: {{ participante.dni }}</p>
+
+    <div class="ambient-glow"></div>
+
+    <div class="validation-card">
+        <!-- Event Branding -->
+        <div class="event-branding">
+            {% if evento.logo %}
+                <img src="{{ evento.logo.url }}" alt="{{ evento.nombre }}" class="event-logo">
+            {% endif %}
+            <span class="event-name">{{ evento.nombre|default:"Círculo 50k" }}</span>
+        </div>
+
+        <!-- Danger Animated Icon -->
+        <div class="danger-animation">
+            <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                <circle class="danger-circle" cx="60" cy="60" r="50" fill="none"/>
+                <!-- Cross lines -->
+                <line class="danger-cross-1" x1="42" y1="42" x2="78" y2="78" />
+                <line class="danger-cross-2" x1="78" y1="42" x2="42" y2="78" />
+            </svg>
+        </div>
+
+        <!-- Validation Headline -->
+        <h2 class="result-title">BOLETO DUPLICADO</h2>
+        <div class="result-subtitle">¡Atención! Este boleto ya fue verificado anteriormente. Verifique los datos de seguridad.</div>
+
+        <!-- Participant Details Grid -->
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-person-fill"></i> Participante</span>
+                <span class="info-value">{{ participante.nombres }} {{ participante.apellidos|default:"" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-card-text"></i> DNI / Identificación</span>
+                <span class="info-value">{{ participante.dni }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-ticket-perforated-fill"></i> Categoría</span>
+                <span class="info-value badge-danger">{{ participante.tipo_entrada|default:"GENERAL" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-exclamation-octagon-fill"></i> Primer Acceso</span>
+                <span class="info-value first-ingress">{{ fecha_ingreso|date:"d/m/Y h:i A"|default:"Ya ingresado" }}</span>
+            </div>
+        </div>
+
+        <!-- Navigation Actions -->
+        <div class="action-container">
+            <a href="{% url 'participante_lista' evento_id=evento.id %}" class="btn-action btn-action-primary">
+                <i class="bi bi-speedometer2"></i> Volver a Lista
+            </a>
+            <a href="{% url 'dashboard_eventos' %}" class="btn-action btn-action-secondary">
+                <i class="bi bi-grid-fill"></i> Dashboard
+            </a>
+        </div>
     </div>
+
+    <!-- Acoustic Feedback script: Plays a duplicate ticket double-buzz warning -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                // Check if browser allows AudioContext
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    const ctx = new AudioContext();
+                    
+                    const playBuzz = (delay) => {
+                        setTimeout(() => {
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            // Sawtooth is harsher and creates a buzz sound
+                            osc.type = 'sawtooth';
+                            osc.frequency.setValueAtTime(180, ctx.currentTime); // Low buzz freq
+                            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.25);
+                        }, delay);
+                    };
+
+                    // Play two short warning buzzes
+                    playBuzz(0);
+                    playBuzz(280);
+                }
+            } catch (e) {
+                console.warn('AudioContext not allowed or not supported yet', e);
+            }
+        });
+    </script>
 </body>
 </html>

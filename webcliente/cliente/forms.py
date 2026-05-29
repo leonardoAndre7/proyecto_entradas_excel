@@ -14,7 +14,17 @@ class ParticipanteForm(forms.ModelForm):
 class ParticipanteForm(forms.ModelForm):
     class Meta:
         model = Participante
-        fields = ['nombres', 'apellidos', 'dni', 'celular', 'correo', 'tipo_entrada', 'cantidad', 'vendedor']
+        fields = ['nombres', 'apellidos', 'dni', 'celular', 'correo', 'tipo_entrada', 'cantidad', 'vendedor', 'validado_admin', 'validado_contabilidad']
+
+    def __init__(self, *args, **kwargs):
+        evento = kwargs.pop('evento', None)
+        super().__init__(*args, **kwargs)
+        if evento:
+            self.fields['tipo_entrada'] = forms.ChoiceField(
+                choices=[(t.tipo_entrada, t.tipo_entrada) for t in evento.tarifas.all()],
+                widget=forms.Select(attrs={'class': 'form-control'})
+            )
+
 
 
 

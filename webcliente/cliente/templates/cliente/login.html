@@ -1,138 +1,188 @@
 {% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión | Círculo 50k</title>
+    <!-- Bootstrap 5 & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-glow: linear-gradient(135deg, #7b1fa2, #4a148c);
+            --glass-bg: rgba(20, 10, 30, 0.55);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --purple-shadow: 0 15px 35px rgba(123, 31, 162, 0.2);
+        }
 
-{% block content %}
-<style>
-  html, body {
-    height: 100%;
-    margin: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  }
+        body {
+            background: radial-gradient(circle at 50% 50%, rgba(20, 8, 40, 0.75) 0%, rgba(5, 2, 15, 0.95) 100%), url("{% static 'img/exponentes.jpeg' %}") no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Outfit', sans-serif;
+            color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
 
-  body {
-    background: url("{% static 'img/exponentes.jpeg' %}") no-repeat center center fixed;
-    background-size: cover;
-  }
+        /* Glassmorphism card */
+        .login-card {
+            width: 100%;
+            max-width: 440px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            padding: 3rem 2.5rem;
+            box-shadow: var(--purple-shadow);
+            transition: all 0.3s ease;
+        }
 
-  .overlay-login {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.65); /* oscurece la imagen */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem;
-  }
+        .login-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 45px rgba(123, 31, 162, 0.3);
+            border-color: rgba(186, 104, 200, 0.25);
+        }
 
-  .login-card {
-    width: 100%;
-    max-width: 420px;
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(15px); /* efecto vidrio más marcado */
-    border-radius: 25px;
-    padding: 2.5rem 2rem;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.7);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.1);
-    transition: transform 0.3s ease;
-  }
+        .login-card h3 {
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, #e1bee7, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 15px rgba(225,190,231,0.25);
+            letter-spacing: -0.01em;
+        }
 
-  .login-card:hover {
-    transform: translateY(-5px);
-  }
+        .form-label {
+            color: #e1bee7;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
 
-  .login-card h3 {
-    text-align: center;
-    margin-bottom: 2rem;
-    font-size: 1.8rem;
-    color: #ce93d8;
-    text-shadow: 1px 1px 6px rgba(0,0,0,0.5);
-  }
+        .form-control-glass {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid var(--glass-border);
+            color: #fff !important;
+            border-radius: 14px;
+            padding: 0.8rem 1.2rem;
+            transition: all 0.3s;
+        }
 
-  .login-card label {
-    color: #e0e0e0;
-    font-weight: 500;
-  }
+        .form-control-glass:focus {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: #ba68c8;
+            box-shadow: 0 0 15px rgba(186, 104, 200, 0.35);
+        }
 
-  .form-control {
-    background: rgba(255,255,255,0.1);
-    border: none;
-    color: white;
-    border-radius: 12px;
-    padding: 0.75rem 1rem;
-    margin-top: 0.25rem;
-    transition: background 0.3s, box-shadow 0.3s;
-  }
+        .form-control-glass::placeholder {
+            color: rgba(255, 255, 255, 0.3) !important;
+        }
 
-  .form-control::placeholder {
-    color: #ccc;
-  }
+        /* Submit Button */
+        .btn-login {
+            background: var(--primary-glow);
+            border: none;
+            border-radius: 14px;
+            padding: 0.85rem 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(123, 31, 162, 0.4);
+            transition: all 0.25s ease;
+            margin-top: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
 
-  .form-control:focus {
-    background: rgba(255,255,255,0.15);
-    color: white;
-    box-shadow: 0 0 8px rgba(156,39,176,0.5);
-    outline: none;
-  }
+        .btn-login:hover {
+            background: linear-gradient(135deg, #8e24aa, #5e35b1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(123, 31, 162, 0.6);
+            color: #fff;
+        }
 
-  .btn-login {
-    background: linear-gradient(135deg, #6a1b9a, #4a148c);
-    border: none;
-    border-radius: 30px;
-    padding: 0.85rem 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    transition: 0.3s;
-    margin-top: 0.5rem;
-  }
+        .btn-login:active {
+            transform: translateY(0);
+        }
 
-  .btn-login:hover {
-    background: linear-gradient(135deg, #8e24aa, #6a1b9a);
-    transform: scale(1.05);
-  }
+        .forgot-password {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
 
-  .forgot-password {
-    display: block;
-    text-align: center;
-    margin-top: 1rem;
-    color: #ccc;
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: color 0.3s;
-  }
+        .forgot-password:hover {
+            color: #ffffff;
+        }
 
-  .forgot-password:hover {
-    color: #fff;
-  }
+        .error-message {
+            background: rgba(220, 53, 69, 0.15);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            border-radius: 12px;
+            color: #ff8a80;
+            font-size: 0.85rem;
+            padding: 10px 15px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
 
-  @media (max-width: 500px) {
-    .login-card {
-      padding: 2rem 1.5rem;
-    }
-    .login-card h3 {
-      font-size: 1.5rem;
-    }
-  }
-</style>
+    <div class="login-card"> 
+        <h3><i class="bi bi-shield-lock-fill"></i> Iniciar Sesión</h3>
+        
+        <!-- Error Alerts -->
+        {% if form.errors %}
+        <div class="error-message">
+            <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+            <span>Usuario o contraseña incorrectos.</span>
+        </div>
+        {% endif %}
 
-<div class="overlay-login">
-  <div class="login-card"> 
-    <h3>🔒 Iniciar Sesión</h3>
-    <form method="post" action="{% url 'login' %}">
-      {% csrf_token %}
-      <div class="form-group mb-3">
-        <label>Usuario</label>
-        <input type="text" name="username" class="form-control" placeholder="Ingresa tu usuario" required>
-      </div>
-      <div class="form-group mb-3">
-        <label>Contraseña</label>
-        <input type="password" name="password" class="form-control" placeholder="********" required>
-      </div>
-      <button type="submit" class="btn btn-login w-100 text-white">Entrar</button>
-      <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
-    </form>
-  </div>
-</div>
-{% endblock %}
+        <!-- action="" is critical to preserve the ?next= query parameters for Google Camera validation redirects -->
+        <form method="POST" action="">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">Usuario</label>
+                <input type="text" name="username" class="form-control form-control-glass" placeholder="Ingresa tu usuario" required autocomplete="username">
+            </div>
+            <div class="mb-4">
+                <label class="form-label">Contraseña</label>
+                <input type="password" name="password" class="form-control form-control-glass" placeholder="••••••••" required autocomplete="current-password">
+            </div>
+            
+            <button type="submit" class="btn btn-login w-100"><i class="bi bi-box-arrow-in-right"></i> Entrar al Panel</button>
+            
+            <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
+        </form>
+    </div>
+
+    <!-- Bootstrap Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

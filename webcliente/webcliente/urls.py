@@ -19,12 +19,13 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from cliente import views
+from lotes import views as lotes_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', views.index, name='index'), 
+    path('', views.home_redirect, name='index'), 
     path('participantes/', include('cliente.urls')),
-    path('plano/', views.plano, name="plano"),
+    path('plano/', lotes_views.ver_plano, name="plano"),
     path('lotes/', include('lotes.urls')),
 ]
 if settings.DEBUG:

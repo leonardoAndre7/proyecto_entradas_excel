@@ -1,90 +1,361 @@
-
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Entrada Válida</title>
-    {% load static %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrada Válida | {{ evento.nombre|default:"Control de Accesos" }}</title>
+    <!-- Bootstrap 5 & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
-        /* Ocupa toda la pantalla */
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-family: 'Arial Black', Arial, sans-serif;
+        :root {
+            --brand-color: {{ evento.color_primario|default:"#7b1fa2" }};
+            --success-color: #00e676;
+            --success-glow: rgba(0, 230, 118, 0.4);
+            --glass-bg: rgba(20, 10, 30, 0.55);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --card-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 50%, rgba(20, 8, 40, 0.85) 0%, rgba(5, 2, 15, 0.98) 100%), 
+                        {% if evento.imagen_fondo %} url("{{ evento.imagen_fondo.url }}") {% else %} url("{% static 'img/exponentes.jpeg' %}") {% endif %} no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Outfit', sans-serif;
+            color: #f8f9fa;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: 1.5rem;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Ambient Glow Behind Card */
+        .ambient-glow {
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            background: var(--success-glow);
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: 1;
+            pointer-events: none;
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: scale(1); opacity: 0.5; }
+            100% { transform: scale(1.15); opacity: 0.8; }
+        }
+
+        /* Glassmorphism Card */
+        .validation-card {
+            width: 100%;
+            max-width: 520px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-radius: 30px;
+            border: 2px solid rgba(0, 230, 118, 0.3);
+            padding: 3rem 2.5rem;
+            box-shadow: 0 0 40px rgba(0, 230, 118, 0.15), var(--card-shadow);
+            text-align: center;
+            z-index: 2;
+            position: relative;
+            animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slide-up {
+            from { transform: translateY(40px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Event Title branding */
+        .event-branding {
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .event-logo {
+            max-height: 60px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+        }
+
+        .event-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #e1bee7;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+
+        /* Success SVG Animation */
+        .success-animation {
+            margin: 0.5rem auto 1.5rem auto;
+            width: 120px;
+            height: 120px;
+        }
+
+        .checkmark-circle {
+            stroke-dasharray: 166;
+            stroke-dashoffset: 166;
+            stroke-width: 4;
+            stroke-miterlimit: 10;
+            stroke: var(--success-color);
+            fill: none;
+            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+        }
+
+        .checkmark {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: block;
+            stroke-width: 4;
+            stroke: #fff;
+            stroke-miterlimit: 10;
+            box-shadow: inset 0px 0px 0px var(--success-color);
+            animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s forwards;
+        }
+
+        .checkmark-check {
+            transform-origin: 50% 50%;
+            stroke-dasharray: 48;
+            stroke-dashoffset: 48;
+            animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+        }
+
+        @keyframes stroke {
+            100% { stroke-dashoffset: 0; }
+        }
+        @keyframes scale {
+            0%, 100% { transform: none; }
+            50% { transform: scale3d(1.1, 1.1, 1); }
+        }
+        @keyframes fill {
+            100% { box-shadow: inset 0px 0px 0px 60px var(--success-color); }
+        }
+
+        /* Result Heading */
+        .result-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--success-color);
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 15px rgba(0, 230, 118, 0.3);
+            letter-spacing: -0.02em;
+        }
+
+        .result-subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            font-weight: 400;
+        }
+
+        /* Participant info grid */
+        .info-grid {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: left;
+            margin-bottom: 2rem;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .info-item:first-child {
+            padding-top: 0;
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .info-value.badge-tier {
+            background: var(--brand-color);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            letter-spacing: 0.02em;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Actions */
+        .action-container {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .btn-action {
+            border-radius: 14px;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            transition: all 0.25s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-action-primary {
+            background: var(--brand-color);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-action-primary:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
             color: #fff;
         }
 
-        /* Fondo que ocupa toda la web */
-        body {
-            background-image: url("{% static 'img/nexo_logo_01.png' %}");
-            background-size: 100% 100%; /* Estira la imagen completamente */
-            background-position: center;
-            background-repeat: no-repeat;
+        .btn-action-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            color: rgba(255, 255, 255, 0.7);
         }
 
-        /* Diseño del ticket */
-        .ticket {
-            background: linear-gradient(135deg, #2c003e, #000000); /* Negro + Morado */
-            width: 90%;
-            max-width: 900px;
-            padding: 60px 40px;
-            border-radius: 25px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.7);
-            text-align: center;
-            border: 5px solid #9b59b6; /* borde morado */
-            animation: pulse 1.5s infinite alternate;
-        }
-
-        h1 {
-            color: #28ff96; /* Verde brillante */
-            font-size: 4em;
-            margin-bottom: 25px;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
-        }
-
-        p {
-            font-size: 1.8em;
-            margin: 15px 0;
-        }
-
-        b {
-            font-weight: bold;
-            color: #e0b3ff;
-        }
-
-        /* Animación sutil del ticket */
-        @keyframes pulse {
-            0% { box-shadow: 0 12px 30px rgba(155, 89, 182, 0.7); }
-            100% { box-shadow: 0 12px 30px rgba(155, 89, 182, 1); }
-        }
-
-        /* Responsivo */
-        @media (max-width: 768px) {
-            .ticket {
-                padding: 40px 20px;
-            }
-            h1 {
-                font-size: 2.5em;
-            }
-            p {
-                font-size: 1.2em;
-            }
+        .btn-action-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
         }
     </style>
 </head>
 <body>
-    <div class="ticket">
-        <h1>✅ Entrada Válida</h1>
-        <p><b>{{ participante.nombres }} {{ participante.apellidos }}</b></p>
-        <p>DNI: {{ participante.dni }}</p>
-        <p>Entrada: {{ participante.tipo_entrada }}</p>
-        <p><b>¡Bienvenido al evento!</b></p>
+
+    <div class="ambient-glow"></div>
+
+    <div class="validation-card">
+        <!-- Event Branding -->
+        <div class="event-branding">
+            {% if evento.logo %}
+                <img src="{{ evento.logo.url }}" alt="{{ evento.nombre }}" class="event-logo">
+            {% endif %}
+            <span class="event-name">{{ evento.nombre|default:"Círculo 50k" }}</span>
+        </div>
+
+        <!-- Success Animated Icon -->
+        <div class="success-animation">
+            <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+        </div>
+
+        <!-- Validation Headline -->
+        <h2 class="result-title">ACCESO AUTORIZADO</h2>
+        <div class="result-subtitle">¡Boleto verificado exitosamente!</div>
+
+        <!-- Participant Details Grid -->
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-person-fill"></i> Participante</span>
+                <span class="info-value">{{ participante.nombres }} {{ participante.apellidos|default:"" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-card-text"></i> DNI / Identificación</span>
+                <span class="info-value">{{ participante.dni }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-ticket-perforated-fill"></i> Categoría</span>
+                <span class="info-value badge-tier">{{ participante.tipo_entrada|default:"GENERAL" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-clock-fill"></i> Hora de Ingreso</span>
+                <span class="info-value">{{ fecha_ingreso|date:"h:i:s A"|default:"Ahora" }}</span>
+            </div>
+        </div>
+
+        <!-- Navigation Actions -->
+        <div class="action-container">
+            <a href="{% url 'participante_lista' evento_id=evento.id %}" class="btn-action btn-action-primary">
+                <i class="bi bi-speedometer2"></i> Volver a Lista
+            </a>
+            <a href="{% url 'dashboard_eventos' %}" class="btn-action btn-action-secondary">
+                <i class="bi bi-grid-fill"></i> Dashboard
+            </a>
+        </div>
     </div>
+
+    <!-- Acoustic Feedback script: Plays a premium high-end success tone -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                // Check if browser allows AudioContext
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    const ctx = new AudioContext();
+                    
+                    // First chime (C5)
+                    const osc1 = ctx.createOscillator();
+                    const gain1 = ctx.createGain();
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+                    gain1.gain.setValueAtTime(0.15, ctx.currentTime);
+                    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+                    osc1.connect(gain1);
+                    gain1.connect(ctx.destination);
+                    osc1.start();
+                    osc1.stop(ctx.currentTime + 0.35);
+
+                    // Second chime (E5) after 100ms
+                    setTimeout(() => {
+                        const osc2 = ctx.createOscillator();
+                        const gain2 = ctx.createGain();
+                        osc2.type = 'sine';
+                        osc2.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+                        gain2.gain.setValueAtTime(0.18, ctx.currentTime);
+                        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+                        osc2.connect(gain2);
+                        gain2.connect(ctx.destination);
+                        osc2.start();
+                        osc2.stop(ctx.currentTime + 0.5);
+                    }, 120);
+                }
+            } catch (e) {
+                console.warn('AudioContext not allowed or not supported yet', e);
+            }
+        });
+    </script>
 </body>
 </html>

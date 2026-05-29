@@ -1,0 +1,305 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if evento %}Editar{% else %}Crear{% endif %} Evento | Círculo 50k</title>
+    <!-- Bootstrap 5 & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-glow: linear-gradient(135deg, #7b1fa2, #4a148c);
+            --glass-bg: rgba(20, 10, 35, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --purple-shadow: 0 10px 30px rgba(123, 31, 162, 0.15);
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 50%, rgba(26, 8, 46, 0.75) 0%, rgba(10, 5, 20, 0.95) 100%), url("{% static 'img/nexo_logo_01.png' %}") no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Outfit', sans-serif;
+            color: #f8f9fa;
+            min-height: 100vh;
+            padding-top: 85px;
+            position: relative;
+        }
+
+        /* Navbar glassmorphism */
+        .navbar-custom {
+            background: rgba(15, 7, 28, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            z-index: 1030;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-header-custom {
+            background: linear-gradient(135deg, rgba(123, 31, 162, 0.85), rgba(49, 27, 146, 0.85));
+            border-bottom: none;
+            font-weight: 700;
+            padding: 1.2rem;
+            border-top-left-radius: 19px !important;
+            border-top-right-radius: 19px !important;
+        }
+
+        .form-label {
+            color: #e1bee7;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"], input[type="email"], input[type="password"], input[type="number"], select, textarea, input[type="file"] {
+            background: rgba(255, 255, 255, 0.07) !important;
+            border: 1px solid var(--glass-border) !important;
+            color: #fff !important;
+            border-radius: 12px !important;
+            padding: 0.65rem 1rem !important;
+            transition: all 0.3s !important;
+        }
+        
+        input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="number"]:focus, select:focus, textarea:focus, input[type="file"]:focus {
+            background: rgba(255, 255, 255, 0.12) !important;
+            border-color: #ba68c8 !important;
+            box-shadow: 0 0 15px rgba(186, 104, 200, 0.35) !important;
+            outline: none !important;
+        }
+
+        .btn {
+            border-radius: 12px;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            transition: all 0.25s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary-glow {
+            background: var(--primary-glow);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(123, 31, 162, 0.4);
+            border: none;
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            color: #e1bee7;
+        }
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Fixed Glass Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white" href="{% url 'dashboard_eventos' %}">
+                <span class="fs-4">🎟️</span>
+                <span>Círculo 50k - Central</span>
+            </a>
+            <div class="d-flex align-items-center gap-3 ms-auto">
+                <a href="{% url 'dashboard_eventos' %}" class="btn btn-glass btn-sm rounded-pill px-3 py-1 gap-1">
+                    <i class="bi bi-arrow-left-circle"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container py-5">
+        
+        <div class="max-width-900 mx-auto">
+            
+            <div class="glass-card shadow-lg mb-5">
+                <div class="card-header-custom text-white d-flex align-items-center gap-2">
+                    <i class="bi bi-gear-fill text-warning fs-5"></i>
+                    <span>{% if evento %}Configurar Evento: {{ evento.nombre }}{% else %}Registrar Nuevo Evento{% endif %}</span>
+                </div>
+                
+                <form method="POST" enctype="multipart/form-data" class="p-4 needs-validation" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Sección 1: Información General -->
+                    <h5 class="border-bottom border-light border-opacity-10 pb-2 mb-3 text-info"><i class="bi bi-info-circle-fill"></i> Datos del Evento</h5>
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Nombre del Evento</label>
+                            <input type="text" name="nombre" class="form-control" placeholder="Ej: El Despertar del Emprendedor" value="{{ evento.nombre|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha del Evento</label>
+                            <input type="date" name="fecha_evento" class="form-control" value="{{ evento.fecha_evento|date:'Y-m-d'|default:'' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Descripción</label>
+                            <textarea name="descripcion" rows="2" class="form-control" placeholder="Escribe detalles del evento...">{{ evento.descripcion|default:'' }}</textarea>
+                        </div>
+                    </div>
+
+                    <!-- Sección 2: Configuración SMTP (Servidor de Correo Propio) -->
+                    <h5 class="border-bottom border-light border-opacity-10 pb-2 mt-4 mb-3 text-info"><i class="bi bi-envelope-at-fill"></i> Servidor de Correos (SMTP Dinámico)</h5>
+                    <p class="text-white-50 small mb-3">Registra las credenciales de tu empresa para enviar las entradas directamente desde tu propia dirección de correo.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Host SMTP</label>
+                            <input type="text" name="smtp_host" class="form-control" placeholder="Ej: smtp.sendgrid.net o smtp.gmail.com" value="{{ evento.smtp_host|default:'smtp.sendgrid.net' }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Puerto SMTP</label>
+                            <input type="number" name="smtp_port" class="form-control" placeholder="Ej: 587" value="{{ evento.smtp_port|default:587 }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Remitente (DEFAULT FROM EMAIL)</label>
+                            <input type="text" name="default_from_email" class="form-control" placeholder="Ej: Soporte <soporte.circulo50k@hilariogrp.com>" value="{{ evento.default_from_email|default:'Soporte <soporte.circulo50k@hilariogrp.com>' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Usuario SMTP</label>
+                            <input type="text" name="smtp_user" class="form-control" placeholder="Nombre de usuario o apikey" value="{{ evento.smtp_user|default:'apikey' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Contraseña SMTP / API Key</label>
+                            <input type="password" name="smtp_password" class="form-control" placeholder="{% if evento %}Dejar en blanco para no modificar{% else %}Contraseña o llave de API{% endif %}">
+                        </div>
+                    </div>
+
+                    <!-- Sección 3: Estética y Archivos (White-Label) -->
+                    <h5 class="border-bottom border-light border-opacity-10 pb-2 mt-4 mb-3 text-info"><i class="bi bi-palette-fill"></i> Personalización y Marca</h5>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Color de Interfaz (Primary HEX)</label>
+                            <div class="d-flex gap-2">
+                                <input type="color" name="color_primario" class="form-control form-control-color flex-fill" value="{{ evento.color_primario|default:'#7b1fa2' }}" style="height: 45px; border-radius: 12px; padding: 2px;">
+                                <input type="text" class="form-control flex-fill" value="{{ evento.color_primario|default:'#7b1fa2' }}" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Boleto (Imagen de Fondo - asesor.jpeg)</label>
+                            <input type="file" name="imagen_fondo" accept="image/*" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Logo de la Empresa</label>
+                            <input type="file" name="logo" accept="image/*" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Banner para Dashboard</label>
+                            <input type="file" name="banner" accept="image/*" class="form-control">
+                        </div>
+                    </div>
+
+                    <!-- Sección 4: Integraciones (Twilio & ImgBB) -->
+                    <h5 class="border-bottom border-light border-opacity-10 pb-2 mt-4 mb-3 text-info"><i class="bi bi-plugin"></i> Integraciones Opcionales</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Twilio Account SID</label>
+                            <input type="text" name="twilio_account_sid" class="form-control" placeholder="AC..." value="{{ evento.twilio_account_sid|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Twilio Auth Token</label>
+                            <input type="password" name="twilio_auth_token" class="form-control" placeholder="Token" value="{{ evento.twilio_auth_token|default:'' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Número Twilio Móvil</label>
+                            <input type="text" name="twilio_phone_number" class="form-control" placeholder="+1..." value="{{ evento.twilio_phone_number|default:'' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Número Twilio WhatsApp</label>
+                            <input type="text" name="twilio_whatsapp_number" class="form-control" placeholder="+1..." value="{{ evento.twilio_whatsapp_number|default:'' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">ImgBB API Key</label>
+                            <input type="text" name="imgbb_api_key" class="form-control" placeholder="Llave API" value="{{ evento.imgbb_api_key|default:'' }}">
+                        </div>
+                    </div>
+
+                    <!-- Sección 5: Tarifas y Precios Dinámicos -->
+                    <h5 class="border-bottom border-light border-opacity-10 pb-2 mt-4 mb-3 text-info"><i class="bi bi-tags-fill"></i> Matriz de Precios y Preventas</h5>
+                    <div class="table-responsive">
+                        <table class="table text-center align-middle text-white table-bordered border-secondary">
+                            <thead>
+                                <tr class="bg-secondary bg-opacity-25">
+                                    <th>Categoría de Entrada</th>
+                                    <th>Preventa 1</th>
+                                    <th>Preventa 2</th>
+                                    <th>Preventa 3</th>
+                                    <th>Precio Puerta</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tier in "FULL_ACCESS,EMPRESARIAL,EMPRENDEDOR".split|default_if_none:"" %}
+                                {% endfor %}
+                                
+                                <!-- FULL ACCESS -->
+                                <tr>
+                                    <td class="fw-bold text-start py-3">FULL ACCESS</td>
+                                    <td><input type="number" name="p1_FULL_ACCESS" class="form-control form-control-sm text-center" placeholder="1050" value="{{ t_data.FULL_ACCESS.preventa_1|default:'1050' }}"></td>
+                                    <td><input type="number" name="p2_FULL_ACCESS" class="form-control form-control-sm text-center" placeholder="1500" value="{{ t_data.FULL_ACCESS.preventa_2|default:'1500' }}"></td>
+                                    <td><input type="number" name="p3_FULL_ACCESS" class="form-control form-control-sm text-center" placeholder="2100" value="{{ t_data.FULL_ACCESS.preventa_3|default:'2100' }}"></td>
+                                    <td><input type="number" name="puerta_FULL_ACCESS" class="form-control form-control-sm text-center text-danger fw-bold" placeholder="3000" value="{{ t_data.FULL_ACCESS.puerta|default:'3000' }}"></td>
+                                </tr>
+                                
+                                <!-- EMPRESARIAL -->
+                                <tr>
+                                    <td class="fw-bold text-start py-3">EMPRESARIAL</td>
+                                    <td><input type="number" name="p1_EMPRESARIAL" class="form-control form-control-sm text-center" placeholder="525" value="{{ t_data.EMPRESARIAL.preventa_1|default:'525' }}"></td>
+                                    <td><input type="number" name="p2_EMPRESARIAL" class="form-control form-control-sm text-center" placeholder="750" value="{{ t_data.EMPRESARIAL.preventa_2|default:'750' }}"></td>
+                                    <td><input type="number" name="p3_EMPRESARIAL" class="form-control form-control-sm text-center" placeholder="1050" value="{{ t_data.EMPRESARIAL.preventa_3|default:'1050' }}"></td>
+                                    <td><input type="number" name="puerta_EMPRESARIAL" class="form-control form-control-sm text-center text-danger fw-bold" placeholder="1800" value="{{ t_data.EMPRESARIAL.puerta|default:'1800' }}"></td>
+                                </tr>
+
+                                <!-- EMPRENDEDOR -->
+                                <tr>
+                                    <td class="fw-bold text-start py-3">EMPRENDEDOR</td>
+                                    <td><input type="number" name="p1_EMPRENDEDOR" class="form-control form-control-sm text-center" placeholder="105" value="{{ t_data.EMPRENDEDOR.preventa_1|default:'105' }}"></td>
+                                    <td><input type="number" name="p2_EMPRENDEDOR" class="form-control form-control-sm text-center" placeholder="150" value="{{ t_data.EMPRENDEDOR.preventa_2|default:'150' }}"></td>
+                                    <td><input type="number" name="p3_EMPRENDEDOR" class="form-control form-control-sm text-center" placeholder="300" value="{{ t_data.EMPRENDEDOR.preventa_3|default:'300' }}"></td>
+                                    <td><input type="number" name="puerta_EMPRENDEDOR" class="form-control form-control-sm text-center text-danger fw-bold" placeholder="750" value="{{ t_data.EMPRENDEDOR.puerta|default:'750' }}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4 text-end d-flex justify-content-end gap-2">
+                        <a href="{% url 'dashboard_eventos' %}" class="btn btn-glass">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary-glow px-4">
+                            <i class="bi bi-save-fill"></i> {% if evento %}Guardar Cambios{% else %}Registrar Evento{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Bootstrap Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,412 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if object %}Editar{% else %}Agregar{% endif %} Participante | El Despertar del Emprendedor</title>
+    <!-- Bootstrap 5 & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-glow: linear-gradient(135deg, #7b1fa2, #4a148c);
+            --secondary-glow: linear-gradient(135deg, #0288d1, #006064);
+            --glass-bg: rgba(20, 10, 35, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --purple-glow: 0 0 15px rgba(186, 104, 200, 0.35);
+        }
+
+        body {
+            background: url("{% static 'img/exponentes.png' %}") no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Outfit', sans-serif;
+            color: #f8f9fa;
+            min-height: 100vh;
+            padding-top: 85px; /* Spacing for fixed navbar */
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(26, 8, 46, 0.6) 0%, rgba(10, 5, 20, 0.85) 100%);
+            z-index: -1;
+        }
+
+        /* Navbar glassmorphism */
+        .navbar-custom {
+            background: rgba(15, 7, 28, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            z-index: 1030;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-header-glow {
+            background: linear-gradient(135deg, rgba(123, 31, 162, 0.85), rgba(74, 20, 140, 0.85));
+            color: #fff;
+            font-weight: 700;
+            border-bottom: none;
+            padding: 1.2rem;
+            border-top-left-radius: 19px !important;
+            border-top-right-radius: 19px !important;
+        }
+
+        /* Form Labels & Controls styling */
+        .form-label {
+            color: #e1bee7;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+
+        /* Target fields outputted by django {{ field }} */
+        input[type="text"], input[type="email"], select, input[type="file"], input[type="number"], .form-control {
+            background: rgba(255, 255, 255, 0.07) !important;
+            border: 1px solid var(--glass-border) !important;
+            color: #fff !important;
+            border-radius: 12px !important;
+            padding: 0.65rem 1rem !important;
+            transition: all 0.3s !important;
+        }
+        
+        input[type="text"]:focus, input[type="email"]:focus, select:focus, input[type="file"]:focus, input[type="number"]:focus, .form-control:focus {
+            background: rgba(255, 255, 255, 0.12) !important;
+            border-color: #ba68c8 !important;
+            box-shadow: var(--purple-glow) !important;
+            outline: none !important;
+        }
+
+        /* Checkbox styling */
+        input[type="checkbox"] {
+            width: 1.8em;
+            height: 1.8em;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--glass-border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        input[type="checkbox"]:checked {
+            background-color: #7b1fa2;
+            border-color: #ba68c8;
+        }
+
+        /* Custom buttons styling */
+        .btn {
+            border-radius: 12px;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid transparent;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-primary-glow {
+            background: var(--primary-glow);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(123, 31, 162, 0.3);
+        }
+        .btn-primary-glow:hover {
+            background: linear-gradient(135deg, #8e24aa, #5e35b1);
+            color: #fff;
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            color: #e1bee7;
+        }
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        /* Voucher preview design */
+        .preview-container img {
+            max-height: 90px;
+            margin: 5px;
+            border-radius: 10px;
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        /* Glass table in form */
+        .table-responsive-container {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+        }
+        .table {
+            margin-bottom: 0;
+            background: transparent !important;
+        }
+        .table > :not(caption) > * > * {
+            background-color: transparent !important;
+            padding: 14px 12px;
+            color: #ffffff !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .table thead th {
+            background: linear-gradient(135deg, rgba(81, 45, 168, 0.85), rgba(49, 27, 146, 0.85)) !important;
+            font-weight: 600;
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .table tbody tr {
+            background: rgba(255, 255, 255, 0.02);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Custom Glass Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white" href="{% url 'participante_lista' %}">
+                <span class="fs-4">🎟️</span>
+                <span>Círculo 50k - Entradas</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'participante_lista' %}"><i class="bi bi-card-list"></i> Lista Entradas</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'registro_participante' %}"><i class="bi bi-journal-text"></i> Pre-Registro</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="text-white text-opacity-75 small">
+                        <i class="bi bi-person-circle text-primary"></i> Hola, <strong>{{ user.username }}</strong>
+                    </span>
+                    <form method="post" action="{% url 'logout' %}" class="m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-glass btn-sm rounded-pill px-3 py-1 gap-1">
+                            <i class="bi bi-box-arrow-right"></i> Salir
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container py-5">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold m-0" style="color: #e1bee7; text-shadow: 0 0 15px rgba(225,190,231,0.2);">
+                {% if object %}
+                    <i class="bi bi-pencil-square text-warning"></i> Editar Participante
+                {% else %}
+                    <i class="bi bi-person-plus-fill text-success"></i> Agregar Participante
+                {% endif %}
+            </h2>
+            <a href="{% url 'participante_lista' %}" class="btn btn-glass">
+                <i class="bi bi-arrow-left-circle"></i> Volver a la lista
+            </a>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="glass-card shadow-lg p-4">
+                    <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            {% for field in form %}
+                                <div class="col-md-12">
+                                    <label class="form-label">{{ field.label }}</label>
+                                    <div class="input-wrapper">
+                                        {{ field }}
+                                    </div>
+                                    {% for error in field.errors %}
+                                        <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle-fill"></i> {{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+
+                            <!-- Tipo de tarifa -->
+                            <div class="col-md-12">
+                                <label class="form-label">Tipo de Tarifa</label>
+                                <select id="tipo_tarifa" class="form-control" name="tipo_tarifa">
+                                    <option value="">Seleccione</option>
+                                    <option value="pre1">Preventa 1</option>
+                                    <option value="pre2">Preventa 2</option>
+                                    <option value="pre3">Preventa 3</option>
+                                    <option value="puerta">Puerta</option>
+                                </select>
+                            </div>
+
+                            <!-- Precio automático -->
+                            <div class="col-md-12">
+                                <label class="form-label">Precio</label>
+                                <input type="text" id="precio" class="form-control" readonly style="background: rgba(0,0,0,0.2) !important;">
+                                <input type="hidden" name="precio_final" id="precio_final">
+                            </div>
+
+                            <!-- Sección de vouchers -->
+                            <div class="col-md-12 mt-3">
+                                <label class="form-label">
+                                    <i class="bi bi-paperclip"></i> Voucher(s) de pago
+                                </label>
+                                <input type="file" id="voucherInput" name="vouchers" class="form-control" multiple accept="image/*,.pdf">
+                                <small class="text-white-50 mt-1 d-block">Puedes adjuntar uno o varios archivos (imágenes o PDF).</small>
+                                <div id="preview" class="preview-container mt-2 d-flex flex-wrap"></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 text-end d-flex gap-2 justify-content-end">
+                            <a href="{% url 'participante_lista' %}" class="btn btn-glass">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary-glow px-4">
+                                {% if object %}
+                                    <i class="bi bi-save-fill"></i> Guardar Cambios
+                                {% else %}
+                                    <i class="bi bi-check-circle-fill"></i> Registrar Entrada
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tabla de precios de referencia -->
+            <div class="col-lg-5">
+                <div class="glass-card shadow-lg">
+                    <div class="card-header-glow d-flex align-items-center gap-2">
+                        <i class="bi bi-ticket-perforated-fill text-info fs-5"></i>
+                        <span>Tabla de Tarifas Referenciales</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive-container">
+                            <table class="table text-center align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Prev. 1</th>
+                                        <th>Prev. 2</th>
+                                        <th>Prev. 3</th>
+                                        <th>Puerta</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="fw-bold">FULL ACCESS</td>
+                                        <td class="text-white-50">1050</td>
+                                        <td class="text-white-50">1500</td>
+                                        <td class="text-white-50">2100</td>
+                                        <td class="text-danger fw-bold">3000</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">EMPRESARIAL</td>
+                                        <td class="text-white-50">525</td>
+                                        <td class="text-white-50">750</td>
+                                        <td class="text-white-50">1050</td>
+                                        <td class="text-danger fw-bold">1800</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">EMPRENDEDOR</td>
+                                        <td class="text-white-50">105</td>
+                                        <td class="text-white-50">150</td>
+                                        <td class="text-white-50">300</td>
+                                        <td class="text-danger fw-bold">750</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing Calculations Logic -->
+    <script>
+    const precios = {
+        "FULL ACCESS": { pre1: 1050, pre2: 1500, pre3: 2100, puerta: 3000 },
+        "EMPRESARIAL": { pre1: 525, pre2: 750, pre3: 1050, puerta: 1800 },
+        "EMPRENDEDOR": { pre1: 105, pre2: 150, pre3: 300, puerta: 750 }
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const tipoEntrada = document.querySelector('[name="tipo_entrada"]');
+        const tipoTarifa = document.getElementById("tipo_tarifa");
+        const precio = document.getElementById("precio");
+        const precioFinal = document.getElementById("precio_final");
+
+        function actualizarPrecio() {
+            if (tipoEntrada && tipoEntrada.value && tipoTarifa && tipoTarifa.value && precios[tipoEntrada.value]) {
+                const valor = precios[tipoEntrada.value][tipoTarifa.value];
+                precio.value = "S/ " + valor + ".00";
+                precioFinal.value = valor;
+            } else if (precio) {
+                precio.value = "";
+                precioFinal.value = "";
+            }
+        }
+
+        if (tipoEntrada) tipoEntrada.addEventListener("change", actualizarPrecio);
+        if (tipoTarifa) tipoTarifa.addEventListener("change", actualizarPrecio);
+
+        // Vouchers File Preview
+        const voucherInput = document.getElementById("voucherInput");
+        const preview = document.getElementById("preview");
+
+        if (voucherInput && preview) {
+            voucherInput.addEventListener("change", () => {
+                preview.innerHTML = "";
+                [...voucherInput.files].forEach(file => {
+                    if (file.type.startsWith("image/")) {
+                        const reader = new FileReader();
+                        reader.onload = e => {
+                            const img = document.createElement("img");
+                            img.src = e.target.result;
+                            preview.appendChild(img);
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        const div = document.createElement("div");
+                        div.classList.add("text-info", "me-3", "d-flex", "align-items-center", "gap-1");
+                        div.innerHTML = `<i class="bi bi-file-earmark-pdf fs-4 text-danger"></i> <span class="small text-white">${file.name}</span>`;
+                        preview.appendChild(div);
+                    }
+                });
+            });
+        }
+    });
+    </script>
+</body>
+</html>

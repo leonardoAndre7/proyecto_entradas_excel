@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: participantes-app
+    env: python
+    buildCommand: "pip install -r webcliente/requirements.txt && cd webcliente && python manage.py migrate && python manage.py collectstatic --noinput"
+    startCommand: "cd webcliente && gunicorn webcliente.wsgi:application"
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.7

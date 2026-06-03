@@ -4,7 +4,7 @@ from django.db import models
 
 logger = logging.getLogger(__name__)
 
-ESCALA_PNG = 1.5  # Matrix(1.5,1.5) — balance calidad/velocidad para PDFs grandes
+ESCALA_PNG = 1.0  # Matrix(1,1) — mínimo uso de memoria para Render Starter (512MB)
 
 
 class Plano(models.Model):
@@ -36,6 +36,7 @@ class Plano(models.Model):
             logger.error("pymupdf no está instalado. No se puede procesar el PDF.")
             return
 
+        import gc
         pdf_path = self.imagen.path
         try:
             doc  = fitz.open(pdf_path)
@@ -43,12 +44,14 @@ class Plano(models.Model):
 
             # ── 1. CONVERTIR A PNG ──────────────────────────────────────────
             mat = fitz.Matrix(ESCALA_PNG, ESCALA_PNG)
-            pix = page.get_pixmap(matrix=mat)
+            pix = page.get_pixmap(matrix=mat, alpha=False)  # alpha=False ahorra memoria
 
             base_name    = os.path.splitext(os.path.basename(pdf_path))[0]
             png_filename = base_name + '.png'
             png_path     = os.path.join(os.path.dirname(pdf_path), png_filename)
             pix.save(png_path)
+            del pix   # liberar memoria del pixel buffer
+            gc.collect()
 
             relative_png = 'planos/' + png_filename
             Plano.objects.filter(pk=self.pk).update(imagen=relative_png)

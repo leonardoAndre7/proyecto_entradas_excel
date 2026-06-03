@@ -714,7 +714,7 @@ def enviar_entrada_participante(participante):
 
     # Generar QR dinámico
     base_url = settings.BASE_URL.rstrip("/")
-    url_validacion = f"{base_url}/validar/{participante.token}/"
+    url_validacion = f"{base_url}/participantes/validar/{participante.token}/"
     qr_img = qrcode.make(url_validacion).convert("RGB")
 
     # Generar imagen combinada del boleto
@@ -865,7 +865,7 @@ def enviar_masivo(request, evento_id):
     enviados = 0
     for p in participantes:
         base_url = settings.BASE_URL.rstrip("/")
-        url_val = f"{base_url}/validar/{p.token}/"
+        url_val = f"{base_url}/participantes/validar/{p.token}/"
         qr_img = qrcode.make(url_val).convert("RGB")
         
         imagen_final = generar_imagen_personalizada(p, qr_img)
@@ -1449,7 +1449,7 @@ def reenviar_correo(request, evento_id, pk):
     participante = get_object_or_404(Participante, pk=pk, evento=evento)
     
     base_url = settings.BASE_URL.rstrip("/")
-    url_val = f"{base_url}/validar/{participante.token}/"
+    url_val = f"{base_url}/participantes/validar/{participante.token}/"
     qr_img = qrcode.make(url_val).convert("RGB")
     
     imagen_final = generar_imagen_personalizada(participante, qr_img)

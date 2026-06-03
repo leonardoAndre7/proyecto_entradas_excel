@@ -38,11 +38,19 @@ body{ margin:0; overflow:hidden; }
 
 <body>
 
+{% if plano %}
 <div id="container">
   <img id="plano" src="{{ plano.imagen.url }}">
   <canvas id="draw-layer"></canvas>
   <input type="hidden" id="plano_id" value="{{ plano.id }}">
 </div>
+{% else %}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#222;color:#fff;font-family:sans-serif;text-align:center;gap:16px;">
+  <div style="font-size:60px;">🗺️</div>
+  <h2 style="margin:0;">No hay plano configurado</h2>
+  <p style="color:#aaa;margin:0;">Ve al <a href="/admin/lotes/plano/add/" style="color:#90caf9;">Panel de Administración</a> para subir la imagen del mapa.</p>
+</div>
+{% endif %}
 
 {% if es_admin %}
 <div class="panel">
@@ -53,6 +61,7 @@ body{ margin:0; overflow:hidden; }
 </div>
 {% endif %}
 
+{% if plano %}
 <script>
 // Administrador
 const esAdmin = "{{ es_admin|yesno:'true,false' }}" === "true";
@@ -338,6 +347,7 @@ function actualizarTransform(){
   canvas.style.transform=t;
 }
 </script>
+{% endif %}
 
 </body>
 </html>

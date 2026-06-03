@@ -15,17 +15,17 @@
     
     <style>
         :root {
-            --primary-glow: linear-gradient(135deg, #7b1fa2, #4a148c);
-            --glass-bg: rgba(20, 10, 35, 0.45);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --purple-shadow: 0 10px 30px rgba(123, 31, 162, 0.15);
+            --primary-color: #0ea5e9;
+            --primary-hover: #0284c7;
+            --glass-bg: rgba(15, 23, 42, 0.55);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
         body {
-            background: radial-gradient(circle at 50% 50%, rgba(26, 8, 46, 0.75) 0%, rgba(10, 5, 20, 0.95) 100%), url("{% static 'img/nexo_logo_01.png' %}") no-repeat center center fixed;
-            background-size: cover;
+            background: #090d16;
             font-family: 'Outfit', sans-serif;
-            color: #f8f9fa;
+            color: #f1f5f9;
             min-height: 100vh;
             padding-top: 85px;
             position: relative;
@@ -33,11 +33,11 @@
 
         /* Navbar glassmorphism */
         .navbar-custom {
-            background: rgba(15, 7, 28, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--glass-border);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
             z-index: 1030;
         }
 
@@ -46,70 +46,70 @@
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
         }
 
         .card-header-custom {
-            background: linear-gradient(135deg, rgba(123, 31, 162, 0.85), rgba(49, 27, 146, 0.85));
-            border-bottom: none;
-            font-weight: 700;
+            background: rgba(15, 23, 42, 0.9);
+            border-bottom: 1px solid var(--glass-border);
+            font-weight: 600;
             padding: 1.2rem;
-            border-top-left-radius: 19px !important;
-            border-top-right-radius: 19px !important;
+            border-top-left-radius: 15px !important;
+            border-top-right-radius: 15px !important;
         }
 
         .form-label {
-            color: #e1bee7;
-            font-weight: 600;
+            color: #94a3b8;
+            font-weight: 500;
             font-size: 0.85rem;
             margin-bottom: 6px;
         }
 
         input[type="text"], input[type="email"], input[type="password"], input[type="number"], select, textarea, input[type="file"] {
-            background: rgba(255, 255, 255, 0.07) !important;
+            background: rgba(15, 23, 42, 0.6) !important;
             border: 1px solid var(--glass-border) !important;
             color: #fff !important;
-            border-radius: 12px !important;
-            padding: 0.65rem 1rem !important;
-            transition: all 0.3s !important;
+            border-radius: 10px !important;
+            padding: 0.6rem 0.9rem !important;
+            transition: all 0.25s !important;
         }
         
         input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="number"]:focus, select:focus, textarea:focus, input[type="file"]:focus {
-            background: rgba(255, 255, 255, 0.12) !important;
-            border-color: #ba68c8 !important;
-            box-shadow: 0 0 15px rgba(186, 104, 200, 0.35) !important;
+            background: rgba(15, 23, 42, 0.8) !important;
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.2) !important;
             outline: none !important;
         }
 
         .btn {
-            border-radius: 12px;
-            font-weight: 600;
-            padding: 0.6rem 1.2rem;
-            transition: all 0.25s ease;
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 0.55rem 1.1rem;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
         }
-        .btn:hover {
-            transform: translateY(-2px);
-        }
 
         .btn-primary-glow {
-            background: var(--primary-glow);
+            background: var(--primary-color);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(123, 31, 162, 0.4);
             border: none;
+        }
+        .btn-primary-glow:hover {
+            background: var(--primary-hover);
+            color: #fff;
         }
 
         .btn-glass {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--glass-border);
-            color: #e1bee7;
+            color: #94a3b8;
         }
         .btn-glass:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.1);
             color: #fff;
         }
     </style>
@@ -167,32 +167,6 @@
                         <div class="col-12">
                             <label class="form-label">Descripción</label>
                             <textarea name="descripcion" rows="2" class="form-control" placeholder="Escribe detalles del evento...">{{ evento.descripcion|default:'' }}</textarea>
-                        </div>
-                    </div>
-
-                    <!-- Sección 2: Configuración SMTP (Servidor de Correo Propio) -->
-                    <h5 class="border-bottom border-light border-opacity-10 pb-2 mt-4 mb-3 text-info"><i class="bi bi-envelope-at-fill"></i> Servidor de Correos (SMTP Dinámico)</h5>
-                    <p class="text-white-50 small mb-3">Registra las credenciales de tu empresa para enviar las entradas directamente desde tu propia dirección de correo.</p>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Host SMTP</label>
-                            <input type="text" name="smtp_host" class="form-control" placeholder="Ej: smtp.sendgrid.net o smtp.gmail.com" value="{{ evento.smtp_host|default:'smtp.sendgrid.net' }}" required>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Puerto SMTP</label>
-                            <input type="number" name="smtp_port" class="form-control" placeholder="Ej: 587" value="{{ evento.smtp_port|default:587 }}" required>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Remitente (DEFAULT FROM EMAIL)</label>
-                            <input type="text" name="default_from_email" class="form-control" placeholder="Ej: Soporte <soporte.circulo50k@hilariogrp.com>" value="{{ evento.default_from_email|default:'Soporte <soporte.circulo50k@hilariogrp.com>' }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Usuario SMTP</label>
-                            <input type="text" name="smtp_user" class="form-control" placeholder="Nombre de usuario o apikey" value="{{ evento.smtp_user|default:'apikey' }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Contraseña SMTP / API Key</label>
-                            <input type="password" name="smtp_password" class="form-control" placeholder="{% if evento %}Dejar en blanco para no modificar{% else %}Contraseña o llave de API{% endif %}">
                         </div>
                     </div>
 
@@ -287,45 +261,83 @@
                     </div>
 
                     <!-- Sección 5: Tarifas y Precios Dinámicos -->
-                    <h5 class="border-bottom border-light border-opacity-10 pb-2 mt-4 mb-3 text-info"><i class="bi bi-tags-fill"></i> Matriz de Precios y Preventas</h5>
+                    <div class="d-flex justify-content-between align-items-center mt-4 mb-3 border-bottom border-light border-opacity-10 pb-2">
+                        <h5 class="text-info m-0"><i class="bi bi-tags-fill"></i> Matriz de Precios y Categorías de Entrada</h5>
+                        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3 py-1" onclick="addTariffRow()">
+                            <i class="bi bi-plus-circle-fill"></i> Agregar Categoría
+                        </button>
+                    </div>
                     <div class="table-responsive">
                         <table class="table text-center align-middle text-white table-bordered border-secondary">
                             <thead>
                                 <tr class="bg-secondary bg-opacity-25">
-                                    <th>Categoría de Entrada</th>
-                                    <th>Preventa 1</th>
-                                    <th>Preventa 2</th>
-                                    <th>Preventa 3</th>
-                                    <th>Precio Puerta</th>
+                                    <th class="text-start">Categoría de Entrada</th>
+                                    <th>Preventa 1 (S/)</th>
+                                    <th>Preventa 2 (S/)</th>
+                                    <th>Preventa 3 (S/)</th>
+                                    <th>Precio Puerta (S/)</th>
+                                    <th style="width: 50px;"></th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <!-- FULL ACCESS -->
-                                <tr>
-                                    <td class="fw-bold text-start py-3">FULL ACCESS</td>
-                                    <td><input type="number" name="p1_FULL_ACCESS" class="form-control form-control-sm text-center" placeholder="1050" value="{{ t_data.FULL_ACCESS.preventa_1|default:'1050' }}"></td>
-                                    <td><input type="number" name="p2_FULL_ACCESS" class="form-control form-control-sm text-center" placeholder="1500" value="{{ t_data.FULL_ACCESS.preventa_2|default:'1500' }}"></td>
-                                    <td><input type="number" name="p3_FULL_ACCESS" class="form-control form-control-sm text-center" placeholder="2100" value="{{ t_data.FULL_ACCESS.preventa_3|default:'2100' }}"></td>
-                                    <td><input type="number" name="puerta_FULL_ACCESS" class="form-control form-control-sm text-center text-danger fw-bold" placeholder="3000" value="{{ t_data.FULL_ACCESS.puerta|default:'3000' }}"></td>
-                                </tr>
-                                
-                                <!-- EMPRESARIAL -->
-                                <tr>
-                                    <td class="fw-bold text-start py-3">EMPRESARIAL</td>
-                                    <td><input type="number" name="p1_EMPRESARIAL" class="form-control form-control-sm text-center" placeholder="525" value="{{ t_data.EMPRESARIAL.preventa_1|default:'525' }}"></td>
-                                    <td><input type="number" name="p2_EMPRESARIAL" class="form-control form-control-sm text-center" placeholder="750" value="{{ t_data.EMPRESARIAL.preventa_2|default:'750' }}"></td>
-                                    <td><input type="number" name="p3_EMPRESARIAL" class="form-control form-control-sm text-center" placeholder="1050" value="{{ t_data.EMPRESARIAL.preventa_3|default:'1050' }}"></td>
-                                    <td><input type="number" name="puerta_EMPRESARIAL" class="form-control form-control-sm text-center text-danger fw-bold" placeholder="1800" value="{{ t_data.EMPRESARIAL.puerta|default:'1800' }}"></td>
-                                </tr>
-
-                                <!-- EMPRENDEDOR -->
-                                <tr>
-                                    <td class="fw-bold text-start py-3">EMPRENDEDOR</td>
-                                    <td><input type="number" name="p1_EMPRENDEDOR" class="form-control form-control-sm text-center" placeholder="105" value="{{ t_data.EMPRENDEDOR.preventa_1|default:'105' }}"></td>
-                                    <td><input type="number" name="p2_EMPRENDEDOR" class="form-control form-control-sm text-center" placeholder="150" value="{{ t_data.EMPRENDEDOR.preventa_2|default:'150' }}"></td>
-                                    <td><input type="number" name="p3_EMPRENDEDOR" class="form-control form-control-sm text-center" placeholder="300" value="{{ t_data.EMPRENDEDOR.preventa_3|default:'300' }}"></td>
-                                    <td><input type="number" name="puerta_EMPRENDEDOR" class="form-control form-control-sm text-center text-danger fw-bold" placeholder="750" value="{{ t_data.EMPRENDEDOR.puerta|default:'750' }}"></td>
-                                </tr>
+                            <tbody id="tarifas-tbody">
+                                {% if tarifas %}
+                                    {% for t in tarifas %}
+                                    <tr>
+                                        <td>
+                                            <input type="text" name="tariff_name" class="form-control form-control-sm fw-bold text-white bg-dark bg-opacity-50" value="{{ t.tipo_entrada }}" placeholder="VIP, General, etc." required style="border: 1px solid rgba(255,255,255,0.1) !important;">
+                                            <input type="hidden" name="tariff_id" value="{{ t.id }}">
+                                        </td>
+                                        <td><input type="number" step="0.01" name="tariff_p1" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="{{ t.preventa_1 }}" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_p2" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="{{ t.preventa_2 }}" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_p3" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="{{ t.preventa_3 }}" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_puerta" class="form-control form-control-sm text-center text-danger fw-bold bg-dark bg-opacity-50" value="{{ t.puerta }}" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1" onclick="deleteTariffRow(this)"><i class="bi bi-trash-fill"></i></button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <!-- Categorías por Defecto para nuevo evento -->
+                                    <tr>
+                                        <td>
+                                            <input type="text" name="tariff_name" class="form-control form-control-sm fw-bold text-white bg-dark bg-opacity-50" value="FULL ACCESS" placeholder="VIP, General, etc." required style="border: 1px solid rgba(255,255,255,0.1) !important;">
+                                            <input type="hidden" name="tariff_id" value="">
+                                        </td>
+                                        <td><input type="number" step="0.01" name="tariff_p1" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="1050" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_p2" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="1500" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_p3" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="2100" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_puerta" class="form-control form-control-sm text-center text-danger fw-bold bg-dark bg-opacity-50" value="3000" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1" onclick="deleteTariffRow(this)"><i class="bi bi-trash-fill"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <input type="text" name="tariff_name" class="form-control form-control-sm fw-bold text-white bg-dark bg-opacity-50" value="EMPRESARIAL" placeholder="VIP, General, etc." required style="border: 1px solid rgba(255,255,255,0.1) !important;">
+                                            <input type="hidden" name="tariff_id" value="">
+                                        </td>
+                                        <td><input type="number" step="0.01" name="tariff_p1" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="525" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_p2" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="750" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_p3" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="1050" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_puerta" class="form-control form-control-sm text-center text-danger fw-bold bg-dark bg-opacity-50" value="1800" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1" onclick="deleteTariffRow(this)"><i class="bi bi-trash-fill"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <input type="text" name="tariff_name" class="form-control form-control-sm fw-bold text-white bg-dark bg-opacity-50" value="EMPRENDEDOR" placeholder="VIP, General, etc." required style="border: 1px solid rgba(255,255,255,0.1) !important;">
+                                            <input type="hidden" name="tariff_id" value="">
+                                        </td>
+                                        <td><input type="number" step="0.01" name="tariff_p1" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="105" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_p2" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="150" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_p3" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="300" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td><input type="number" step="0.01" name="tariff_puerta" class="form-control form-control-sm text-center text-danger fw-bold bg-dark bg-opacity-50" value="750" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1" onclick="deleteTariffRow(this)"><i class="bi bi-trash-fill"></i></button>
+                                        </td>
+                                    </tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
@@ -365,6 +377,35 @@
                 customApi.style.display = "none";
             }
         }
+
+        function addTariffRow() {
+            var tbody = document.getElementById("tarifas-tbody");
+            var tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>
+                    <input type="text" name="tariff_name" class="form-control form-control-sm fw-bold text-white bg-dark bg-opacity-50" placeholder="Ej. VIP, GENERAL, etc." required style="border: 1px solid rgba(255,255,255,0.1) !important;">
+                    <input type="hidden" name="tariff_id" value="">
+                </td>
+                <td><input type="number" step="0.01" name="tariff_p1" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                <td><input type="number" step="0.01" name="tariff_p2" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                <td><input type="number" step="0.01" name="tariff_p3" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                <td><input type="number" step="0.01" name="tariff_puerta" class="form-control form-control-sm text-center text-danger fw-bold bg-dark bg-opacity-50" placeholder="0.00" style="border: 1px solid rgba(255,255,255,0.1) !important;"></td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1" onclick="deleteTariffRow(this)"><i class="bi bi-trash-fill"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        function deleteTariffRow(btn) {
+            var row = btn.closest("tr");
+            if (row) {
+                if (confirm("¿Estás seguro de eliminar esta categoría de entrada? Se eliminará al guardar los cambios del evento.")) {
+                    row.remove();
+                }
+            }
+        }
+
         // Ejecutar al cargar la página
         window.addEventListener('DOMContentLoaded', toggleWhatsappFields);
     </script>

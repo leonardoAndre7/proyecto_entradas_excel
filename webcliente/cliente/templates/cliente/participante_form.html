@@ -15,20 +15,19 @@
     
     <style>
         :root {
-            --primary-glow: linear-gradient(135deg, #7b1fa2, #4a148c);
-            --secondary-glow: linear-gradient(135deg, #0288d1, #006064);
-            --glass-bg: rgba(20, 10, 35, 0.45);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --purple-glow: 0 0 15px rgba(186, 104, 200, 0.35);
+            --primary-color: #0ea5e9;
+            --primary-hover: #0284c7;
+            --glass-bg: rgba(15, 23, 42, 0.55);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
         body {
-            background: url("{% static 'img/exponentes.png' %}") no-repeat center center fixed;
-            background-size: cover;
+            background: #090d16;
             font-family: 'Outfit', sans-serif;
-            color: #f8f9fa;
+            color: #f1f5f9;
             min-height: 100vh;
-            padding-top: 85px; /* Spacing for fixed navbar */
+            padding-top: 85px;
             position: relative;
             overflow-x: hidden;
         }
@@ -39,17 +38,17 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: radial-gradient(circle at 50% 50%, rgba(26, 8, 46, 0.6) 0%, rgba(10, 5, 20, 0.85) 100%);
+            background: #090d16;
             z-index: -1;
         }
 
         /* Navbar glassmorphism */
         .navbar-custom {
-            background: rgba(15, 7, 28, 0.7);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--glass-border);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
             z-index: 1030;
         }
 
@@ -58,42 +57,42 @@
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
         }
 
         .card-header-glow {
-            background: linear-gradient(135deg, rgba(123, 31, 162, 0.85), rgba(74, 20, 140, 0.85));
+            background: rgba(15, 23, 42, 0.9);
+            border-bottom: 1px solid var(--glass-border);
             color: #fff;
-            font-weight: 700;
-            border-bottom: none;
+            font-weight: 600;
             padding: 1.2rem;
-            border-top-left-radius: 19px !important;
-            border-top-right-radius: 19px !important;
+            border-top-left-radius: 15px !important;
+            border-top-right-radius: 15px !important;
         }
 
         /* Form Labels & Controls styling */
         .form-label {
-            color: #e1bee7;
-            font-weight: 600;
+            color: #94a3b8;
+            font-weight: 500;
             font-size: 0.85rem;
             margin-bottom: 6px;
         }
 
         /* Target fields outputted by django {{ field }} */
         input[type="text"], input[type="email"], select, input[type="file"], input[type="number"], .form-control {
-            background: rgba(255, 255, 255, 0.07) !important;
+            background: rgba(15, 23, 42, 0.6) !important;
             border: 1px solid var(--glass-border) !important;
             color: #fff !important;
-            border-radius: 12px !important;
-            padding: 0.65rem 1rem !important;
-            transition: all 0.3s !important;
+            border-radius: 10px !important;
+            padding: 0.6rem 0.9rem !important;
+            transition: all 0.25s !important;
         }
         
         input[type="text"]:focus, input[type="email"]:focus, select:focus, input[type="file"]:focus, input[type="number"]:focus, .form-control:focus {
-            background: rgba(255, 255, 255, 0.12) !important;
-            border-color: #ba68c8 !important;
-            box-shadow: var(--purple-glow) !important;
+            background: rgba(15, 23, 42, 0.8) !important;
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.2) !important;
             outline: none !important;
         }
 
@@ -101,23 +100,23 @@
         input[type="checkbox"] {
             width: 1.8em;
             height: 1.8em;
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--glass-border);
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
         }
         input[type="checkbox"]:checked {
-            background-color: #7b1fa2;
-            border-color: #ba68c8;
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
         }
 
         /* Custom buttons styling */
         .btn {
-            border-radius: 12px;
-            font-weight: 600;
-            padding: 0.6rem 1.2rem;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 0.55rem 1.1rem;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -125,28 +124,22 @@
             border: 1px solid transparent;
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
-        }
-
         .btn-primary-glow {
-            background: var(--primary-glow);
+            background: var(--primary-color);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(123, 31, 162, 0.3);
         }
         .btn-primary-glow:hover {
-            background: linear-gradient(135deg, #8e24aa, #5e35b1);
+            background: var(--primary-hover);
             color: #fff;
         }
 
         .btn-glass {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--glass-border);
-            color: #e1bee7;
+            color: #94a3b8;
         }
         .btn-glass:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.1);
             color: #fff;
         }
 
@@ -208,10 +201,13 @@
                         <a class="nav-link" href="{% url 'registro_participante' evento_id=evento.id %}"><i class="bi bi-journal-text"></i> Pre-Registro</a>
                     </li>
                 </ul>
-                <div class="d-flex align-items-center gap-3">
-                    <span class="text-white text-opacity-75 small">
-                        <i class="bi bi-person-circle text-primary"></i> Hola, <strong>{{ user.username }}</strong>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-white text-opacity-75 small d-none d-md-inline">
+                        <i class="bi bi-person-circle text-primary"></i> <strong>{{ user.username }}</strong>
                     </span>
+                    <a href="{% url 'mi_cuenta' %}" class="btn btn-glass btn-sm rounded-pill px-3 py-1 gap-1">
+                        <i class="bi bi-person-gear"></i> Mi Cuenta
+                    </a>
                     <form method="post" action="{% url 'logout' %}" class="m-0">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-glass btn-sm rounded-pill px-3 py-1 gap-1">
@@ -234,7 +230,7 @@
                     <i class="bi bi-person-plus-fill text-success"></i> Agregar Participante
                 {% endif %}
             </h2>
-            <a href="{% url 'participante_lista' %}" class="btn btn-glass">
+            <a href="{% url 'participante_lista' evento_id=evento.id %}" class="btn btn-glass">
                 <i class="bi bi-arrow-left-circle"></i> Volver a la lista
             </a>
         </div>
@@ -288,7 +284,7 @@
                         </div>
 
                         <div class="mt-4 text-end d-flex gap-2 justify-content-end">
-                            <a href="{% url 'participante_lista' %}" class="btn btn-glass">
+                            <a href="{% url 'participante_lista' evento_id=evento.id %}" class="btn btn-glass">
                                 <i class="bi bi-x-circle"></i> Cancelar
                             </a>
                             <button type="submit" class="btn btn-primary-glow px-4">
@@ -323,27 +319,19 @@
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {% for t in evento.tarifas.all %}
                                     <tr>
-                                        <td class="fw-bold">FULL ACCESS</td>
-                                        <td class="text-white-50">1050</td>
-                                        <td class="text-white-50">1500</td>
-                                        <td class="text-white-50">2100</td>
-                                        <td class="text-danger fw-bold">3000</td>
+                                        <td class="fw-bold">{{ t.tipo_entrada }}</td>
+                                        <td class="text-white-50">{{ t.preventa_1 }}</td>
+                                        <td class="text-white-50">{{ t.preventa_2 }}</td>
+                                        <td class="text-white-50">{{ t.preventa_3 }}</td>
+                                        <td class="text-danger fw-bold">{{ t.puerta }}</td>
                                     </tr>
+                                    {% empty %}
                                     <tr>
-                                        <td class="fw-bold">EMPRESARIAL</td>
-                                        <td class="text-white-50">525</td>
-                                        <td class="text-white-50">750</td>
-                                        <td class="text-white-50">1050</td>
-                                        <td class="text-danger fw-bold">1800</td>
+                                        <td colspan="5" class="text-white-50 small">No hay tarifas configuradas para este evento.</td>
                                     </tr>
-                                    <tr>
-                                        <td class="fw-bold">EMPRENDEDOR</td>
-                                        <td class="text-white-50">105</td>
-                                        <td class="text-white-50">150</td>
-                                        <td class="text-white-50">300</td>
-                                        <td class="text-danger fw-bold">750</td>
-                                    </tr>
+                                    {% endfor %}
                                 </tbody>
                             </table>
                         </div>
@@ -356,9 +344,14 @@
     <!-- Pricing Calculations Logic -->
     <script>
     const precios = {
-        "FULL ACCESS": { pre1: 1050, pre2: 1500, pre3: 2100, puerta: 3000 },
-        "EMPRESARIAL": { pre1: 525, pre2: 750, pre3: 1050, puerta: 1800 },
-        "EMPRENDEDOR": { pre1: 105, pre2: 150, pre3: 300, puerta: 750 }
+        {% for t in evento.tarifas.all %}
+        "{{ t.tipo_entrada|escapejs }}": { 
+            pre1: parseFloat("{{ t.preventa_1 }}"), 
+            pre2: parseFloat("{{ t.preventa_2 }}"), 
+            pre3: parseFloat("{{ t.preventa_3 }}"), 
+            puerta: parseFloat("{{ t.puerta }}") 
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
     };
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -370,7 +363,7 @@
         function actualizarPrecio() {
             if (tipoEntrada && tipoEntrada.value && tipoTarifa && tipoTarifa.value && precios[tipoEntrada.value]) {
                 const valor = precios[tipoEntrada.value][tipoTarifa.value];
-                precio.value = "S/ " + valor + ".00";
+                precio.value = "S/ " + parseFloat(valor).toFixed(2);
                 precioFinal.value = valor;
             } else if (precio) {
                 precio.value = "";

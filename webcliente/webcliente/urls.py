@@ -23,10 +23,16 @@ from lotes import views as lotes_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', views.home_redirect, name='index'), 
+    path('', views.home_redirect, name='index'),
     path('participantes/', include('cliente.urls')),
     path('plano/', lotes_views.ver_plano, name="plano"),
     path('lotes/', include('lotes.urls')),
+
+    # 🔐 Google OAuth2 — rutas en raíz para coincidir con Google Cloud Console
+    # Google Console tiene: http://localhost:8000/google/callback/
+    #                        https://ede-evento.com/google/callback/
+    path('google/auth/', views.google_auth_inicio, name='google_auth_inicio_root'),
+    path('google/callback/', views.google_auth_callback, name='google_auth_callback_root'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

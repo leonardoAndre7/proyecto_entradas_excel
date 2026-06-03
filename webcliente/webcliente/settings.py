@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- SEGURIDAD ---
 SECRET_KEY = config('SECRET_KEY', default='fallback-secret-key-only-for-local')
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 
 
@@ -30,6 +30,10 @@ ALLOWED_HOSTS = [
 # Para CSRF (Render requiere esto)
 CSRF_TRUSTED_ORIGINS = [
     "https://proyecto-entradas-excel-1.onrender.com",
+    "https://ede-evento.com",
+    "https://www.ede-evento.com",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 
 
@@ -75,6 +79,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'cliente.middleware.EventoPermissionMiddleware',
 ]
 
 ROOT_URLCONF = 'webcliente.urls'
@@ -130,18 +135,33 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
  
 # --- EMAIL ---
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.sendgrid.net"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "apikey"
-EMAIL_HOST_PASSWORD = config("SENDGRID_API_KEY", default="")
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="Soporte Círculo 50k <soporte.circulo50k@hilariogrp.com>")
+EMAIL_BACKEND    = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST       = "smtp.gmail.com"
+EMAIL_PORT       = 587
+EMAIL_USE_TLS    = True
+EMAIL_HOST_USER  = config('EMAIL_HOST_USER',     default='eldespertardelemprendedor999@gmail.com')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL  = config('DEFAULT_FROM_EMAIL',  default=EMAIL_HOST_USER)
 
 
 # --- LOGIN ---
+LOGIN_URL = '/participantes/login/'
 LOGIN_REDIRECT_URL = '/participantes/'
 
 
 # --- CONFIG GENERAL ---
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ══════════════════════════════════════════════════════
+# 🔐 GOOGLE OAUTH2 — Para envío de correos por Organizador
+# ══════════════════════════════════════════════════════
+# Configura estas variables en tu .env o en Render → Environment Variables
+# Instrucciones: https://console.cloud.google.com/
+#  1. Crea un proyecto → Habilita "Gmail API"
+#  2. Credenciales → OAuth 2.0 → Aplicación Web
+#  3. URI de redirección autorizado: https://TU_DOMINIO/google/callback/
+#  4. Copia Client ID y Client Secret abajo
+GOOGLE_CLIENT_ID     = config('GOOGLE_CLIENT_ID', default='')
+GOOGLE_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
+GOOGLE_REDIRECT_URI  = config('GOOGLE_REDIRECT_URI', default='http://localhost:8000/google/callback/')

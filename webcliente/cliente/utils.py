@@ -21,7 +21,9 @@ def enviar_correo_participante(participante):
     # ==============================
     # 📌 Primer correo: Entrada con QR
     # ==============================
-    asunto1 = f"¡{participante.nombres}, tu entrada para EL DESPERTAR DEL EMPRENDEDOR! 🎉​🎉​🎉​"
+    evento = participante.evento
+    nombre_evento = evento.nombre if (evento and evento.nombre) else "EL DESPERTAR DEL EMPRENDEDOR"
+    asunto1 = f"¡{participante.nombres}, tu entrada para {nombre_evento}! 🎉​🎉​🎉​"
     
     mensaje1_texto = f"""
     Hola {participante.nombres},
@@ -35,34 +37,27 @@ def enviar_correo_participante(participante):
     ¡Nos vemos muy pronto para vivir esta gran experiencia!
 
     Un abrazo,
-    EQUIPO EL DESPERTAR DEL EMPRENDEDOR
+    EQUIPO {nombre_evento.upper()}
     """
 
     mensaje1_html = f"""
-    <p><b>TU ENTRADA A EL DESPERTAR DEL EMPRENDEDOR🎉​🎉​🎉</b></p>
+    <p><b>TU ENTRADA A {nombre_evento.upper()} 🎉​🎉​🎉</b></p>
     <br>
 
-    
-    
     <p>Hola <b>{participante.nombres}</b>,</p>
-    <p>¡Gracias por unirte a <b>EL DESPERTAR DEL EMPRENDEDOR!</b></p>
+    <p>¡Gracias por unirte a <b>{nombre_evento}!</b></p>
 
     <p>Adjunto encontrarás tu entrada personalizada:</p>
     <p><b>👉​👉​👉 No olvides guardarla y mostrarla el día del evento.</b></p>
     <br>
 
-    <p>Según tu paquete <b>{participante.tipo_entrada}</b>, aquí tienes las indicaciones específicas:</p>
-    <ul>
-        {"<li>Acceso VIP + Networking exclusivo</li>" if participante.tipo_entrada == "EMPRESARIAL" else ""}
-        {"<li>Acceso general + Talleres emprendedores</li>" if participante.tipo_entrada == "EMPRENDEDOR" else ""}
-        {"<li>Full access a todas las conferencias + material digital</li>" if participante.tipo_entrada == "FULL ACCES" else ""}
-    </ul>
+    <p>Según tu paquete <b>{participante.tipo_entrada}</b>, ya estás habilitado para ingresar al evento.</p>
     <br>
 
     <p>¡Nos vemos muy pronto para vivir esta gran experiencia!</p>
     <br>
     <p>Un abrazo,<br>
-    <b>EQUIPO EL DESPERTAR DEL EMPRENDEDOR</b></p>
+    <b>EQUIPO {nombre_evento.upper()}</b></p>
     <br>
     <p>--------------------------------------------------------</p>
     <br>

@@ -111,6 +111,14 @@ class PerfilUsuario(models.Model):
     rol = models.CharField(max_length=20, choices=ROLES, default='REGISTRADOR', verbose_name="Rol de Usuario")
     eventos = models.ManyToManyField(Evento, blank=True, related_name="usuarios_autorizados", verbose_name="Eventos Asignados")
 
+    # 🔐 Google OAuth2 — Gmail Conectado para envío de entradas
+    google_email = models.EmailField(blank=True, null=True, verbose_name="Gmail Conectado (OAuth2)")
+    google_refresh_token = models.TextField(blank=True, null=True, verbose_name="Google Refresh Token")
+
+    @property
+    def tiene_gmail_conectado(self):
+        return bool(self.google_email and self.google_refresh_token)
+
     def __str__(self):
         return f"{self.user.username} - {self.get_rol_display()}"
 
@@ -186,7 +194,7 @@ class Previaparticipantes(models.Model):
 # ==========================================
 class Participante(models.Model):
     evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name="participantes", null=True, blank=True)
-    tarifa = models.ForeignKey(Tarifa, on_delete=models.PROTECT, related_name="participantes", null=True, blank=True)
+    tarifa = models.ForeignKey(Tarifa, on_delete=models.SET_NULL, related_name="participantes", null=True, blank=True)
     
     cod_cliente = models.CharField(max_length=100, unique=True, editable=False)
     nombres = models.CharField(max_length=100, blank=True, null=True)
@@ -218,16 +226,18 @@ class Participante(models.Model):
         if self.tarifa and not self.tipo_entrada:
             self.tipo_entrada = self.tarifa.tipo_entrada
 
-        # 🔹 Generar cod_cliente
+        # 🔹 Generar cod_cliente con orden NUMÉRICO real (evita duplicados en el registro 10, 100, etc.)
         if not self.cod_cliente:
+            from django.db.models import Max, IntegerField
+            from django.db.models.functions import Cast, Substr
             prefix = (self.tipo_entrada or "PARTICIPANTE").replace(" ", "").upper()
-            last_code = Participante.objects.filter(cod_cliente__startswith=prefix).order_by("-cod_cliente").first()
-            last_number = 1
-            if last_code:
-                try:
-                    last_number = int(last_code.cod_cliente[len(prefix):]) + 1
-                except ValueError:
-                    last_number = 1
+            result = (
+                Participante.objects
+                .filter(cod_cliente__startswith=prefix)
+                .annotate(num=Cast(Substr('cod_cliente', len(prefix) + 1), IntegerField()))
+                .aggregate(max_num=Max('num'))
+            )
+            last_number = (result['max_num'] or 0) + 1
             self.cod_cliente = f"{prefix}{last_number:03d}"
 
         # 🔹 Generar token único
@@ -235,19 +245,24 @@ class Participante(models.Model):
             self.token = uuid.uuid4().hex
 
         # 🔹 Guardar temporalmente para obtener PK antes del QR
-        if not self.pk:
+        is_new = not self.pk
+        if is_new:
             super().save(*args, **kwargs)
 
-        # 🔹 Generar QR de validación dinámico
-        base_url = settings.BASE_URL.rstrip("/")
-        qr_content = f"{base_url}/validar/{self.token}/"
+        # 🔹 Generar QR de validación solo si aún no existe
+        if not self.qr:
+            base_url = settings.BASE_URL.rstrip("/")
+            qr_content = f"{base_url}/validar/{self.token}/"
 
-        qr_img = qrcode.make(qr_content)
-        buffer = BytesIO()
-        qr_img.save(buffer, format="PNG")
-        buffer.seek(0)
-        self.qr.save(f"{self.dni or self.cod_cliente}.png", File(buffer), save=False)
+            qr_img = qrcode.make(qr_content)
+            buffer = BytesIO()
+            qr_img.save(buffer, format="PNG")
+            buffer.seek(0)
+            self.qr.save(f"{self.dni or self.cod_cliente}.png", File(buffer), save=False)
 
+        if is_new:
+            kwargs.pop('force_insert', None)
+            kwargs.pop('force_update', None)
         super().save(*args, **kwargs)
 
 

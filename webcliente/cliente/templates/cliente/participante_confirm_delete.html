@@ -3,102 +3,111 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Eliminar Participante</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eliminar Participante | Sistema de Entradas</title>
+    <!-- Bootstrap 5 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <style>
-        /* Fondo con imagen */
+        :root {
+            --danger-color: #ef4444;
+            --danger-hover: #dc2626;
+            --glass-bg: rgba(15, 23, 42, 0.55);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
         body {
-            background: url("{% static 'img/exponentes.png' %}") no-repeat center center fixed;
-            background-size: cover;
-            color: #f0f0f0;
+            background: #090d16;
+            font-family: 'Outfit', sans-serif;
+            color: #f1f5f9;
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             position: relative;
-            font-family: Arial, sans-serif;
         }
 
-        /* Overlay oscuro */
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            z-index: 0;
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            max-width: 480px;
+            width: 100%;
         }
 
-        /* Contenido sobre overlay */
-        .content {
-            position: relative;
-            z-index: 1;
+        .btn {
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 0.55rem 1.1rem;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid transparent;
         }
 
-        /* Card */
-        .card {
-            background-color: rgba(30, 0, 60, 0.7); /* semi-transparente */
-            border-radius: 15px;
-            color: #ffffff;
-        }
-
-        .card h4 {
-            color: #ff99ff;
-        }
-
-        /* Botones */
-        .btn-danger {
-            background-color: #c100ff;
-            border-color: #6a0dad;
-        }
-        .btn-danger:hover {
-            background-color: #8000ff;
-            border-color: #4b0082;
-        }
-        .btn-secondary {
-            background-color: #4b0082;
-            border-color: #6a0dad;
+        .btn-danger-glow {
+            background: var(--danger-color);
             color: #fff;
         }
-        .btn-secondary:hover {
-            background-color: #6a0dad;
-            border-color: #8000ff;
+        .btn-danger-glow:hover {
+            background: var(--danger-hover);
             color: #fff;
         }
 
-        .bi-exclamation-triangle-fill {
-            color: #ff4d4d;
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: #94a3b8;
+        }
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .icon-warning {
+            color: var(--danger-color);
+            filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.2));
         }
     </style>
 </head>
 <body>
-<div class="container d-flex justify-content-center align-items-center vh-100 content">
-    <div class="card shadow-lg border-0 rounded-4" style="max-width: 500px; width: 100%;">
-        <div class="card-body text-center p-4">
-            
-            <!-- Icono de advertencia -->
-            <div class="mb-3">
-                <i class="bi bi-exclamation-triangle-fill" style="font-size: 3rem;"></i>
-            </div>
-
-            <!-- Título -->
-            <h4 class="fw-bold mb-3">Eliminar Participante</h4>
-            
-            <!-- Mensaje -->
-            <p class="mb-4">
-                ¿Estás seguro que deseas eliminar a <br>
-                <strong>{{ object.nombres }} {{ object.apellidos }}</strong>?
-            </p>
-
-            <!-- Botones -->
-            <form method="post" class="d-flex justify-content-center gap-3">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-danger px-4">
-                    <i class="bi bi-trash"></i> Eliminar
-                </button>
-                <a href="{% url 'participante_lista' %}" class="btn btn-secondary px-4">
-                    <i class="bi bi-x-circle"></i> Cancelar
-                </a>
-            </form>
+<div class="container d-flex justify-content-center align-items-center">
+    <div class="glass-card shadow-lg p-5 text-center">
+        <!-- Icon -->
+        <div class="mb-4">
+            <i class="bi bi-exclamation-triangle-fill icon-warning" style="font-size: 3.5rem;"></i>
         </div>
+
+        <!-- Title -->
+        <h3 class="fw-bold mb-3 text-white">Eliminar Participante</h3>
+        
+        <!-- Message -->
+        <p class="text-white-50 mb-5 fs-6">
+            ¿Estás completamente seguro de que deseas eliminar permanentemente a <br>
+            <strong class="text-white">{{ object.nombres }} {{ object.apellidos }}</strong> del registro de entradas? Esta acción no se puede deshacer.
+        </p>
+
+        <!-- Buttons -->
+        <form method="post" class="d-flex justify-content-center gap-3">
+            {% csrf_token %}
+            <a href="{% url 'participante_lista' evento_id=object.evento.id %}" class="btn btn-glass px-4">
+                <i class="bi bi-x-circle"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-danger-glow px-4">
+                <i class="bi bi-trash"></i> Proceder a Eliminar
+            </button>
+        </form>
     </div>
 </div>
 

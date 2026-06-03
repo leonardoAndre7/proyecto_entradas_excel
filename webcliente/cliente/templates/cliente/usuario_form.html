@@ -1,0 +1,252 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if perfil_edit %}Editar{% else %}Crear{% endif %} Usuario | Sistema de Entradas</title>
+    <!-- Bootstrap 5 & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #0ea5e9;
+            --primary-hover: #0284c7;
+            --glass-bg: rgba(15, 23, 42, 0.55);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        body {
+            background: #090d16;
+            font-family: 'Outfit', sans-serif;
+            color: #f1f5f9;
+            min-height: 100vh;
+            padding-top: 85px;
+            position: relative;
+        }
+
+        /* Glass Navbar */
+        .navbar-custom {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--glass-border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            z-index: 1030;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .card-header-custom {
+            background: rgba(15, 23, 42, 0.9);
+            border-bottom: 1px solid var(--glass-border);
+            font-weight: 600;
+            padding: 1.2rem;
+            border-top-left-radius: 15px !important;
+            border-top-right-radius: 15px !important;
+        }
+
+        .form-label {
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"], input[type="email"], input[type="password"], select {
+            background: rgba(15, 23, 42, 0.6) !important;
+            border: 1px solid var(--glass-border) !important;
+            color: #fff !important;
+            border-radius: 10px !important;
+            padding: 0.65rem 1rem !important;
+            transition: all 0.25s !important;
+        }
+        
+        input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, select:focus {
+            background: rgba(15, 23, 42, 0.8) !important;
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.2) !important;
+            outline: none !important;
+        }
+
+        /* Checkboxes custom style */
+        .event-checkbox-card {
+            background: rgba(15, 23, 42, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            transition: border-color 0.2s;
+            cursor: pointer;
+        }
+        .event-checkbox-card:hover {
+            border-color: rgba(14, 165, 233, 0.2);
+        }
+
+        .btn {
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 0.55rem 1.1rem;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary-glow {
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+        }
+        .btn-primary-glow:hover {
+            background: var(--primary-hover);
+            color: #fff;
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: #94a3b8;
+        }
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Fixed Glass Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white" href="{% url 'dashboard_eventos' %}">
+                <span class="fs-4">🎟️</span>
+                <span>Sistema de Entradas</span>
+            </a>
+            <div class="d-flex align-items-center gap-3 ms-auto">
+                <a href="{% url 'usuario_lista' %}" class="btn btn-glass btn-sm rounded-pill px-3 py-1 gap-1">
+                    <i class="bi bi-arrow-left-circle"></i> Volver a la Lista
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-7 col-xl-6">
+                
+                <div class="glass-card shadow-lg">
+                    <div class="card-header-custom text-white d-flex align-items-center gap-2">
+                        <i class="bi bi-person-plus-fill text-info fs-5"></i>
+                        <span>{% if perfil_edit %}Configurar Subcuenta: {{ perfil_edit.user.username }}{% else %}Crear Nueva Subcuenta{% endif %}</span>
+                    </div>
+                    
+                    <form method="POST" class="p-4 needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Username -->
+                        <div class="mb-3">
+                            <label class="form-label">Nombre de Usuario</label>
+                            {% if perfil_edit %}
+                                <input type="text" class="form-control w-100" value="{{ perfil_edit.user.username }}" readonly style="background: rgba(0,0,0,0.2) !important;">
+                            {% else %}
+                                <input type="text" name="username" class="form-control w-100" placeholder="Ej: juan_organizador" required autocomplete="off">
+                            {% endif %}
+                        </div>
+
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label class="form-label">Correo Electrónico (Email)</label>
+                            <input type="email" name="email" class="form-control w-100" placeholder="Ej: juan@empresa.com" value="{% if perfil_edit %}{{ perfil_edit.user.email }}{% endif %}" required autocomplete="off">
+                        </div>
+
+                        <!-- Password -->
+                        <div class="mb-3">
+                            <label class="form-label">Contraseña</label>
+                            <input type="password" name="password" class="form-control w-100" placeholder="{% if perfil_edit %}Dejar en blanco para no modificar{% else %}Contraseña de acceso{% endif %}" {% if not perfil_edit %}required{% endif %} autocomplete="new-password">
+                        </div>
+
+                        <!-- Role -->
+                        {% if perfil.rol == 'SUPERADMIN' %}
+                        <div class="mb-4">
+                            <label class="form-label">Rol de Usuario</label>
+                            <select name="rol" class="form-control w-100" required>
+                                <option value="ORGANIZADOR" {% if perfil_edit and perfil_edit.rol == 'ORGANIZADOR' %}selected{% endif %}>🟢 Organizador (Puede gestionar e interactuar con sus propios eventos asignados)</option>
+                                <option value="REGISTRADOR" {% if perfil_edit and perfil_edit.rol == 'REGISTRADOR' or not perfil_edit %}selected{% endif %}>🟡 Registrador / Validador (Solo puede escanear en puerta con el lector QR)</option>
+                                <option value="SUPERADMIN" {% if perfil_edit and perfil_edit.rol == 'SUPERADMIN' %}selected{% endif %}>🔵 Super Administrador (Control absoluto y creación de usuarios)</option>
+                            </select>
+                        </div>
+                        {% else %}
+                        <input type="hidden" name="rol" value="REGISTRADOR">
+                        {% endif %}
+
+                        <!-- Event Assignments -->
+                        <div class="mb-4 border-top border-light border-opacity-10 pt-3">
+                            <label class="form-label d-block mb-3"><i class="bi bi-calendar-check text-info"></i> Asignar Eventos Autorizados</label>
+                            <p class="text-white-50 small mb-3">Selecciona los eventos a los que este usuario tendrá acceso de administración o validación.</p>
+                            
+                            <div style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                                {% for e in eventos %}
+                                <div class="event-checkbox-card d-flex align-items-center justify-content-between" onclick="toggleCheckbox(this)">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <i class="bi bi-calendar-event text-white-50"></i>
+                                        <div>
+                                            <strong class="text-white d-block">{{ e.nombre }}</strong>
+                                            <small class="text-white-50">{{ e.fecha_evento|date:"d \d\e F, Y"|default:"Sin fecha definida" }}</small>
+                                        </div>
+                                    </div>
+                                    <input type="checkbox" name="eventos" value="{{ e.pk }}" class="form-check-input event-chk" style="width: 1.6em; height: 1.6em; cursor: pointer;"
+                                        {% if perfil_edit and e in perfil_edit.eventos.all %}checked{% endif %}
+                                        onclick="event.stopPropagation();"
+                                    >
+                                </div>
+                                {% empty %}
+                                <p class="text-white-50 text-center py-3">No hay eventos creados todavía.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="mt-4 text-end d-flex justify-content-end gap-2 border-top border-light border-opacity-10 pt-3">
+                            <a href="{% url 'usuario_lista' %}" class="btn btn-glass">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary-glow px-4">
+                                <i class="bi bi-save-fill"></i> {% if perfil_edit %}Guardar Cambios{% else %}Crear Usuario y Enviar Email{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        function toggleCheckbox(card) {
+            var chk = card.querySelector(".event-chk");
+            if (chk) {
+                chk.checked = !chk.checked;
+            }
+        }
+    </script>
+</body>
+</html>

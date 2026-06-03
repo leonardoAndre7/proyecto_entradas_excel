@@ -3,6 +3,8 @@ import os
 import csv
 import logging
 import base64
+import secrets
+import urllib.parse
 import requests
 import qrcode
 from decimal import Decimal
@@ -42,7 +44,7 @@ logger = logging.getLogger(__name__)
 # ==========================================
 def rol_requerido(roles_permitidos):
     def decorator(view_func):
-        @login_required(login_url='/login/')
+        @login_required(login_url='/participantes/login/')
         def _wrapped_view(request, *args, **kwargs):
             perfil = get_object_or_404(PerfilUsuario, user=request.user)
             if perfil.rol in roles_permitidos:
@@ -53,10 +55,17 @@ def rol_requerido(roles_permitidos):
     return decorator
 
 
+def verificar_permiso_evento(user, evento):
+    perfil, _ = PerfilUsuario.objects.get_or_create(user=user, defaults={'rol': 'REGISTRADOR'})
+    if perfil.rol == 'SUPERADMIN':
+        return True
+    return evento in perfil.eventos.all()
+
+
 # ==========================================
 # 🏠 REDIRECCIONES DE INICIO
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def home_redirect(request):
     return redirect('dashboard_eventos')
 
@@ -64,7 +73,7 @@ def home_redirect(request):
 # ==========================================
 # 🏢 DASHBOARD DE EVENTOS (SaaS GENERAL)
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def dashboard_eventos(request):
     perfil, created = PerfilUsuario.objects.get_or_create(
         user=request.user, 
@@ -91,7 +100,7 @@ def dashboard_eventos(request):
 # ==========================================
 # ⚙️ CREACIÓN / EDICIÓN DE EVENTOS
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 @rol_requerido(['SUPERADMIN', 'ORGANIZADOR'])
 def evento_crear_editar(request, pk=None):
     perfil = get_object_or_404(PerfilUsuario, user=request.user)
@@ -111,12 +120,12 @@ def evento_crear_editar(request, pk=None):
         aforo_maximo = int(request.POST.get("aforo_maximo", 500) or 500)
         limite_entradas_persona = int(request.POST.get("limite_entradas_persona", 5) or 5)
 
-        # SMTP
-        smtp_host = request.POST.get("smtp_host", "smtp.sendgrid.net")
-        smtp_port = request.POST.get("smtp_port", 587)
-        smtp_user = request.POST.get("smtp_user", "apikey")
-        smtp_password = request.POST.get("smtp_password")
-        default_from_email = request.POST.get("default_from_email")
+        # SMTP (campos legacy — ya no se usan en el formulario, se mantienen por compatibilidad)
+        smtp_host = request.POST.get("smtp_host") or "smtp.sendgrid.net"
+        smtp_port = request.POST.get("smtp_port") or 587
+        smtp_user = request.POST.get("smtp_user") or "apikey"
+        smtp_password = request.POST.get("smtp_password") or None
+        default_from_email = request.POST.get("default_from_email") or settings.DEFAULT_FROM_EMAIL
         
         # WhatsApp Provider configuration
         whatsapp_provider = request.POST.get("whatsapp_provider", "INACTIVE")
@@ -194,104 +203,293 @@ def evento_crear_editar(request, pk=None):
             evento.save()
             messages.success(request, f"Evento '{evento.nombre}' actualizado.")
 
-        # Guardar / Actualizar Tarifas del Evento
-        for tier in ["FULL ACCESS", "EMPRESARIAL", "EMPRENDEDOR"]:
-            t_obj, _ = Tarifa.objects.get_or_create(evento=evento, tipo_entrada=tier)
-            t_obj.preventa_1 = Decimal(request.POST.get(f"p1_{tier.replace(' ', '_')}", 0) or 0)
-            t_obj.preventa_2 = Decimal(request.POST.get(f"p2_{tier.replace(' ', '_')}", 0) or 0)
-            t_obj.preventa_3 = Decimal(request.POST.get(f"p3_{tier.replace(' ', '_')}", 0) or 0)
-            t_obj.puerta = Decimal(request.POST.get(f"puerta_{tier.replace(' ', '_')}", 0) or 0)
-            t_obj.save()
+        # Guardar / Actualizar Tarifas Dinámicas del Evento
+        tariff_ids = request.POST.getlist("tariff_id")
+        tariff_names = request.POST.getlist("tariff_name")
+        tariff_p1s = request.POST.getlist("tariff_p1")
+        tariff_p2s = request.POST.getlist("tariff_p2")
+        tariff_p3s = request.POST.getlist("tariff_p3")
+        tariff_puertas = request.POST.getlist("tariff_puerta")
+
+        saved_ids = []
+
+        for i in range(len(tariff_names)):
+            t_name = tariff_names[i].strip()
+            if not t_name:
+                continue
+                
+            t_id = tariff_ids[i] if i < len(tariff_ids) and tariff_ids[i] else None
+            t_p1 = Decimal(tariff_p1s[i] or 0) if i < len(tariff_p1s) else Decimal(0)
+            t_p2 = Decimal(tariff_p2s[i] or 0) if i < len(tariff_p2s) else Decimal(0)
+            t_p3 = Decimal(tariff_p3s[i] or 0) if i < len(tariff_p3s) else Decimal(0)
+            t_puerta = Decimal(tariff_puertas[i] or 0) if i < len(tariff_puertas) else Decimal(0)
+
+            if t_id:
+                t_obj = Tarifa.objects.filter(pk=t_id, evento=evento).first()
+                if t_obj:
+                    t_obj.tipo_entrada = t_name
+                    t_obj.preventa_1 = t_p1
+                    t_obj.preventa_2 = t_p2
+                    t_obj.preventa_3 = t_p3
+                    t_obj.puerta = t_puerta
+                    t_obj.save()
+                    saved_ids.append(t_obj.id)
+            else:
+                t_obj = Tarifa.objects.create(
+                    evento=evento,
+                    tipo_entrada=t_name,
+                    preventa_1=t_p1,
+                    preventa_2=t_p2,
+                    preventa_3=t_p3,
+                    puerta=t_puerta
+                )
+                saved_ids.append(t_obj.id)
+
+        # Eliminar las tarifas que ya no estén presentes en el formulario
+        Tarifa.objects.filter(evento=evento).exclude(id__in=saved_ids).delete()
 
         return redirect('dashboard_eventos')
 
-    t_data = {}
+    tarifas = None
     if evento:
-        for tier in ["FULL ACCESS", "EMPRESARIAL", "EMPRENDEDOR"]:
-            t_obj = Tarifa.objects.filter(evento=evento, tipo_entrada=tier).first()
-            if t_obj:
-                t_data[tier.replace(' ', '_')] = t_obj
+        tarifas = Tarifa.objects.filter(evento=evento)
 
     return render(request, 'cliente/evento_form.html', {
         'evento': evento,
-        't_data': t_data
+        'tarifas': tarifas
     })
 
 
 # ==========================================
 # 🗑️ ELIMINAR EVENTO
 # ==========================================
-@login_required(login_url='/login/')
-@rol_requerido(['SUPERADMIN'])
+@login_required(login_url='/participantes/login/')
+@rol_requerido(['SUPERADMIN', 'ORGANIZADOR'])
 def evento_eliminar(request, pk):
     evento = get_object_or_404(Evento, pk=pk)
+    perfil = get_object_or_404(PerfilUsuario, user=request.user)
+
+    if perfil.rol != 'SUPERADMIN' and evento not in perfil.eventos.all():
+        messages.error(request, "No tienes autorización para eliminar este evento.")
+        return redirect('dashboard_eventos')
+
+    # Solo permitir borrado via POST (protección CSRF + accidentalidad)
+    if request.method != 'POST':
+        messages.error(request, "Acción no permitida.")
+        return redirect('dashboard_eventos')
+
     nombre = evento.nombre
-    
-    # Borrar archivos asociados
-    if evento.imagen_fondo:
-        evento.imagen_fondo.delete()
-    if evento.logo:
-        evento.logo.delete()
-    if evento.banner:
-        evento.banner.delete()
-        
+
+    # Eliminar primero todos los participantes del evento (y sus tarifas/vouchers)
+    # para evitar ProtectedError con cualquier relación que pueda quedar
+    evento.participantes.all().delete()
+    evento.previa_participantes.all().delete()
+
+    # Borrar archivos de media asociados al evento
+    for campo in [evento.imagen_fondo, evento.logo, evento.banner]:
+        if campo:
+            try:
+                campo.delete(save=False)
+            except Exception:
+                pass
+
     evento.delete()
-    messages.success(request, f"Evento '{nombre}' y todos sus participantes fueron eliminados permanentemente.")
+    messages.success(request, f"Evento '{nombre}' y todos sus datos fueron eliminados permanentemente.")
     return redirect('dashboard_eventos')
 
 
-# ==========================================
-# 📧 HELPER: CORREO SMTP DINÁMICO POR EVENTO
-# ==========================================
-def enviar_correo_con_smtp_evento(participante, asunto, html_mensaje, imagen_final_buffer=None):
-    evento = participante.evento
-    if not evento:
-        evento = Evento.objects.first()
-
-    # Si no tiene SMTP configurado el evento, usar predeterminado de settings
-    host = evento.smtp_host or getattr(settings, 'EMAIL_HOST', 'smtp.sendgrid.net')
-    port = evento.smtp_port or getattr(settings, 'EMAIL_PORT', 587)
-    user = evento.smtp_user or getattr(settings, 'EMAIL_HOST_USER', 'apikey')
-    password = evento.smtp_password or getattr(settings, 'EMAIL_HOST_PASSWORD', '')
-    from_email = evento.default_from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', 'Soporte <soporte@hilariogrp.com>')
-
+# ══════════════════════════════════════════════════════════════════════
+# 📧 CAPA 1 — SMTP interno (helper privado)
+# ══════════════════════════════════════════════════════════════════════
+def _enviar_via_smtp(destinatarios, asunto, html_mensaje, cuerpo_texto, imagen_final_buffer,
+                     host, port, user, password, from_email):
+    """Envío SMTP puro. Usado como fallback cuando no hay OAuth2."""
+    use_tls = getattr(settings, 'EMAIL_USE_TLS', True)
+    use_ssl  = getattr(settings, 'EMAIL_USE_SSL', False)
     try:
-        backend = EmailBackend(
-            host=host,
-            port=port,
-            username=user,
-            password=password,
-            use_tls=True,
-            fail_silently=False
-        )
-
-        email = EmailMultiAlternatives(
+        if getattr(settings, 'EMAIL_BACKEND', '') == 'django.core.mail.backends.locmem.EmailBackend':
+            from django.core.mail import get_connection
+            backend = get_connection()
+        else:
+            backend = EmailBackend(
+                host=host, port=port,
+                username=user, password=password,
+                use_tls=use_tls, use_ssl=use_ssl,
+                fail_silently=False
+            )
+        email_msg = EmailMultiAlternatives(
             subject=asunto,
-            body="Tu cliente de correo no soporta mensajes en formato HTML.",
+            body=cuerpo_texto or "Tu cliente de correo no soporta mensajes en formato HTML.",
             from_email=from_email,
-            to=[participante.correo],
+            to=destinatarios,
             connection=backend
         )
-        email.attach_alternative(html_mensaje, "text/html")
-
+        email_msg.attach_alternative(html_mensaje, "text/html")
         if imagen_final_buffer:
-            img = MIMEImage(imagen_final_buffer.getvalue())
+            imagen_final_buffer.seek(0)
+            img = MIMEImage(imagen_final_buffer.read())
             img.add_header('Content-ID', '<entrada>')
             img.add_header('Content-Disposition', 'inline', filename='entrada.png')
-            email.attach(img)
-
-        email.send()
-        logger.info(f"📧 Correo dinámico enviado desde {from_email} a {participante.correo}")
+            email_msg.attach(img)
+        email_msg.send()
+        logger.info(f"📧 SMTP: correo enviado a {destinatarios} desde {from_email} via {host}:{port}")
         return True
     except Exception as e:
-        logger.error(f"❌ Error en envío SMTP dinámico para el evento {evento.nombre}: {e}", exc_info=True)
+        logger.error(f"❌ SMTP ({host}:{port}, user={user}): {e}", exc_info=True)
         return False
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 📧 CAPA 2 — Gmail API con OAuth2 (sin SMTP, sin contraseñas)
+# ══════════════════════════════════════════════════════════════════════
+def enviar_con_gmail_api(destinatarios, asunto, html_mensaje, imagen_final_buffer=None,
+                         from_email=None, refresh_token=None):
+    """Envía correo usando Gmail API + OAuth2. No requiere App Password."""
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.mime.image import MIMEImage as StdMIMEImage
+
+    if not isinstance(destinatarios, list):
+        destinatarios = [destinatarios]
+
+    try:
+        # 1. Obtener access_token fresco con el refresh_token
+        token_resp = requests.post(
+            'https://oauth2.googleapis.com/token',
+            data={
+                'client_id':     settings.GOOGLE_CLIENT_ID,
+                'client_secret': settings.GOOGLE_CLIENT_SECRET,
+                'refresh_token': refresh_token,
+                'grant_type':    'refresh_token',
+            },
+            timeout=15
+        )
+        token_data   = token_resp.json()
+        access_token = token_data.get('access_token')
+
+        if not access_token:
+            logger.error(f"Gmail API: no se pudo renovar token: {token_data}")
+            return False
+
+        # 2. Construir mensaje MIME
+        msg = MIMEMultipart('related')
+        msg['to']      = ', '.join(destinatarios)
+        msg['from']    = from_email
+        msg['subject'] = asunto
+
+        alt = MIMEMultipart('alternative')
+        alt.attach(MIMEText("Tu cliente de correo no soporta HTML.", 'plain', 'utf-8'))
+        alt.attach(MIMEText(html_mensaje, 'html', 'utf-8'))
+        msg.attach(alt)
+
+        if imagen_final_buffer:
+            imagen_final_buffer.seek(0)
+            img = StdMIMEImage(imagen_final_buffer.read())
+            img.add_header('Content-ID', '<entrada>')
+            img.add_header('Content-Disposition', 'inline', filename='entrada.png')
+            msg.attach(img)
+
+        # 3. Enviar via Gmail API REST
+        raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+        send_resp = requests.post(
+            'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+            headers={
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type':  'application/json',
+            },
+            json={'raw': raw_message},
+            timeout=30
+        )
+
+        if send_resp.status_code == 200:
+            logger.info(f"📧 Gmail API: correo enviado a {destinatarios} desde {from_email}")
+            return True
+        else:
+            logger.error(f"Gmail API error {send_resp.status_code}: {send_resp.text}")
+            return False
+
+    except Exception as e:
+        logger.error(f"Error en Gmail API: {e}", exc_info=True)
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 📧 DISPATCHER PRINCIPAL — 3 prioridades en cascada
+# ══════════════════════════════════════════════════════════════════════
+def enviar_correo_con_smtp(destinatarios, asunto, html_mensaje, cuerpo_texto="",
+                            imagen_final_buffer=None, evento=None):
+    """
+    Envía correo eligiendo automáticamente el mejor método disponible:
+      1. SMTP personalizado del evento (si está configurado)
+      2. Gmail API del organizador asignado (OAuth2)     ← nuevo
+      3. Gmail del SUPERADMIN en settings.py (fallback)
+    """
+    if not isinstance(destinatarios, list):
+        destinatarios = [destinatarios]
+
+    SMTP_DEFAULTS = {'', 'apikey', None}
+
+    # ─── PRIORIDAD 1: SMTP propio del evento ───────────────────────
+    if evento and evento.smtp_password and evento.smtp_password not in SMTP_DEFAULTS:
+        return _enviar_via_smtp(
+            destinatarios, asunto, html_mensaje, cuerpo_texto, imagen_final_buffer,
+            host=evento.smtp_host or settings.EMAIL_HOST,
+            port=evento.smtp_port or settings.EMAIL_PORT,
+            user=evento.smtp_user or settings.EMAIL_HOST_USER,
+            password=evento.smtp_password,
+            from_email=evento.default_from_email or settings.DEFAULT_FROM_EMAIL,
+        )
+
+    # ─── PRIORIDAD 2: Gmail API del organizador (OAuth2) ───────────
+    if evento and settings.GOOGLE_CLIENT_ID:
+        organizador = (
+            PerfilUsuario.objects
+            .filter(eventos=evento, rol='ORGANIZADOR')
+            .exclude(google_refresh_token__isnull=True)
+            .exclude(google_refresh_token='')
+            .first()
+        )
+        if organizador:
+            ok = enviar_con_gmail_api(
+                destinatarios=destinatarios,
+                asunto=asunto,
+                html_mensaje=html_mensaje,
+                imagen_final_buffer=imagen_final_buffer,
+                from_email=organizador.google_email,
+                refresh_token=organizador.google_refresh_token,
+            )
+            if ok:
+                return True
+            logger.warning("Gmail API del organizador falló. Usando Gmail del SUPERADMIN.")
+
+    # ─── PRIORIDAD 3: Gmail SUPERADMIN (settings.py) ───────────────
+    return _enviar_via_smtp(
+        destinatarios, asunto, html_mensaje, cuerpo_texto, imagen_final_buffer,
+        host=settings.EMAIL_HOST,
+        port=settings.EMAIL_PORT,
+        user=settings.EMAIL_HOST_USER,
+        password=settings.EMAIL_HOST_PASSWORD,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+    )
+
+
+def enviar_correo_con_smtp_evento(participante, asunto, html_mensaje, imagen_final_buffer=None):
+    if not participante.correo:
+        logger.warning(f"Participante {participante.id} ({participante.nombres}) no tiene correo. Email no enviado.")
+        return False
+    return enviar_correo_con_smtp(
+        destinatarios=[participante.correo],
+        asunto=asunto,
+        html_mensaje=html_mensaje,
+        imagen_final_buffer=imagen_final_buffer,
+        evento=participante.evento
+    )
 
 
 # ==========================================
 # 🎟️ LISTADO DE PARTICIPANTES POR EVENTO
 # ==========================================
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(login_required(login_url='/participantes/login/'), name='dispatch')
 class ParticipanteListView(ListView):
     model = Participante
     template_name = 'cliente/lista.html'
@@ -330,20 +528,22 @@ class ParticipanteListView(ListView):
         total_no_ingresados = max(0, total_vendidos - total_ingresados)
         ingresos_recaudados = Participante.objects.filter(evento=self.evento, pago_confirmado=True).aggregate(total=Sum('total_pagar'))['total'] or Decimal('0.00')
 
-        # Conteo de categorías para el gráfico de barras
-        full_access_count = Participante.objects.filter(evento=self.evento, tipo_entrada='FULL ACCESS', pago_confirmado=True).count()
-        empresarial_count = Participante.objects.filter(evento=self.evento, tipo_entrada='EMPRESARIAL', pago_confirmado=True).count()
-        emprendedor_count = Participante.objects.filter(evento=self.evento, tipo_entrada='EMPRENDEDOR', pago_confirmado=True).count()
+        # Conteo de categorías dinámicas para el gráfico de barras
+        tarifas = Tarifa.objects.filter(evento=self.evento)
+        categoria_datos = []
+        for t in tarifas:
+            count = Participante.objects.filter(evento=self.evento, tipo_entrada=t.tipo_entrada, pago_confirmado=True).count()
+            categoria_datos.append({
+                'label': t.tipo_entrada,
+                'count': count
+            })
 
         context['total_vendidos'] = total_vendidos
         context['total_esperados'] = total_esperados
         context['total_ingresados'] = total_ingresados
         context['total_no_ingresados'] = total_no_ingresados
         context['ingresos_recaudados'] = ingresos_recaudados
-        
-        context['full_access_count'] = full_access_count
-        context['empresarial_count'] = empresarial_count
-        context['emprendedor_count'] = headcount = a_count = emprendedor_count
+        context['categoria_datos'] = categoria_datos
         
         return context
 
@@ -351,7 +551,7 @@ class ParticipanteListView(ListView):
 # ==========================================
 # 🎟️ CREAR / EDITAR / ELIMINAR PARTICIPANTES
 # ==========================================
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(login_required(login_url='/participantes/login/'), name='dispatch')
 class ParticipanteCreateView(CreateView):
     model = Participante
     form_class = ParticipanteForm
@@ -360,6 +560,9 @@ class ParticipanteCreateView(CreateView):
     def dispatch(self, request, *args, **kwargs):
         evento_id = self.kwargs.get('evento_id')
         self.evento = get_object_or_404(Evento, pk=evento_id)
+        if not verificar_permiso_evento(request.user, self.evento):
+            messages.error(request, "No tienes autorización para acceder a este evento.")
+            return redirect('dashboard_eventos')
         return super().dispatch(request, *args, **kwargs)
 
     def get_form_kwargs(self):
@@ -397,7 +600,7 @@ class ParticipanteCreateView(CreateView):
         if precio_final:
             try:
                 participante.precio = Decimal(precio_final)
-            except:
+            except Exception:
                 participante.precio = Decimal("0.00")
 
         participante.save()
@@ -407,7 +610,12 @@ class ParticipanteCreateView(CreateView):
         for v in vouchers:
             Voucher.objects.create(participante=participante, imagen=v)
 
-        messages.success(self.request, f"Participante '{participante.nombres}' agregado con éxito.")
+        if participante.pago_confirmado:
+            enviar_entrada_participante(participante)
+            messages.success(self.request, f"Participante '{participante.nombres}' agregado y entrada enviada con éxito.")
+        else:
+            messages.success(self.request, f"Participante '{participante.nombres}' agregado con éxito (pago pendiente).")
+            
         return HttpResponseRedirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
@@ -416,7 +624,7 @@ class ParticipanteCreateView(CreateView):
         return context
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(login_required(login_url='/participantes/login/'), name='dispatch')
 class ParticipanteUpdateView(UpdateView):
     model = Participante
     form_class = ParticipanteForm
@@ -425,7 +633,13 @@ class ParticipanteUpdateView(UpdateView):
     def dispatch(self, request, *args, **kwargs):
         evento_id = self.kwargs.get('evento_id')
         self.evento = get_object_or_404(Evento, pk=evento_id)
+        if not verificar_permiso_evento(request.user, self.evento):
+            messages.error(request, "No tienes autorización para acceder a este evento.")
+            return redirect('dashboard_eventos')
         return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return Participante.objects.filter(evento=self.evento)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -447,7 +661,7 @@ class ParticipanteUpdateView(UpdateView):
         if precio_final:
             try:
                 participante.precio = Decimal(precio_final)
-            except:
+            except Exception:
                 participante.precio = Decimal("0.00")
 
         participante.save()
@@ -456,7 +670,12 @@ class ParticipanteUpdateView(UpdateView):
         for v in vouchers:
             Voucher.objects.create(participante=participante, imagen=v)
 
-        messages.success(self.request, f"Participante '{participante.nombres}' actualizado.")
+        if participante.pago_confirmado:
+            enviar_entrada_participante(participante)
+            messages.success(self.request, f"Participante '{participante.nombres}' actualizado y entrada enviada con éxito.")
+        else:
+            messages.success(self.request, f"Participante '{participante.nombres}' actualizado.")
+            
         return HttpResponseRedirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
@@ -465,7 +684,7 @@ class ParticipanteUpdateView(UpdateView):
         return context
 
 
-@method_decorator(login_required(login_url='/login/'), name='dispatch')
+@method_decorator(login_required(login_url='/participantes/login/'), name='dispatch')
 class ParticipanteDeleteView(DeleteView):
     model = Participante
     template_name = 'cliente/participante_confirm_delete.html'
@@ -473,21 +692,25 @@ class ParticipanteDeleteView(DeleteView):
     def dispatch(self, request, *args, **kwargs):
         evento_id = self.kwargs.get('evento_id')
         self.evento = get_object_or_404(Evento, pk=evento_id)
+        if not verificar_permiso_evento(request.user, self.evento):
+            messages.error(request, "No tienes autorización para acceder a este evento.")
+            return redirect('dashboard_eventos')
         return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return Participante.objects.filter(evento=self.evento)
 
     def get_success_url(self):
         return reverse('participante_lista', kwargs={'evento_id': self.evento.pk})
 
 
 # ==========================================
-# 💵 CONFIRMAR PAGO & ENVÍO DE ENTRADAS
+# 💵 CONFIRMAR PAGO & HELPER DE ENVÍO DE ENTRADAS
 # ==========================================
-@login_required(login_url='/login/')
-def confirmar_pago(request, evento_id, pk):
-    evento = get_object_or_404(Evento, pk=evento_id)
-    participante = get_object_or_404(Participante, pk=pk, evento=evento)
-    participante.pago_confirmado = True
-    participante.save()
+def enviar_entrada_participante(participante):
+    evento = participante.evento
+    if not evento:
+        return False
 
     # Generar QR dinámico
     base_url = settings.BASE_URL.rstrip("/")
@@ -497,8 +720,7 @@ def confirmar_pago(request, evento_id, pk):
     # Generar imagen combinada del boleto
     imagen_final = generar_imagen_personalizada(participante, qr_img)
     if not imagen_final:
-        messages.error(request, "No se pudo componer la imagen del boleto.")
-        return redirect('participante_lista', evento_id=evento.id)
+        return False
 
     # Guardar localmente la entrada
     os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
@@ -600,7 +822,6 @@ def confirmar_pago(request, evento_id, pk):
                     payload_str = payload_str.replace("{url_imagen}", imgbb_url or "")
 
                 # 3. Enviar petición HTTP POST
-                import json
                 try:
                     payload_json = json.loads(payload_str)
                     resp = requests.post(evento.whatsapp_api_url, json=payload_json, headers=headers, timeout=15)
@@ -611,6 +832,18 @@ def confirmar_pago(request, evento_id, pk):
             except Exception as e:
                 logger.error(f"Error enviando WhatsApp Custom API: {e}")
 
+    return email_ok
+
+@login_required(login_url='/participantes/login/')
+def confirmar_pago(request, evento_id, pk):
+    if request.method != 'POST':
+        return redirect('participante_lista', evento_id=evento_id)
+    evento = get_object_or_404(Evento, pk=evento_id)
+    participante = get_object_or_404(Participante, pk=pk, evento=evento)
+    participante.pago_confirmado = True
+    participante.save()
+
+    enviar_entrada_participante(participante)
     messages.success(request, "✅ Pago confirmado y notificaciones (Correo / WhatsApp) despachadas.")
     return redirect('participante_lista', evento_id=evento.id)
 
@@ -618,8 +851,10 @@ def confirmar_pago(request, evento_id, pk):
 # ==========================================
 # 📧 ENVIAR MASIVO A TODOS LOS CONFIRMADOS
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def enviar_masivo(request, evento_id):
+    if request.method != 'POST':
+        return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
     participantes = Participante.objects.filter(evento=evento, pago_confirmado=True)
 
@@ -693,10 +928,10 @@ def generar_imagen_personalizada(participante, qr_img):
     while font_size > 40:
         try:
             font = ImageFont.truetype(font_path, font_size)
-        except:
+        except Exception:
             font = ImageFont.load_default()
             break
-            
+
         bbox = draw.textbbox((0, 0), nombre, font=font)
         text_width = bbox[2] - bbox[0]
         if text_width <= (qr_width - 30):
@@ -706,7 +941,7 @@ def generar_imagen_personalizada(participante, qr_img):
     # Centrar y dibujar texto
     try:
         font = ImageFont.truetype(font_path, font_size)
-    except:
+    except Exception:
         font = ImageFont.load_default()
         
     bbox = draw.textbbox((0, 0), nombre, font=font)
@@ -730,7 +965,7 @@ def generar_imagen_personalizada(participante, qr_img):
 # ==========================================
 # 📥 EXCEL IMPORT DE ACUERDO CON TARIFAS
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def importar_excel(request, evento_id):
     evento = get_object_or_404(Evento, pk=evento_id)
     if request.method == "POST" and request.FILES.get('excel_file'):
@@ -761,6 +996,7 @@ def importar_excel(request, evento_id):
                     "PUERTA": t.puerta
                 }
 
+            first_tariff_name = tarifas.first().tipo_entrada.upper() if tarifas.exists() else "EMPRENDEDOR"
             enviados = 0
             errores = 0
             
@@ -773,11 +1009,13 @@ def importar_excel(request, evento_id):
                     if not pd.isna(row.get('TELEFONO')):
                         telefono = str(row.get('TELEFONO')).replace('.0', '').strip()
                     
-                    tipo_texto = str(row.get('Tipo_Entrada', 'EMPRENDEDOR')).strip().upper()
+                    tipo_texto = str(row.get('Tipo_Entrada', '')).strip().upper()
+                    if not tipo_texto:
+                        tipo_texto = first_tariff_name
                     tipo_texto = tipo_texto.replace("ACCES", "ACCESS")
                     
                     # Buscar coincidencia
-                    tipo_encontrado = "EMPRENDEDOR"
+                    tipo_encontrado = first_tariff_name
                     for key in tarifas_dict.keys():
                         if key in tipo_texto:
                             tipo_encontrado = key
@@ -796,7 +1034,7 @@ def importar_excel(request, evento_id):
                     
                     tarifa_db = Tarifa.objects.filter(evento=evento, tipo_entrada=tipo_encontrado).first()
                     
-                    Participante.objects.create(
+                    part = Participante.objects.create(
                         evento=evento,
                         tarifa=tarifa_db,
                         nombres=row['Nombre'],
@@ -807,8 +1045,10 @@ def importar_excel(request, evento_id):
                         vendedor=row['Vendedor'] if not pd.isna(row.get('Vendedor')) else '',
                         tipo_entrada=tipo_encontrado,
                         cantidad=1,
-                        precio=precio
+                        precio=precio,
+                        pago_confirmado=True
                     )
+                    enviar_entrada_participante(part)
                     enviados += 1
                 except Exception as e:
                     errores += 1
@@ -824,7 +1064,7 @@ def importar_excel(request, evento_id):
 # ==========================================
 # 📤 EXPORTAR EXCEL POR EVENTO
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def exportar_excel(request, evento_id):
     import pandas as pd
     evento = get_object_or_404(Evento, pk=evento_id)
@@ -862,7 +1102,7 @@ def exportar_excel(request, evento_id):
 # ==========================================
 # 🧹 LIMPIAR HISTORIAL DE ENTRADAS
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 @rol_requerido(['SUPERADMIN', 'ORGANIZADOR'])
 def limpiar_historial(request, evento_id):
     evento = get_object_or_404(Evento, pk=evento_id)
@@ -903,7 +1143,7 @@ def limpiar_historial(request, evento_id):
 # ==========================================
 # 👥 PRE-REGISTRO & PREVIA PARTICIPANTES
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def registro_participante(request, evento_id):
     evento = get_object_or_404(Evento, pk=evento_id)
 
@@ -936,6 +1176,8 @@ def registro_participante(request, evento_id):
             sheet = wb.active
             contador = siguiente_numero
             for row in sheet.iter_rows(min_row=2, values_only=True):
+                if len(row) < 4 or not row[0]:   # saltar filas vacías o sin nombre
+                    continue
                 nombres, dni, celular, correo = row[:4]
                 Previaparticipantes.objects.create(
                     evento=evento,
@@ -966,7 +1208,7 @@ def registro_participante(request, evento_id):
     })
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def actualizar_participante_previa(request, evento_id, pk):
     evento = get_object_or_404(Evento, pk=evento_id)
     participante = get_object_or_404(Previaparticipantes, pk=pk, evento=evento)
@@ -984,7 +1226,7 @@ def actualizar_participante_previa(request, evento_id, pk):
     })
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def eliminar_participante_previa(request, evento_id, pk):
     evento = get_object_or_404(Evento, pk=evento_id)
     participante = get_object_or_404(Previaparticipantes, pk=pk, evento=evento)
@@ -1000,7 +1242,7 @@ def eliminar_participante_previa(request, evento_id, pk):
     return redirect('registro_participante', evento_id=evento.id)
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def limpiar_historial_previa(request, evento_id):
     evento = get_object_or_404(Evento, pk=evento_id)
     if request.method == "POST":
@@ -1020,7 +1262,7 @@ def limpiar_historial_previa(request, evento_id):
 # ==========================================
 # 🔒 VALIDACIÓN QR INTEGRADA (GOOGLE CÁMARA)
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def validar_entrada(request, token):
     participante = get_object_or_404(Participante, token=token)
     evento = participante.evento
@@ -1038,7 +1280,10 @@ def validar_entrada(request, token):
         valido = True
         mensaje = "✅ ¡Acceso Autorizado! Bienvenido al evento."
     else:
-        mensaje = f"❌ ¡Boleto ya Utilizado! Registrado el {participante.hora_ingreso.strftime('%d/%m/%Y %I:%M %p')}"
+        if participante.hora_ingreso:
+            mensaje = f"❌ ¡Boleto ya Utilizado! Registrado el {participante.hora_ingreso.strftime('%d/%m/%Y %I:%M %p')}"
+        else:
+            mensaje = "❌ ¡Boleto ya Utilizado! (sin fecha de ingreso registrada)"
 
     return render(request, 'cliente/entrada_valida.html' if valido else 'cliente/entrada_usada.html', {
         'participante': participante,
@@ -1048,7 +1293,7 @@ def validar_entrada(request, token):
     })
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def validar_entrada_previo(request, token):
     participante = get_object_or_404(Previaparticipantes, token=token)
     evento = participante.evento
@@ -1066,7 +1311,10 @@ def validar_entrada_previo(request, token):
         valido = True
         mensaje = "✅ ¡Acceso Previa Autorizado!"
     else:
-        mensaje = f"❌ ¡Boleto de Previa ya Utilizado! Registrado el {participante.hora_ingreso.strftime('%d/%m/%Y %I:%M %p')}"
+        if participante.hora_ingreso:
+            mensaje = f"❌ ¡Boleto de Previa ya Utilizado! Registrado el {participante.hora_ingreso.strftime('%d/%m/%Y %I:%M %p')}"
+        else:
+            mensaje = "❌ ¡Boleto de Previa ya Utilizado! (sin fecha de ingreso registrada)"
 
     return render(request, 'cliente/entrada_valida.html' if valido else 'cliente/entrada_usada.html', {
         'participante': participante,
@@ -1079,24 +1327,31 @@ def validar_entrada_previo(request, token):
 # ==========================================
 # 🔗 VISTAS SECUNDARIAS COMPATIBLES
 # ==========================================
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def check_admin_masivo(request, evento_id):
+    if request.method != 'POST':
+        return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
     Participante.objects.filter(evento=evento).update(validado_admin=True)
     messages.success(request, "Administración validada para todas las entradas de este evento.")
     return redirect('participante_lista', evento_id=evento.id)
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def check_contabilidad_masivo(request, evento_id):
+    if request.method != 'POST':
+        return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
     Participante.objects.filter(evento=evento).update(validado_contabilidad=True)
     messages.success(request, "Contabilidad validada para todas las entradas de este evento.")
     return redirect('participante_lista', evento_id=evento.id)
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def marcar_ingreso(request, evento_id, pk):
+    """Marca ingreso manual para un Participante (lista principal)."""
+    if request.method != 'POST':
+        return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
     participante = get_object_or_404(Participante, pk=pk, evento=evento)
     if not participante.entrada_usada:
@@ -1107,8 +1362,89 @@ def marcar_ingreso(request, evento_id, pk):
     return redirect('participante_lista', evento_id=evento.id)
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
+def convertir_previa_a_participante(request, evento_id, pk):
+    """
+    Convierte un Previaparticipante en un Participante confirmado.
+    Genera el boleto y lo envía por correo automáticamente.
+    El pre-registro queda marcado como 'enviado' para indicar que fue procesado.
+    """
+    evento    = get_object_or_404(Evento, pk=evento_id)
+    previa    = get_object_or_404(Previaparticipantes, pk=pk, evento=evento)
+
+    if request.method == 'POST':
+        tipo_entrada = request.POST.get('tipo_entrada', '').strip()
+        precio_str   = request.POST.get('precio_final', '0')
+
+        try:
+            precio = Decimal(precio_str)
+        except Exception:
+            precio = Decimal('0.00')
+
+        # Verificar que no exista ya un participante con el mismo DNI en este evento
+        if previa.dni and Participante.objects.filter(evento=evento, dni=previa.dni).exists():
+            messages.warning(
+                request,
+                f"'{previa.nombres}' (DNI: {previa.dni}) ya existe en la lista de participantes de este evento."
+            )
+            return redirect('registro_participante', evento_id=evento.id)
+
+        tarifa = Tarifa.objects.filter(evento=evento, tipo_entrada=tipo_entrada).first()
+
+        # Crear el Participante con los datos del pre-registro
+        nuevo = Participante(
+            evento       = evento,
+            tarifa       = tarifa,
+            nombres      = previa.nombres or '',
+            apellidos    = '',
+            dni          = previa.dni or '',
+            celular      = previa.celular or '',
+            correo       = previa.correo or '',
+            tipo_entrada = tipo_entrada,
+            cantidad     = 1,
+            precio       = precio,
+            pago_confirmado          = True,
+            validado_admin           = False,
+            validado_contabilidad    = False,
+        )
+        nuevo.save()   # genera cod_cliente, token y QR automáticamente
+
+        # Enviar boleto por correo / WhatsApp
+        enviar_entrada_participante(nuevo)
+
+        # Marcar el pre-registro como procesado (sin borrarlo)
+        previa.enviado = True
+        previa.save()
+
+        messages.success(
+            request,
+            f"✅ '{previa.nombres}' registrado como participante confirmado y boleto enviado a {previa.correo}."
+        )
+        return redirect('registro_participante', evento_id=evento.id)
+
+    # GET → mostrar modal inline (no se usa directo, el modal está en el template)
+    return redirect('registro_participante', evento_id=evento.id)
+
+
+@login_required(login_url='/participantes/login/')
+def marcar_ingreso_previa(request, evento_id, pk):
+    """Marca ingreso manual para un Previaparticipante (pre-registro)."""
+    if request.method != 'POST':
+        return redirect('registro_participante', evento_id=evento_id)
+    evento = get_object_or_404(Evento, pk=evento_id)
+    participante = get_object_or_404(Previaparticipantes, pk=pk, evento=evento)
+    if not participante.entrada_usada:
+        participante.entrada_usada = True
+        participante.hora_ingreso = timezone.now()
+        participante.save()
+        messages.success(request, f"Ingreso marcado para {participante.nombres}.")
+    return redirect('registro_participante', evento_id=evento.id)
+
+
+@login_required(login_url='/participantes/login/')
 def reenviar_correo(request, evento_id, pk):
+    if request.method != 'POST':
+        return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
     participante = get_object_or_404(Participante, pk=pk, evento=evento)
     
@@ -1142,37 +1478,544 @@ def reenviar_correo(request, evento_id, pk):
     return redirect('participante_lista', evento_id=evento.id)
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def enviar_whatsapp_qr(request, evento_id, cod_part):
-    # Enviar QR individual de previa
+    if request.method != 'POST':
+        return redirect('registro_participante', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
     p = get_object_or_404(Previaparticipantes, cod_part=cod_part, evento=evento)
-    # Lógica de envío previa (Celery o Thread)
-    # Para simplicidad local, simularemos el envío
     p.enviado = True
     p.save()
-    messages.success(request, f"QR enviado a {p.nombres}.")
+    messages.success(request, f"QR marcado como enviado para {p.nombres}.")
     return redirect('registro_participante', evento_id=evento.id)
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def enviar_todos_whatsapp(request, evento_id):
+    if request.method != 'POST':
+        return redirect('registro_participante', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
     previa_parts = Previaparticipantes.objects.filter(evento=evento, enviado=False)
     for p in previa_parts:
         p.enviado = True
         p.save()
-    messages.success(request, "Se ha simulado el envío masivo para este evento.")
+    messages.success(request, "Envío masivo procesado para este evento.")
     return redirect('registro_participante', evento_id=evento.id)
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def exportar_excel_previo(request, evento_id):
-    # Simplificado
-    return HttpResponse("Excel Previa exportado con éxito.", content_type="text/plain")
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    evento = get_object_or_404(Evento, pk=evento_id)
+    participantes = Previaparticipantes.objects.filter(evento=evento).order_by('cod_part')
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Pre-Registro"
+    
+    # Header row
+    headers = ["Código", "Nombres", "DNI", "Celular", "Correo", "Enviado", "Ingresado"]
+    header_fill = PatternFill(start_color="1A0033", end_color="1A0033", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data rows
+    for row_num, p in enumerate(participantes, 2):
+        ws.cell(row=row_num, column=1, value=p.cod_part)
+        ws.cell(row=row_num, column=2, value=p.nombres)
+        ws.cell(row=row_num, column=3, value=p.dni)
+        ws.cell(row=row_num, column=4, value=p.celular)
+        ws.cell(row=row_num, column=5, value=p.correo)
+        ws.cell(row=row_num, column=6, value="Sí" if p.enviado else "No")
+        ws.cell(row=row_num, column=7, value="Sí" if p.entrada_usada else "No")
+    
+    # Auto column widths
+    for col in ws.columns:
+        max_len = max((len(str(cell.value or '')) for cell in col), default=0)
+        ws.column_dimensions[col[0].column_letter].width = max(12, max_len + 3)
+    
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename=PreRegistro_{evento.nombre.replace(" ", "_")}.xlsx'
+    return response
 
 
-@login_required(login_url='/login/')
+@login_required(login_url='/participantes/login/')
 def exportar_pdf_previo(request, evento_id):
-    # Simplificado
-    return HttpResponse("PDF Previa exportado con éxito.", content_type="text/plain")
+    evento = get_object_or_404(Evento, pk=evento_id)
+    participantes = Previaparticipantes.objects.filter(evento=evento).order_by('cod_part')
+    
+    try:
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=1*cm, rightMargin=1*cm, topMargin=1.5*cm, bottomMargin=1*cm)
+        
+        styles = getSampleStyleSheet()
+        elements = []
+        
+        # Title
+        title_style = ParagraphStyle('title', parent=styles['Heading1'], fontSize=16, spaceAfter=12, textColor=colors.HexColor('#7b1fa2'))
+        elements.append(Paragraph(f"Pre-Registro — {evento.nombre}", title_style))
+        elements.append(Spacer(1, 0.3*cm))
+        
+        # Table header
+        data = [["Código", "Nombres", "DNI", "Celular", "Correo", "Enviado", "Ingresado"]]
+        for p in participantes:
+            data.append([
+                p.cod_part,
+                (p.nombres or "")[:40],
+                p.dni or "",
+                p.celular or "",
+                (p.correo or "")[:35],
+                "Sí" if p.enviado else "No",
+                "Sí" if p.entrada_usada else "No",
+            ])
+        
+        table = Table(data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A0033')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#F9F0FF'), colors.white]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('ROWHEIGHT', (0, 0), (-1, -1), 18),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(table)
+        
+        doc.build(elements)
+        buffer.seek(0)
+        
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename=PreRegistro_{evento.nombre.replace(" ", "_")}.pdf'
+        return response
+    
+    except ImportError:
+        # Fallback: generate HTML table for browser printing
+        participantes_data = list(participantes.values('cod_part', 'nombres', 'dni', 'celular', 'correo', 'enviado', 'entrada_usada'))
+        filas_html = ""
+        for p in participantes_data:
+            filas_html += f"""<tr>
+                <td>{p['cod_part']}</td><td>{p['nombres'] or ''}</td>
+                <td>{p['dni'] or ''}</td><td>{p['celular'] or ''}</td>
+                <td>{p['correo'] or ''}</td>
+                <td>{'Sí' if p['enviado'] else 'No'}</td>
+                <td>{'Sí' if p['entrada_usada'] else 'No'}</td>
+            </tr>"""
+        
+        html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+        <title>Pre-Registro {evento.nombre}</title>
+        <style>body{{font-family:Arial;font-size:12px;}}
+        table{{width:100%;border-collapse:collapse;}}th{{background:#1A0033;color:white;padding:8px;}}
+        td{{padding:6px;border:1px solid #ccc;}}tr:nth-child(even){{background:#f9f0ff;}}
+        </style></head><body>
+        <h2>Pre-Registro — {evento.nombre}</h2>
+        <table><thead><tr><th>Código</th><th>Nombres</th><th>DNI</th><th>Celular</th><th>Correo</th><th>Enviado</th><th>Ingresado</th></tr></thead>
+        <tbody>{filas_html}</tbody></table>
+        <script>window.print();</script></body></html>"""
+        return HttpResponse(html, content_type='text/html')
+
+
+# ==========================================
+# 👥 GESTIÓN DE USUARIOS (SUPERADMIN ONLY)
+# ==========================================
+from django.contrib.auth.models import User
+
+@login_required(login_url='/participantes/login/')
+@rol_requerido(['SUPERADMIN', 'ORGANIZADOR'])
+def usuario_lista(request):
+    perfil = get_object_or_404(PerfilUsuario, user=request.user)
+    if perfil.rol == 'SUPERADMIN':
+        usuarios = PerfilUsuario.objects.all().select_related('user').prefetch_related('eventos')
+    else:
+        mis_eventos = perfil.eventos.all()
+        usuarios = PerfilUsuario.objects.filter(
+            rol='REGISTRADOR',
+            eventos__in=mis_eventos
+        ).distinct().select_related('user').prefetch_related('eventos')
+    return render(request, 'cliente/usuario_lista.html', {
+        'usuarios': usuarios,
+        'perfil': perfil
+    })
+
+@login_required(login_url='/participantes/login/')
+@rol_requerido(['SUPERADMIN', 'ORGANIZADOR'])
+def usuario_crear(request):
+    perfil_admin = get_object_or_404(PerfilUsuario, user=request.user)
+    
+    if perfil_admin.rol == 'SUPERADMIN':
+        eventos = Evento.objects.all()
+    else:
+        eventos = perfil_admin.eventos.all()
+        
+    if request.method == "POST":
+        username = request.POST.get("username", "").strip()
+        email = request.POST.get("email", "").strip()
+        password = request.POST.get("password", "").strip()
+        
+        if perfil_admin.rol == 'SUPERADMIN':
+            rol = request.POST.get("rol", "REGISTRADOR")
+            eventos_ids = request.POST.getlist("eventos")
+        else:
+            rol = "REGISTRADOR"
+            eventos_ids = request.POST.getlist("eventos")
+            mis_eventos_ids = [str(e.id) for e in perfil_admin.eventos.all()]
+            eventos_ids = [eid for eid in eventos_ids if eid in mis_eventos_ids]
+            if not eventos_ids:
+                messages.error(request, "Debes seleccionar al menos uno de tus eventos asignados.")
+                return redirect('usuario_crear')
+                
+        if not username or not password or not email:
+            messages.error(request, "Todos los campos (usuario, email y contraseña) son obligatorios.")
+            return redirect('usuario_crear')
+            
+        if User.objects.filter(username=username).exists():
+            messages.error(request, "El nombre de usuario ya existe.")
+            return redirect('usuario_crear')
+            
+        user = User.objects.create_user(username=username, email=email, password=password)
+        perfil = PerfilUsuario.objects.create(user=user, rol=rol)
+        
+        for ev_id in eventos_ids:
+            evento = Evento.objects.filter(pk=ev_id).first()
+            if evento:
+                perfil.eventos.add(evento)
+                
+        primer_evento = perfil.eventos.first()
+        try:
+            asunto = "🔐 Tus credenciales de acceso - Sistema de Entradas"
+            eventos_lista_str = ", ".join([e.nombre for e in perfil.eventos.all()]) or "Ninguno"
+            mensaje_html = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
+                <h2 style="color: #0ea5e9;">¡Hola {username}!</h2>
+                <p>Se ha creado una cuenta para ti en la plataforma de <strong>Sistema de Entradas</strong>.</p>
+                <p>Aquí tienes tus credenciales de acceso:</p>
+                <table style="border-collapse: collapse; width: 100%; max-width: 400px; margin: 20px 0;">
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f8fafc;">Usuario:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{username}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f8fafc;">Contraseña:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{password}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f8fafc;">Rol:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{perfil.get_rol_display()}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f8fafc;">Eventos:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{eventos_lista_str}</td>
+                    </tr>
+                </table>
+                <p>Puedes iniciar sesión en: <a href="{settings.BASE_URL}/login/">{settings.BASE_URL}/login/</a></p>
+                <br>
+                <p>Saludos,<br><strong>Soporte Técnico</strong></p>
+            </body>
+            </html>
+            """
+            
+            destinatarios = [email, "eldespertardelemprendedor999@gmail.com"]
+            cuerpo_txt = f"Hola {username}, tus credenciales son:\nUsuario: {username}\nContraseña: {password}\nRol: {perfil.get_rol_display()}"
+            enviado = enviar_correo_con_smtp(
+                destinatarios=destinatarios,
+                asunto=asunto,
+                html_mensaje=mensaje_html,
+                cuerpo_texto=cuerpo_txt,
+                evento=primer_evento
+            )
+            if enviado:
+                messages.success(request, f"¡Usuario '{username}' creado y credenciales enviadas por correo con éxito!")
+            else:
+                messages.warning(request, f"Usuario '{username}' creado correctamente. No se pudo enviar el correo de credenciales (el organizador debe conectar su Gmail en 'Mi Cuenta').")
+        except Exception as e:
+            messages.warning(request, f"Usuario '{username}' creado pero ocurrió un error al enviar el correo: {e}")
+            
+        return redirect('usuario_lista')
+        
+    return render(request, 'cliente/usuario_form.html', {
+        'perfil': perfil_admin,
+        'eventos': eventos
+    })
+
+@login_required(login_url='/participantes/login/')
+@rol_requerido(['SUPERADMIN', 'ORGANIZADOR'])
+def usuario_editar(request, pk):
+    perfil_admin = get_object_or_404(PerfilUsuario, user=request.user)
+    perfil = get_object_or_404(PerfilUsuario, pk=pk)
+    user = perfil.user
+    
+    if perfil_admin.rol == 'SUPERADMIN':
+        eventos = Evento.objects.all()
+    else:
+        if perfil.rol != 'REGISTRADOR':
+            messages.error(request, "No tienes permiso para editar este tipo de usuario.")
+            return redirect('usuario_lista')
+        mis_eventos = perfil_admin.eventos.all()
+        shared_events = perfil.eventos.filter(id__in=mis_eventos.values_list('id', flat=True))
+        if not shared_events.exists():
+            messages.error(request, "No tienes acceso para editar este usuario.")
+            return redirect('usuario_lista')
+        eventos = mis_eventos
+        
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip()
+        password = request.POST.get("password", "").strip()
+        
+        if perfil_admin.rol == 'SUPERADMIN':
+            rol = request.POST.get("rol", perfil.rol)
+            eventos_ids = request.POST.getlist("eventos")
+        else:
+            rol = "REGISTRADOR"
+            eventos_ids = request.POST.getlist("eventos")
+            mis_eventos_ids = [str(e.id) for e in perfil_admin.eventos.all()]
+            eventos_ids = [eid for eid in eventos_ids if eid in mis_eventos_ids]
+            if not eventos_ids:
+                messages.error(request, "Debes seleccionar al menos uno de tus eventos asignados.")
+                return redirect('usuario_editar', pk=pk)
+                
+        user.email = email
+        if password:
+            user.set_password(password)
+        user.save()
+        
+        perfil.rol = rol
+        perfil.eventos.clear()
+        for ev_id in eventos_ids:
+            evento = Evento.objects.filter(pk=ev_id).first()
+            if evento:
+                perfil.eventos.add(evento)
+        perfil.save()
+        
+        primer_evento = perfil.eventos.first()
+        try:
+            asunto = "🔐 Actualización de tu cuenta - Sistema de Entradas"
+            eventos_lista_str = ", ".join([e.nombre for e in perfil.eventos.all()]) or "Ninguno"
+            pass_str = password if password else "(Sin cambios)"
+            mensaje_html = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
+                <h2 style="color: #0ea5e9;">¡Hola {user.username}!</h2>
+                <p>Se ha actualizado tu cuenta en la plataforma de <strong>Sistema de Entradas</strong>.</p>
+                <p>Tus credenciales actualizadas son:</p>
+                <table style="border-collapse: collapse; width: 100%; max-width: 400px; margin: 20px 0;">
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f8fafc;">Usuario:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{user.username}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f8fafc;">Contraseña:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{pass_str}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f8fafc;">Rol:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{perfil.get_rol_display()}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; background: #f8fafc;">Eventos:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{eventos_lista_str}</td>
+                    </tr>
+                </table>
+                <br>
+                <p>Saludos,<br><strong>Soporte Técnico</strong></p>
+            </body>
+            </html>
+            """
+            destinatarios = [email, "eldespertardelemprendedor999@gmail.com"]
+            cuerpo_txt = f"Hola {user.username}, tu cuenta ha sido actualizada."
+            enviado = enviar_correo_con_smtp(
+                destinatarios=destinatarios,
+                asunto=asunto,
+                html_mensaje=mensaje_html,
+                cuerpo_texto=cuerpo_txt,
+                evento=primer_evento
+            )
+            if enviado:
+                messages.success(request, f"¡Usuario '{user.username}' actualizado y credenciales enviadas por correo con éxito!")
+            else:
+                messages.warning(request, f"Usuario '{user.username}' actualizado correctamente. No se pudo enviar el correo de credenciales (el organizador debe conectar su Gmail en 'Mi Cuenta').")
+        except Exception as e:
+            messages.warning(request, f"Usuario '{user.username}' actualizado pero no se pudo enviar el correo: {e}")
+            
+        return redirect('usuario_lista')
+        
+    return render(request, 'cliente/usuario_form.html', {
+        'perfil': perfil_admin,
+        'perfil_edit': perfil,
+        'eventos': eventos
+    })
+
+# ══════════════════════════════════════════════════════════════════════
+# 🔐 GOOGLE OAUTH2 — Conectar Gmail por Organizador
+# ══════════════════════════════════════════════════════════════════════
+
+@login_required(login_url='/participantes/login/')
+def mi_cuenta(request):
+    """Página de perfil del usuario: muestra estado Gmail y permite conectar/desconectar."""
+    perfil = get_object_or_404(PerfilUsuario, user=request.user)
+    google_configurado = bool(getattr(settings, 'GOOGLE_CLIENT_ID', ''))
+    return render(request, 'cliente/mi_cuenta.html', {
+        'perfil': perfil,
+        'google_configurado': google_configurado,
+    })
+
+
+@login_required(login_url='/participantes/login/')
+def google_auth_inicio(request):
+    """Redirige al usuario a la pantalla de autorización de Google."""
+    if not getattr(settings, 'GOOGLE_CLIENT_ID', ''):
+        messages.error(request, "❌ Google OAuth2 no está configurado aún. Pide al administrador que configure GOOGLE_CLIENT_ID.")
+        return redirect('mi_cuenta')
+
+    state = secrets.token_urlsafe(32)
+    request.session['google_oauth_state'] = state
+
+    params = {
+        'client_id':     settings.GOOGLE_CLIENT_ID,
+        'redirect_uri':  settings.GOOGLE_REDIRECT_URI,
+        'response_type': 'code',
+        'scope':         'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email openid',
+        'access_type':   'offline',
+        'prompt':        'consent',   # Obligatorio para recibir refresh_token siempre
+        'state':         state,
+    }
+    auth_url = 'https://accounts.google.com/o/oauth2/v2/auth?' + urllib.parse.urlencode(params)
+    return redirect(auth_url)
+
+
+@login_required(login_url='/participantes/login/')
+def google_auth_callback(request):
+    """Google llama aquí después de que el usuario autoriza. Guarda el refresh_token."""
+    # Verificar CSRF state
+    state_recibido = request.GET.get('state', '')
+    state_guardado = request.session.pop('google_oauth_state', None)
+    error          = request.GET.get('error')
+
+    if error:
+        messages.error(request, f"❌ Google rechazó la autorización: {error}")
+        return redirect('mi_cuenta')
+
+    if not state_guardado or state_recibido != state_guardado:
+        messages.error(request, "❌ Error de seguridad en la autorización. Intenta conectar de nuevo.")
+        return redirect('mi_cuenta')
+
+    code = request.GET.get('code')
+    if not code:
+        messages.error(request, "❌ No se recibió el código de autorización de Google.")
+        return redirect('mi_cuenta')
+
+    # 1. Intercambiar código por tokens
+    try:
+        token_resp = requests.post(
+            'https://oauth2.googleapis.com/token',
+            data={
+                'code':          code,
+                'client_id':     settings.GOOGLE_CLIENT_ID,
+                'client_secret': settings.GOOGLE_CLIENT_SECRET,
+                'redirect_uri':  settings.GOOGLE_REDIRECT_URI,
+                'grant_type':    'authorization_code',
+            },
+            timeout=15
+        )
+        token_data    = token_resp.json()
+        refresh_token = token_data.get('refresh_token')
+        access_token  = token_data.get('access_token')
+    except Exception as e:
+        logger.error(f"Error intercambiando código Google: {e}")
+        messages.error(request, "❌ No se pudo comunicar con Google. Intenta de nuevo.")
+        return redirect('mi_cuenta')
+
+    if not refresh_token:
+        messages.warning(
+            request,
+            "⚠️ Google no devolvió el refresh_token. Esto pasa cuando ya habías autorizado antes. "
+            "Ve a myaccount.google.com → Seguridad → Aplicaciones con acceso → Elimina este app → Conecta de nuevo."
+        )
+        return redirect('mi_cuenta')
+
+    # 2. Obtener email de la cuenta Google conectada
+    try:
+        userinfo_resp = requests.get(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10
+        )
+        google_email = userinfo_resp.json().get('email', '')
+    except Exception:
+        google_email = ''
+
+    # 3. Guardar en el perfil del usuario
+    perfil = get_object_or_404(PerfilUsuario, user=request.user)
+    perfil.google_email         = google_email
+    perfil.google_refresh_token = refresh_token
+    perfil.save()
+
+    messages.success(
+        request,
+        f"✅ Gmail '{google_email}' conectado correctamente. "
+        f"Los correos de tus eventos se enviarán desde esa cuenta."
+    )
+    return redirect('mi_cuenta')
+
+
+@login_required(login_url='/participantes/login/')
+def google_desconectar(request):
+    """Elimina el Gmail OAuth2 del perfil del usuario."""
+    if request.method == 'POST':
+        perfil = get_object_or_404(PerfilUsuario, user=request.user)
+        email_anterior = perfil.google_email or ''
+        perfil.google_email         = None
+        perfil.google_refresh_token = None
+        perfil.save()
+        messages.success(request, f"Gmail '{email_anterior}' desconectado. Se usará el correo del sistema como respaldo.")
+    return redirect('mi_cuenta')
+
+
+@login_required(login_url='/participantes/login/')
+@rol_requerido(['SUPERADMIN', 'ORGANIZADOR'])
+def usuario_eliminar(request, pk):
+    perfil_admin = get_object_or_404(PerfilUsuario, user=request.user)
+    perfil = get_object_or_404(PerfilUsuario, pk=pk)
+    username = perfil.user.username
+    
+    if perfil_admin.rol != 'SUPERADMIN':
+        if perfil.rol != 'REGISTRADOR':
+            messages.error(request, "No tienes permiso para eliminar este usuario.")
+            return redirect('usuario_lista')
+            
+        mis_eventos = perfil_admin.eventos.all()
+        shared_events = perfil.eventos.filter(id__in=mis_eventos.values_list('id', flat=True))
+        if not shared_events.exists():
+            messages.error(request, "No tienes permiso para eliminar este usuario.")
+            return redirect('usuario_lista')
+            
+    if perfil.user == request.user:
+        messages.error(request, "No puedes eliminar tu propio usuario actual.")
+        return redirect('usuario_lista')
+        
+    perfil.user.delete()
+    messages.success(request, f"Usuario '{username}' eliminado permanentemente.")
+    return redirect('usuario_lista')

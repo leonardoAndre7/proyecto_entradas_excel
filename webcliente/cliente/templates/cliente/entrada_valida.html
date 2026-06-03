@@ -300,6 +300,14 @@
                 <span class="info-label"><i class="bi bi-ticket-perforated-fill"></i> Categoría</span>
                 <span class="info-value badge-tier">{{ participante.tipo_entrada|default:"GENERAL" }}</span>
             </div>
+            {% if participante.cantidad and participante.cantidad > 1 %}
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-stack"></i> Entradas</span>
+                <span class="info-value" style="color: #b3e5fc; font-size: 1.15rem;">
+                    <i class="bi bi-ticket-fill" style="margin-right:4px;"></i>{{ participante.cantidad }} boletos
+                </span>
+            </div>
+            {% endif %}
             <div class="info-item">
                 <span class="info-label"><i class="bi bi-clock-fill"></i> Hora de Ingreso</span>
                 <span class="info-value">{{ fecha_ingreso|date:"h:i:s A"|default:"Ahora" }}</span>

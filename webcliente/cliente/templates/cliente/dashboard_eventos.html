@@ -15,19 +15,17 @@
     
     <style>
         :root {
-            --primary-glow: linear-gradient(135deg, #7b1fa2, #4a148c);
-            --success-glow: linear-gradient(135deg, #2e7d32, #1b5e20);
-            --danger-glow: linear-gradient(135deg, #c62828, #b71c1c);
-            --glass-bg: rgba(20, 10, 35, 0.45);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --purple-shadow: 0 10px 30px rgba(123, 31, 162, 0.15);
+            --primary-color: #0ea5e9;
+            --primary-hover: #0284c7;
+            --glass-bg: rgba(15, 23, 42, 0.55);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
         body {
-            background: radial-gradient(circle at 50% 50%, rgba(26, 8, 46, 0.75) 0%, rgba(10, 5, 20, 0.95) 100%), url("{% static 'img/nexo_logo_01.png' %}") no-repeat center center fixed;
-            background-size: cover;
+            background: #090d16;
             font-family: 'Outfit', sans-serif;
-            color: #f8f9fa;
+            color: #f1f5f9;
             min-height: 100vh;
             padding-top: 85px;
             position: relative;
@@ -35,11 +33,11 @@
 
         /* Glass Navbar */
         .navbar-custom {
-            background: rgba(15, 7, 28, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--glass-border);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
             z-index: 1030;
         }
 
@@ -48,67 +46,62 @@
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            transition: all 0.2s ease-in-out;
         }
 
         .glass-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--purple-shadow);
-            border-color: rgba(186, 104, 200, 0.3);
+            transform: translateY(-2px);
+            border-color: rgba(14, 165, 233, 0.2);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
         }
 
         .btn {
-            border-radius: 12px;
-            font-weight: 600;
-            padding: 0.6rem 1.2rem;
-            transition: all 0.25s ease;
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 0.55rem 1.1rem;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
             border: 1px solid transparent;
         }
-        .btn:hover {
-            transform: translateY(-2px);
-        }
 
         .btn-primary-glow {
-            background: var(--primary-glow);
+            background: var(--primary-color);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(123, 31, 162, 0.4);
         }
         .btn-primary-glow:hover {
-            background: linear-gradient(135deg, #8e24aa, #5e35b1);
+            background: var(--primary-hover);
             color: #fff;
         }
 
         .btn-glass {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--glass-border);
-            color: #e1bee7;
+            color: #94a3b8;
         }
         .btn-glass:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.1);
             color: #fff;
+            border-color: rgba(255, 255, 255, 0.15);
         }
 
-        /* Ambient glowing headers */
+        /* Minimal headers */
         .titulo-glow {
-            font-weight: 800;
-            background: linear-gradient(135deg, #e1bee7, #ffffff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 25px rgba(225,190,231,0.2);
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.02em;
         }
 
         /* Stats items */
         .stat-badge {
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 10px;
             border: 1px solid var(--glass-border);
-            padding: 10px 15px;
+            padding: 10px;
         }
     </style>
 </head>
@@ -143,11 +136,18 @@
                 <h1 class="titulo-glow m-0"><i class="bi bi-grid-1x2-fill"></i> Central de Gestión de Eventos</h1>
                 <p class="text-white-50 mb-0 mt-1">SaaS de tickets y validación de accesos en tiempo real.</p>
             </div>
-            {% if perfil.rol == 'SUPERADMIN' or perfil.rol == 'ORGANIZADOR' %}
-            <a href="{% url 'evento_crear' %}" class="btn btn-primary-glow">
-                <i class="bi bi-plus-circle-fill"></i> Registrar Nuevo Evento
-            </a>
-            {% endif %}
+            <div class="d-flex gap-2">
+                {% if perfil.rol == 'SUPERADMIN' or perfil.rol == 'ORGANIZADOR' %}
+                <a href="{% url 'usuario_lista' %}" class="btn btn-glass">
+                    <i class="bi bi-people-fill"></i> Gestionar Usuarios
+                </a>
+                {% endif %}
+                {% if perfil.rol == 'SUPERADMIN' or perfil.rol == 'ORGANIZADOR' %}
+                <a href="{% url 'evento_crear' %}" class="btn btn-primary-glow">
+                    <i class="bi bi-plus-circle-fill"></i> Registrar Nuevo Evento
+                </a>
+                {% endif %}
+            </div>
         </div>
 
         <div class="row g-4">
@@ -199,10 +199,14 @@
                         </a>
                         {% endif %}
 
-                        {% if perfil.rol == 'SUPERADMIN' %}
-                        <a href="{% url 'evento_eliminar' ev.id %}" class="btn btn-glass btn-sm" onclick="return confirm('¿Estás COMPLETAMENTE seguro de eliminar este evento y borrar todas sus entradas?');" title="Eliminar Evento">
-                            <i class="bi bi-trash-fill text-danger"></i>
-                        </a>
+                        {% if perfil.rol == 'SUPERADMIN' or ev in perfil.eventos.all %}
+                        <form method="post" action="{% url 'evento_eliminar' ev.id %}" class="d-inline"
+                              onsubmit="return confirm('¿Estás COMPLETAMENTE seguro de eliminar el evento &quot;{{ ev.nombre }}&quot; y TODOS sus participantes? Esta acción es permanente.');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-glass btn-sm" title="Eliminar Evento">
+                                <i class="bi bi-trash-fill text-danger"></i>
+                            </button>
+                        </form>
                         {% endif %}
                     </div>
                 </div>

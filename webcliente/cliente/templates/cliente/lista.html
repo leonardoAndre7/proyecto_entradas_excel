@@ -15,23 +15,28 @@
     
     <style>
         :root {
-            --primary-glow: linear-gradient(135deg, #7b1fa2, #4a148c);
-            --secondary-glow: linear-gradient(135deg, #0288d1, #006064);
-            --danger-glow: linear-gradient(135deg, #c62828, #880e4f);
-            --success-glow: linear-gradient(135deg, #2e7d32, #1b5e20);
-            --warning-glow: linear-gradient(135deg, #f57c00, #e65100);
-            --glass-bg: rgba(20, 10, 35, 0.45);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --glass-accent: rgba(225, 190, 231, 0.15);
+            --primary-color: #0ea5e9;
+            --primary-hover: #0284c7;
+            --success-color: #10b981;
+            --success-hover: #059669;
+            --info-color: #06b6d4;
+            --info-hover: #0891b2;
+            --warning-color: #f59e0b;
+            --warning-hover: #d97706;
+            --danger-color: #ef4444;
+            --danger-hover: #dc2626;
+            
+            --glass-bg: rgba(15, 23, 42, 0.55);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
         body {
-            background: url("{% static 'img/exponentes.jpeg' %}") no-repeat center center fixed;
-            background-size: cover;
+            background: #090d16;
             font-family: 'Outfit', sans-serif;
-            color: #f8f9fa;
+            color: #f1f5f9;
             min-height: 100vh;
-            padding-top: 85px; /* Spacing for fixed navbar */
+            padding-top: 85px;
             position: relative;
             overflow-x: hidden;
         }
@@ -42,17 +47,17 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: radial-gradient(circle at 50% 50%, rgba(26, 8, 46, 0.6) 0%, rgba(10, 5, 20, 0.85) 100%);
+            background: #090d16;
             z-index: -1;
         }
 
         /* Glassmorphism Navbar */
         .navbar-custom {
-            background: rgba(15, 7, 28, 0.7);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--glass-border);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
             transition: all 0.3s ease;
         }
 
@@ -62,23 +67,20 @@
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            transition: border-color 0.2s ease;
         }
 
         .glass-card:hover {
-            box-shadow: 0 20px 45px rgba(123, 31, 162, 0.15);
+            border-color: rgba(14, 165, 233, 0.15);
         }
 
         /* Header Style */
         .titulo-moderno {
-            font-weight: 800;
-            background: linear-gradient(135deg, #e1bee7, #ffffff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            color: #ffffff;
             letter-spacing: -0.02em;
-            text-shadow: 0 0 30px rgba(225,190,231,0.25);
             display: inline-flex;
             align-items: center;
             gap: 12px;
@@ -86,20 +88,19 @@
 
         /* Toolbar Actions */
         .toolbar {
-            background: rgba(15, 5, 25, 0.4);
-            padding: 20px;
-            border-radius: 18px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(15, 23, 42, 0.4);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
             gap: 12px;
         }
 
         /* Interactive Buttons */
         .btn {
-            border-radius: 12px;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-            padding: 0.6rem 1.2rem;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 0.55rem 1.1rem;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -107,102 +108,84 @@
             border: 1px solid transparent;
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-        }
-
         .btn-primary-glow {
-            background: var(--primary-glow);
+            background: var(--primary-color);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(123, 31, 162, 0.4);
         }
         .btn-primary-glow:hover {
-            background: linear-gradient(135deg, #8e24aa, #5e35b1);
+            background: var(--primary-hover);
             color: #fff;
-            box-shadow: 0 6px 20px rgba(123, 31, 162, 0.6);
         }
 
         .btn-success-glow {
-            background: var(--success-glow);
+            background: var(--success-color);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(46, 125, 50, 0.4);
         }
         .btn-success-glow:hover {
-            background: linear-gradient(135deg, #388e3c, #2e7d32);
+            background: var(--success-hover);
             color: #fff;
-            box-shadow: 0 6px 20px rgba(46, 125, 50, 0.6);
         }
 
         .btn-info-glow {
-            background: var(--secondary-glow);
+            background: var(--info-color);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(2, 136, 209, 0.4);
         }
         .btn-info-glow:hover {
-            background: linear-gradient(135deg, #029be5, #00838f);
+            background: var(--info-hover);
             color: #fff;
-            box-shadow: 0 6px 20px rgba(2, 136, 209, 0.6);
         }
 
         .btn-warning-glow {
-            background: var(--warning-glow);
+            background: var(--warning-color);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(245, 124, 0, 0.4);
         }
         .btn-warning-glow:hover {
-            background: linear-gradient(135deg, #fb8c00, #ef6c00);
+            background: var(--warning-hover);
             color: #fff;
-            box-shadow: 0 6px 20px rgba(245, 124, 0, 0.6);
         }
 
         .btn-danger-glow {
-            background: var(--danger-glow);
+            background: var(--danger-color);
             color: #fff;
-            box-shadow: 0 4px 15px rgba(198, 40, 40, 0.4);
         }
         .btn-danger-glow:hover {
-            background: linear-gradient(135deg, #e53935, #ad1457);
+            background: var(--danger-hover);
             color: #fff;
-            box-shadow: 0 6px 20px rgba(198, 40, 40, 0.6);
         }
 
         .btn-glass {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--glass-border);
-            color: #e1bee7;
+            color: #94a3b8;
         }
         .btn-glass:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.1);
             color: #fff;
         }
 
         /* Search input styling */
         .form-control-glass {
-            background: rgba(255, 255, 255, 0.07);
+            background: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--glass-border);
             color: #fff;
-            border-radius: 12px;
-            padding: 0.6rem 1.2rem;
-            transition: all 0.3s;
+            border-radius: 10px;
+            padding: 0.6rem 1rem;
+            transition: all 0.25s;
         }
         .form-control-glass:focus {
-            background: rgba(255, 255, 255, 0.12);
-            border-color: #ba68c8;
-            box-shadow: 0 0 15px rgba(186, 104, 200, 0.3);
+            background: rgba(15, 23, 42, 0.8);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.2);
             color: #fff;
+            outline: none;
         }
         .form-control-glass::placeholder {
-            color: rgba(255,255,255,0.4);
+            color: rgba(255,255,255,0.25);
         }
 
         /* Responsive glass table styling */
         .table-responsive-container {
-            border-radius: 16px;
+            border-radius: 12px;
             overflow: hidden;
             border: 1px solid var(--glass-border);
         }
@@ -214,27 +197,27 @@
 
         .table > :not(caption) > * > * {
             background-color: transparent !important;
-            padding: 14px 12px;
-            color: #ffffff !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 12px 10px;
+            color: #f1f5f9 !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         }
 
         .table thead th {
-            background: linear-gradient(135deg, rgba(81, 45, 168, 0.85), rgba(49, 27, 146, 0.85)) !important;
+            background: rgba(15, 23, 42, 0.9) !important;
             font-weight: 600;
             text-transform: uppercase;
             font-size: 0.75rem;
-            letter-spacing: 0.08em;
-            border-bottom: none;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--glass-border);
         }
 
         .table tbody tr {
             background: rgba(255, 255, 255, 0.01);
-            transition: all 0.25s ease;
+            transition: all 0.2s ease;
         }
 
         .table tbody tr:hover {
-            background: rgba(255, 255, 255, 0.06) !important;
+            background: rgba(255, 255, 255, 0.03) !important;
         }
 
         /* Badges styling */
@@ -369,10 +352,13 @@
                         <a class="nav-link" href="{% url 'registro_participante' evento_id=evento.id %}"><i class="bi bi-journal-text"></i> Pre-Registro</a>
                     </li>
                 </ul>
-                <div class="d-flex align-items-center gap-3">
-                    <span class="text-white text-opacity-75 small">
-                        <i class="bi bi-person-circle text-primary"></i> Hola, <strong>{{ user.username }}</strong>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-white text-opacity-75 small d-none d-md-inline">
+                        <i class="bi bi-person-circle text-primary"></i> <strong>{{ user.username }}</strong>
                     </span>
+                    <a href="{% url 'mi_cuenta' %}" class="btn btn-glass btn-sm rounded-pill px-3 py-1 gap-1">
+                        <i class="bi bi-person-gear"></i> Mi Cuenta
+                    </a>
                     <form method="post" action="{% url 'logout' %}" class="m-0">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-glass btn-sm rounded-pill px-3 py-1 gap-1">
@@ -390,10 +376,23 @@
         <div class="glass-card p-4 mt-3">
             <!-- Header Section -->
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-                <h1 class="titulo-moderno">
-                    <i class="bi bi-people-fill"></i> Panel de Control de Participantes
-                </h1>
+                <div>
+                    <h1 class="titulo-moderno mb-1">
+                        <i class="bi bi-people-fill"></i> Panel de Participantes
+                    </h1>
+                    <div class="d-flex align-items-center gap-2 mt-1">
+                        <span class="badge rounded-pill px-3 py-1 small fw-semibold" style="background: rgba(14,165,233,0.15); color:#38bdf8; border:1px solid rgba(14,165,233,0.25);">
+                            <i class="bi bi-calendar-event me-1"></i>{{ evento.nombre }}
+                        </span>
+                        {% if evento.fecha_evento %}
+                        <span class="text-white-50 small"><i class="bi bi-clock me-1"></i>{{ evento.fecha_evento|date:"d/m/Y" }}</span>
+                        {% endif %}
+                    </div>
+                </div>
                 <div class="d-flex gap-2">
+                    <a href="{% url 'dashboard_eventos' %}" class="btn btn-glass btn-sm">
+                        <i class="bi bi-grid-fill"></i> Dashboard
+                    </a>
                     <button type="button" class="btn btn-danger-glow" data-bs-toggle="modal" data-bs-target="#limpiarHistorialModal">
                         <i class="bi bi-trash3-fill"></i> Limpiar Historial
                     </button>
@@ -454,9 +453,13 @@
                     <button type="button" class="btn btn-info-glow" data-bs-toggle="modal" data-bs-target="#importExcelModal">
                         <i class="bi bi-file-earmark-arrow-up-fill"></i> Importar Excel
                     </button>
-                    <a href="{% url 'enviar_masivo' evento_id=evento.id %}" class="btn btn-danger-glow" onsubmit="return confirm('¿Estás seguro de enviar la entrada por correo y whatsapp a todos los aprobados?');">
-                       <i class="bi bi-send-fill"></i> Enviar Masivo Aprobados
-                    </a>
+                    <form method="post" action="{% url 'enviar_masivo' evento_id=evento.id %}" class="d-inline"
+                          onsubmit="return confirm('¿Enviar boletes a TODOS los aprobados? Esta acción no se puede deshacer.')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger-glow">
+                            <i class="bi bi-send-fill"></i> Enviar Masivo Aprobados
+                        </button>
+                    </form>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
@@ -530,26 +533,42 @@
                             </td>
                             <td>
                                 {% if not p.pago_confirmado %}
-                                    <a href="{% url 'confirmar_pago' p.pk %}" class="btn btn-sm btn-success-glow" title="Confirmar Pago">
-                                        <i class="bi bi-cash-stack"></i> Aprob
-                                    </a>
+                                    <form method="post" action="{% url 'confirmar_pago' evento_id=evento.id pk=p.pk %}" class="d-inline"
+                                          onsubmit="return confirm('¿Confirmar pago de {{ p.nombres }}? Se generará y enviará su boleto.')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-success-glow" title="Confirmar Pago">
+                                            <i class="bi bi-cash-stack"></i> Aprob
+                                        </button>
+                                    </form>
                                 {% else %}
                                     <span class="text-success"><i class="bi bi-shield-check fs-5"></i></span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if p.entrada_usada %}
-                                    <span class="badge bg-success text-white px-2.5 py-1.5"><i class="bi bi-check-circle-fill"></i> Ingresó</span>
+                                    <span class="badge bg-success text-white px-2 py-1"><i class="bi bi-check-circle-fill"></i> Ingresó</span>
                                 {% else %}
-                                    <a href="{% url 'marcar_ingreso' p.pk %}" class="btn btn-sm btn-glass" title="Marcar Ingreso">
-                                        <i class="bi bi-door-open"></i> Marcar
-                                    </a>
+                                    <form method="post" action="{% url 'marcar_ingreso' evento_id=evento.id pk=p.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-glass" title="Marcar Ingreso Manual">
+                                            <i class="bi bi-door-open"></i> Marcar
+                                        </button>
+                                    </form>
                                 {% endif %}
                             </td>
                             <td>
                                 <div class="d-flex justify-content-center gap-1">
-                                    <a href="{% url 'participante_editar' p.pk %}" class="btn btn-sm btn-glass text-warning" title="Editar"><i class="bi bi-pencil-square"></i></a>
-                                    <a href="{% url 'participante_eliminar' p.pk %}" class="btn btn-sm btn-glass text-danger" title="Eliminar"><i class="bi bi-trash"></i></a>
+                                    <a href="{% url 'participante_editar' evento_id=evento.id pk=p.pk %}" class="btn btn-sm btn-glass text-warning" title="Editar"><i class="bi bi-pencil-square"></i></a>
+                                    {% if p.pago_confirmado %}
+                                    <form method="post" action="{% url 'reenviar_correo' evento_id=evento.id pk=p.pk %}" class="d-inline"
+                                          onsubmit="return confirm('¿Reenviar boleto a {{ p.correo }}?')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-glass text-info" title="Reenviar Entrada por Correo">
+                                            <i class="bi bi-envelope-arrow-up-fill"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    <a href="{% url 'participante_eliminar' evento_id=evento.id pk=p.pk %}" class="btn btn-sm btn-glass text-danger" title="Eliminar"><i class="bi bi-trash"></i></a>
                                 </div>
                             </td>
                         </tr>
@@ -722,11 +741,11 @@
                 new Chart(salesCtx, {
                     type: 'bar',
                     data: {
-                        labels: ['Full', 'Emp', 'Empr'],
+                        labels: [{% for item in categoria_datos %}'{{ item.label }}'{% if not forloop.last %}, {% endif %}{% empty %}'Ninguna'{% endfor %}],
                         datasets: [{
                             label: 'Vendidos',
-                            data: [{{ full_access_count }}, {{ empresarial_count }}, {{ emprendedor_count }}],
-                            backgroundColor: ['#9c27b0', '#2196f3', '#4caf50'],
+                            data: [{% for item in categoria_datos %}{{ item.count }}{% if not forloop.last %}, {% endif %}{% empty %}0{% endfor %}],
+                            backgroundColor: ['#9c27b0', '#2196f3', '#4caf50', '#ff9800', '#009688', '#ffc107', '#3f51b5', '#e91e63', '#00bcd4', '#ff5722', '#673ab7'],
                             borderRadius: 6,
                             borderWidth: 0
                         }]

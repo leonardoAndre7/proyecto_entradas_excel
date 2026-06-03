@@ -38,6 +38,8 @@ urlpatterns = [
     path('eventos/<int:evento_id>/limpiar-historial/', views.limpiar_historial, name='limpiar_historial'),
     
     # Previa del despertar
+    path('eventos/<int:evento_id>/previa/convertir/<int:pk>/', views.convertir_previa_a_participante, name='convertir_previa'),
+    path('eventos/<int:evento_id>/previa/marcar-ingreso/<int:pk>/', views.marcar_ingreso_previa, name='marcar_ingreso_previa'),
     path('eventos/<int:evento_id>/previa/actualizar/<int:pk>/', views.actualizar_participante_previa, name='actualizar_participante_previa'),
     path('eventos/<int:evento_id>/previa/eliminar/<int:pk>/', views.eliminar_participante_previa, name='eliminar_participante_previa'),
     path('eventos/<int:evento_id>/previa/enviar-whatsapp-qr/<str:cod_part>/', views.enviar_whatsapp_qr, name='enviar_whatsapp_qr'),
@@ -53,6 +55,20 @@ urlpatterns = [
     # 🔐 Auth
     path('login/', auth_views.LoginView.as_view(template_name='cliente/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+    
+    # 👥 Gestión de Usuarios
+    path('usuarios/', views.usuario_lista, name='usuario_lista'),
+    path('usuarios/crear/', views.usuario_crear, name='usuario_crear'),
+    path('usuarios/editar/<int:pk>/', views.usuario_editar, name='usuario_editar'),
+    path('usuarios/eliminar/<int:pk>/', views.usuario_eliminar, name='usuario_eliminar'),
+
+    # 👤 Perfil propio del usuario
+    path('mi-cuenta/', views.mi_cuenta, name='mi_cuenta'),
+
+    # 🔐 Google OAuth2 — Conexión de Gmail para envío de entradas
+    path('google/auth/', views.google_auth_inicio, name='google_auth_inicio'),
+    path('google/callback/', views.google_auth_callback, name='google_auth_callback'),
+    path('google/desconectar/', views.google_desconectar, name='google_desconectar'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

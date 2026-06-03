@@ -41,9 +41,15 @@ media/
 # Archivos de seguridad y configuraciones locales
 *.txt
 !requirements.txt
+!requirements-docker.txt
+!runtime.txt
 *.env
 *.bak
 
 # Entornos virtuales
 venv/
 venv_win/
+
+# Skills instaladas (directorios de herramientas externas)
+skillkit_context_engineering/
+skillkit_*/

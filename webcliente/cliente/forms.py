@@ -3,7 +3,7 @@ from django import forms
 from .models import Participante,Voucher, Previaparticipantes
 
 
-class ParticipanteForm(forms.ModelForm):
+class PreviaParticipanteForm(forms.ModelForm):
     csv_file = forms.FileField(required=False, help_text="Sube un CSV para carga masiva")
 
     class Meta:
@@ -14,7 +14,7 @@ class ParticipanteForm(forms.ModelForm):
 class ParticipanteForm(forms.ModelForm):
     class Meta:
         model = Participante
-        fields = ['nombres', 'apellidos', 'dni', 'celular', 'correo', 'tipo_entrada', 'cantidad', 'vendedor', 'validado_admin', 'validado_contabilidad']
+        fields = ['nombres', 'apellidos', 'dni', 'celular', 'correo', 'tipo_entrada', 'cantidad', 'vendedor', 'pago_confirmado', 'validado_admin', 'validado_contabilidad']
 
     def __init__(self, *args, **kwargs):
         evento = kwargs.pop('evento', None)

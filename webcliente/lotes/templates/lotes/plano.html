@@ -3,8 +3,6 @@
 <head>
 <title>Plano</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<!-- PDF.js para renderizar planos en formato PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <style>
 body{ margin:0; overflow:hidden; }
@@ -42,11 +40,9 @@ body{ margin:0; overflow:hidden; }
 
 {% if plano %}
 <div id="container">
-  <!-- src vacío inicialmente; JavaScript lo rellena (imagen o PDF renderizado) -->
-  <img id="plano" src="">
+  <img id="plano" src="{{ plano.imagen.url }}">
   <canvas id="draw-layer"></canvas>
   <input type="hidden" id="plano_id" value="{{ plano.id }}">
-  <input type="hidden" id="plano_url" value="{{ plano.imagen.url }}">
 </div>
 {% else %}
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#222;color:#fff;font-family:sans-serif;text-align:center;gap:16px;">
@@ -86,8 +82,6 @@ const plano = document.getElementById("plano");
 const canvas = document.getElementById("draw-layer");
 const container = document.getElementById("container");
 const ctx = canvas.getContext("2d");
-const planoUrl = document.getElementById("plano_url").value;
-
 let scale=1, minScale=1;
 let posX=0, posY=0;
 let isDragging=false;
@@ -108,40 +102,8 @@ function iniciar(){
   actualizarTransform();
   dibujarLotes();
 }
-
-/* CARGAR PLANO: detecta si es PDF o imagen */
-function cargarPlano(){
-  if(planoUrl.toLowerCase().endsWith('.pdf')){
-    // ── PDF.js: renderiza la primera página como imagen ──
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-    pdfjsLib.getDocument(planoUrl).promise.then(function(pdf){
-      pdf.getPage(1).then(function(page){
-        // Escala alta para buena resolución
-        const scale2 = 2.5;
-        const viewport = page.getViewport({scale: scale2});
-        const offscreen = document.createElement('canvas');
-        offscreen.width  = viewport.width;
-        offscreen.height = viewport.height;
-        const offCtx = offscreen.getContext('2d');
-        page.render({canvasContext: offCtx, viewport: viewport}).promise.then(function(){
-          // Convertir a imagen y asignar al <img id="plano">
-          plano.src = offscreen.toDataURL('image/png');
-        });
-      });
-    }).catch(function(err){
-      console.error('Error cargando PDF:', err);
-    });
-    plano.onload = iniciar;
-  } else {
-    // ── Imagen normal (PNG, JPG, etc.) ──
-    plano.onload = iniciar;
-    plano.src = planoUrl;
-    if(plano.complete) iniciar();
-  }
-}
-cargarPlano();
+plano.onload=iniciar;
+if(plano.complete) iniciar();
 
 /* DIBUJAR LOTES */
 function dibujarLotes(){

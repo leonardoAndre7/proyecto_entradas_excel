@@ -4,57 +4,141 @@ from django.db import models
 
 logger = logging.getLogger(__name__)
 
+ESCALA_PNG = 2  # Matrix(2,2) en la conversión → multiplicar coords por 2
+
 
 class Plano(models.Model):
     nombre = models.CharField(max_length=100)
     imagen = models.FileField(
         upload_to="planos/",
-        help_text="Sube la imagen del plano (PNG, JPG) o un archivo PDF. Los PDFs se convierten a imagen automáticamente."
+        help_text="Sube la imagen del plano (PNG, JPG) o un archivo PDF. "
+                  "Los PDFs se convierten a imagen y los lotes se importan automáticamente."
     )
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # Si el archivo subido es PDF → convertir a PNG automáticamente
+        # Si el archivo subido es PDF → convertir + importar lotes automáticamente
         if self.imagen and self.imagen.name.lower().endswith('.pdf'):
-            self._convertir_pdf_a_png()
+            self._procesar_pdf()
 
-    def _convertir_pdf_a_png(self):
-        """Convierte la primera página del PDF a PNG y actualiza el campo imagen."""
+    def _procesar_pdf(self):
+        """
+        Al subir un PDF:
+          1. Convierte la página 1 a PNG (2x resolución)
+          2. Extrae los polígonos de los lotes y los importa en la BD
+          3. Borra el PDF original
+        """
         try:
             import fitz  # pymupdf
         except ImportError:
-            logger.error("pymupdf no está instalado. No se puede convertir el PDF.")
+            logger.error("pymupdf no está instalado. No se puede procesar el PDF.")
             return
 
         pdf_path = self.imagen.path
         try:
-            doc = fitz.open(pdf_path)
-            page = doc[0]  # Primera página
+            doc  = fitz.open(pdf_path)
+            page = doc[0]
 
-            # Renderizar a 2x resolución (144 DPI) para buena calidad
-            mat = fitz.Matrix(2, 2)
+            # ── 1. CONVERTIR A PNG ──────────────────────────────────────────
+            mat = fitz.Matrix(ESCALA_PNG, ESCALA_PNG)
             pix = page.get_pixmap(matrix=mat)
-            doc.close()
 
-            # Guardar PNG junto al PDF original
-            base_name = os.path.splitext(os.path.basename(pdf_path))[0]
+            base_name    = os.path.splitext(os.path.basename(pdf_path))[0]
             png_filename = base_name + '.png'
-            png_path = os.path.join(os.path.dirname(pdf_path), png_filename)
+            png_path     = os.path.join(os.path.dirname(pdf_path), png_filename)
             pix.save(png_path)
 
-            # Actualizar el campo en BD para apuntar al PNG
             relative_png = 'planos/' + png_filename
             Plano.objects.filter(pk=self.pk).update(imagen=relative_png)
             self.imagen.name = relative_png
+            logger.info(f"PDF → PNG: {png_path}")
 
-            # Eliminar el PDF original (ya no se necesita)
-            if os.path.exists(pdf_path):
-                os.remove(pdf_path)
+            # ── 2. EXTRAER LOTES ────────────────────────────────────────────
+            lotes_data = self._extraer_lotes_de_pdf(page, doc)
+            doc.close()
 
-            logger.info(f"PDF convertido a PNG: {png_path}")
+            # Borrar lotes anteriores de este plano y crear los nuevos
+            from lotes.models import Lote  # import aquí para evitar circular
+            Lote.objects.filter(plano=self).delete()
+            creados = 0
+            for ld in lotes_data:
+                Lote.objects.create(
+                    plano=self,
+                    puntos=ld['puntos'],
+                    estado='disponible',
+                )
+                creados += 1
+            logger.info(f"Lotes importados: {creados}")
 
         except Exception as e:
-            logger.error(f"Error convirtiendo PDF a PNG: {e}", exc_info=True)
+            logger.error(f"Error procesando PDF: {e}", exc_info=True)
+            try:
+                doc.close()
+            except Exception:
+                pass
+            return
+
+        # ── 3. BORRAR PDF ORIGINAL ──────────────────────────────────────────
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+
+    @staticmethod
+    def _extraer_lotes_de_pdf(page, doc):
+        """
+        Extrae polígonos de los lotes del plano PDF.
+        Retorna lista de {'puntos': [{x, y}, ...]}
+        con coordenadas ya escaladas al PNG (×ESCALA_PNG).
+        """
+        paths  = page.get_drawings()
+        texts  = page.get_text('dict')
+        page_w = page.rect.width
+        page_h = page.rect.height
+
+        # ── Recopilar polígonos rellenos (tipo 'f') ──
+        poligonos = []
+        for p in paths:
+            if p.get('type') != 'f':
+                continue
+            items = p.get('items', [])
+            if not items:
+                continue
+
+            puntos_pdf = []
+            if items[0][0] == 're':  # rectángulo simple
+                r = items[0][1]
+                puntos_pdf = [
+                    {'x': r.x0, 'y': r.y0}, {'x': r.x1, 'y': r.y0},
+                    {'x': r.x1, 'y': r.y1}, {'x': r.x0, 'y': r.y1},
+                ]
+            else:  # polígono con líneas
+                for item in items:
+                    if item[0] in ('m', 'l'):
+                        puntos_pdf.append({'x': item[1].x, 'y': item[1].y})
+
+            if len(puntos_pdf) < 3:
+                continue
+
+            xs = [pt['x'] for pt in puntos_pdf]
+            ys = [pt['y'] for pt in puntos_pdf]
+            area = (max(xs) - min(xs)) * (max(ys) - min(ys))
+            # Ignorar marcos gigantes (> 10 % del área total de la página)
+            if area > page_w * page_h * 0.10:
+                continue
+
+            centroide = {'x': sum(xs)/len(xs), 'y': sum(ys)/len(ys)}
+            poligonos.append({'puntos': puntos_pdf, 'centroide': centroide})
+
+        # ── Escalar coordenadas al PNG ──
+        lotes = []
+        for pol in poligonos:
+            puntos_png = [
+                {'x': round(pt['x'] * ESCALA_PNG, 1),
+                 'y': round(pt['y'] * ESCALA_PNG, 1)}
+                for pt in pol['puntos']
+            ]
+            lotes.append({'puntos': puntos_png})
+
+        return lotes
 
     def __str__(self):
         return self.nombre
@@ -62,22 +146,20 @@ class Plano(models.Model):
 
 class Lote(models.Model):
 
-    plano = models.ForeignKey(Plano, on_delete=models.CASCADE)
-
-    # 🔥 NUEVO: guardar polígono
+    plano  = models.ForeignKey(Plano, on_delete=models.CASCADE)
     puntos = models.JSONField(null=True, blank=True)
 
-    x = models.FloatField(null=True, blank=True)
-    y = models.FloatField(null=True, blank=True)
-    width = models.FloatField(null=True, blank=True)
+    x      = models.FloatField(null=True, blank=True)
+    y      = models.FloatField(null=True, blank=True)
+    width  = models.FloatField(null=True, blank=True)
     height = models.FloatField(null=True, blank=True)
 
     estado = models.CharField(
         max_length=20,
         choices=[
-            ("disponible","Disponible"),
-            ("vendido","Vendido"),
-            ("reservado","Reservado")
+            ("disponible", "Disponible"),
+            ("vendido",    "Vendido"),
+            ("reservado",  "Reservado"),
         ],
         default="disponible"
     )

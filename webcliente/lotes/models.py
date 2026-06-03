@@ -2,7 +2,7 @@ from django.db import models
 
 class Plano(models.Model):
     nombre = models.CharField(max_length=100)
-    imagen = models.ImageField(upload_to="planos/")
+    imagen = models.FileField(upload_to="planos/", help_text="Sube la imagen del plano (PNG, JPG) o un archivo PDF.")
 
     def __str__(self):
         return self.nombre

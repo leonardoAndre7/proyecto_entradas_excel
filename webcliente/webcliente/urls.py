@@ -25,8 +25,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home_redirect, name='index'),
     path('participantes/', include('cliente.urls')),
-    path('plano/', lotes_views.ver_plano, name="plano"),
     path('lotes/', include('lotes.urls')),
+    # Atajos raíz para fácil acceso
+    path('plano/', lotes_views.ver_plano,         name="plano"),        # admin
+    path('mapa/',  lotes_views.ver_mapa_publico,  name="mapa_publico"), # clientes
 
     # 🔐 Google OAuth2 — rutas en raíz para coincidir con Google Cloud Console
     # Google Console tiene: http://localhost:8000/google/callback/

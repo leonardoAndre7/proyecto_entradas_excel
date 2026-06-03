@@ -2,8 +2,14 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Vista admin (requiere login + staff)
     path('plano/', views.ver_plano, name="plano"),
-    path('guardar-lote/', views.guardar_lote, name="guardar_lote"),
-    path('eliminar-lote/', views.eliminar_lote, name="eliminar_lote"),
-    path('cambiar-estado/', views.cambiar_estado_lote, name="cambiar_estado_lote"),
+
+    # Vista pública para clientes (sin login, solo lectura)
+    path('mapa/', views.ver_mapa_publico, name="mapa_publico"),
+
+    # APIs (solo staff)
+    path('guardar-lote/',    views.guardar_lote,        name="guardar_lote"),
+    path('eliminar-lote/',   views.eliminar_lote,        name="eliminar_lote"),
+    path('cambiar-estado/',  views.cambiar_estado_lote,  name="cambiar_estado_lote"),
 ]

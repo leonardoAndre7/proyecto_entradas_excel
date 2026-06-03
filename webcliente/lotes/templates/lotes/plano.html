@@ -3,9 +3,8 @@
 <head>
 <title>Plano</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-
 <style>
-body{ margin:0; overflow:hidden; }
+body{ margin:0; overflow:hidden; background:#333; }
 
 #container{
   position:relative;
@@ -18,20 +17,62 @@ body{ margin:0; overflow:hidden; }
 
 #plano,#draw-layer{
   position:absolute;
-  left:0;
-  top:0;
+  left:0; top:0;
   transform-origin: top left;
 }
 
+/* Panel de control */
 .panel{
   position:fixed;
-  top:10px;
-  left:10px;
-  z-index:10;
-  background:white;
-  padding:10px;
-  border-radius:10px;
-  box-shadow:0 0 10px rgba(0,0,0,0.2);
+  top:10px; left:10px;
+  z-index:100;
+  background:rgba(30,30,30,0.92);
+  padding:12px 14px;
+  border-radius:12px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  color:#fff;
+  font-family:sans-serif;
+  font-size:13px;
+  min-width:160px;
+}
+.panel-title{ font-weight:700; font-size:14px; color:#ffd700; margin-bottom:2px; }
+.modo-btn{
+  padding:7px 12px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:600;
+  font-size:13px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  transition: transform 0.1s, opacity 0.1s;
+}
+.modo-btn:hover{ opacity:0.85; transform:scale(1.03); }
+.modo-btn.activo{ outline:3px solid #fff; }
+.btn-vendido{ background:#e53935; color:#fff; }
+.btn-reservado{ background:#f59e0b; color:#fff; }
+.btn-disponible{ background:#10b981; color:#fff; }
+.divider{ border-top:1px solid rgba(255,255,255,0.15); margin:2px 0; }
+.leyenda{ display:flex; flex-direction:column; gap:4px; }
+.leyenda-item{ display:flex; align-items:center; gap:6px; }
+.leyenda-dot{ width:14px; height:14px; border-radius:3px; }
+
+/* Tooltip al pasar el mouse */
+#tooltip{
+  position:fixed;
+  background:rgba(0,0,0,0.85);
+  color:#fff;
+  padding:5px 10px;
+  border-radius:6px;
+  font-family:sans-serif;
+  font-size:12px;
+  pointer-events:none;
+  display:none;
+  z-index:200;
 }
 </style>
 </head>
@@ -48,302 +89,290 @@ body{ margin:0; overflow:hidden; }
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#222;color:#fff;font-family:sans-serif;text-align:center;gap:16px;">
   <div style="font-size:60px;">🗺️</div>
   <h2 style="margin:0;">No hay plano configurado</h2>
-  <p style="color:#aaa;margin:0;">Ve al <a href="/admin/lotes/plano/add/" style="color:#90caf9;">Panel de Administración</a> para subir la imagen del mapa.</p>
+  <p style="color:#aaa;margin:0;">Ve al <a href="/admin/lotes/plano/add/" style="color:#90caf9;">Panel de Administración</a> para subir el mapa.</p>
 </div>
 {% endif %}
 
 {% if es_admin %}
 <div class="panel">
-  <button onclick="setModo('vendido')">🔴 Vendido</button>
-  <button onclick="setModo('reservado')">🟡 Reservado</button>
-  <button onclick="activarPoligono()">✏️ Polígono</button>
-  <button onclick="deshacer()">↩ Deshacer</button>
+  <div class="panel-title">🗺️ Gestor de Lotes</div>
+  <div style="color:#aaa;font-size:11px;">Clic en lote para cambiar estado</div>
+  <div class="divider"></div>
+  <button class="modo-btn btn-vendido activo" id="btn-vendido" onclick="setModo('vendido')">
+    🔴 Marcar Vendido
+  </button>
+  <button class="modo-btn btn-reservado" id="btn-reservado" onclick="setModo('reservado')">
+    🟡 Marcar Reservado
+  </button>
+  <button class="modo-btn btn-disponible" id="btn-disponible" onclick="setModo('disponible')">
+    🟢 Marcar Disponible
+  </button>
+  <div class="divider"></div>
+  <div class="leyenda">
+    <div class="leyenda-item"><div class="leyenda-dot" style="background:rgba(255,0,0,0.5)"></div> Vendido</div>
+    <div class="leyenda-item"><div class="leyenda-dot" style="background:rgba(255,200,0,0.5)"></div> Reservado</div>
+    <div class="leyenda-item"><div class="leyenda-dot" style="background:rgba(0,0,0,0)"></div> Disponible</div>
+  </div>
+</div>
+{% else %}
+<!-- Vista pública: solo leyenda -->
+<div style="position:fixed;top:10px;left:10px;z-index:100;background:rgba(30,30,30,0.88);padding:10px 14px;border-radius:10px;color:#fff;font-family:sans-serif;font-size:12px;">
+  <div style="font-weight:700;margin-bottom:6px;">🗺️ Estado del Plano</div>
+  <div style="display:flex;gap:12px;">
+    <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;background:rgba(255,0,0,0.5);border-radius:2px;"></span>Vendido</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:12px;height:12px;background:rgba(255,200,0,0.5);border-radius:2px;"></span>Reservado</span>
+  </div>
 </div>
 {% endif %}
 
+<div id="tooltip"></div>
+
 {% if plano %}
 <script>
-// Administrador
 const esAdmin = "{{ es_admin|yesno:'true,false' }}" === "true";
 
-// Datos lotes
 let lotes = [];
-try{ lotes = JSON.parse('{{ lotes|escapejs }}'); }catch(e){ console.log("Error lotes", e); }
-let historial = [];
+try{ lotes = JSON.parse('{{ lotes|escapejs }}'); }catch(e){}
 
-let modo="vendido";
-let modoDibujo="rect";
-let puntos=[];
+let modo = "vendido";
 
-function setModo(n){ modo=n; modoDibujo="rect"; }
-function activarPoligono(){ modoDibujo="poligono"; puntos=[]; }
+function setModo(m){
+  modo = m;
+  document.querySelectorAll('.modo-btn').forEach(b => b.classList.remove('activo'));
+  document.getElementById('btn-' + m)?.classList.add('activo');
+}
 
-const plano = document.getElementById("plano");
-const canvas = document.getElementById("draw-layer");
+const planoImg  = document.getElementById("plano");
+const canvas    = document.getElementById("draw-layer");
 const container = document.getElementById("container");
-const ctx = canvas.getContext("2d");
+const tooltip   = document.getElementById("tooltip");
+const ctx       = canvas.getContext("2d");
+
 let scale=1, minScale=1;
 let posX=0, posY=0;
 let isDragging=false;
-let startX,startY;
-let isDrawingRect=false;
-let rectStartX=0, rectStartY=0;
+let startX, startY, dragMovido=false;
 let lastDistance=null;
 
-/* INIT */
+/* ── INIT ── */
 function iniciar(){
-  if(!plano.naturalWidth){ setTimeout(iniciar,100); return; }
-  canvas.width = plano.naturalWidth;
-  canvas.height = plano.naturalHeight;
+  if(!planoImg.naturalWidth){ setTimeout(iniciar,100); return; }
+  canvas.width  = planoImg.naturalWidth;
+  canvas.height = planoImg.naturalHeight;
   let cw = container.clientWidth;
   let ch = container.clientHeight;
-  minScale = Math.max(cw/plano.naturalWidth, ch/plano.naturalHeight);
+  minScale = Math.max(cw/planoImg.naturalWidth, ch/planoImg.naturalHeight);
   scale = minScale;
   actualizarTransform();
   dibujarLotes();
 }
-plano.onload=iniciar;
-if(plano.complete) iniciar();
+planoImg.onload = iniciar;
+if(planoImg.complete) iniciar();
 
-/* DIBUJAR LOTES */
+/* ── DIBUJAR LOTES ── */
+function colorPorEstado(estado){
+  if(estado === "vendido")   return {fill:"rgba(220,50,50,0.45)",  stroke:"rgba(180,20,20,0.8)"};
+  if(estado === "reservado") return {fill:"rgba(255,200,0,0.45)",  stroke:"rgba(200,140,0,0.8)"};
+  return {fill:"rgba(0,0,0,0)", stroke:"rgba(100,100,100,0.3)"};
+}
+
 function dibujarLotes(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  lotes.forEach(l=>{
-      let color = l.estado==="vendido" ? "rgba(255,0,0,0.4)" : "rgba(255,255,0,0.4)";
-      if(l.width!=null){ ctx.fillStyle=color; ctx.fillRect(l.x,l.y,l.width,l.height); }
-      if(l.puntos && l.puntos.length>=2){
-            ctx.fillStyle = "rgba(255,0,0,0.3)";  // rojo transparente
-            ctx.strokeStyle = "black";
-            ctx.lineWidth = 4;                     // grosor de línea (puedes ajustar)
-            ctx.beginPath();
-            l.puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-            ctx.closePath();
-            ctx.fill();    // relleno
-            //ctx.stroke();  // borde
-        }
+  lotes.forEach(l => {
+    const c = colorPorEstado(l.estado);
+    ctx.fillStyle   = c.fill;
+    ctx.strokeStyle = c.stroke;
+    ctx.lineWidth   = 1.5;
+
+    if(l.puntos && l.puntos.length >= 3){
+      ctx.beginPath();
+      l.puntos.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if(l.width != null){
+      ctx.fillRect(l.x, l.y, l.width, l.height);
+      ctx.strokeRect(l.x, l.y, l.width, l.height);
+    }
   });
 }
 
-/* DETECTAR LOTE */
+/* ── DETECTAR LOTE BAJO EL CURSOR ── */
 function obtenerLoteEn(x,y){
-  for(let i=lotes.length-1;i>=0;i--){
-      let l=lotes[i];
-      if(l.width!=null && x>=l.x && x<=l.x+l.width && y>=l.y && y<=l.y+l.height) return l;
-      if(l.puntos && l.puntos.length>=3){
-          let dentro=false;
-          for(let j=0,k=l.puntos.length-1;j<l.puntos.length;k=j++){
-              let xi=l.puntos[j].x, yi=l.puntos[j].y;
-              let xj=l.puntos[k].x, yj=l.puntos[k].y;
-              let intersect=((yi>y)!=(yj>y)) && (x<(xj-xi)*(y-yi)/(yj-yi)+xi);
-              if(intersect) dentro=!dentro;
-          }
-          if(dentro) return l;
+  for(let i=lotes.length-1; i>=0; i--){
+    const l = lotes[i];
+    if(l.width != null && x>=l.x && x<=l.x+l.width && y>=l.y && y<=l.y+l.height) return l;
+    if(l.puntos && l.puntos.length>=3){
+      let dentro=false, j=l.puntos.length-1;
+      for(let k=0; k<l.puntos.length; j=k++){
+        const xi=l.puntos[k].x, yi=l.puntos[k].y;
+        const xj=l.puntos[j].x, yj=l.puntos[j].y;
+        if(((yi>y)!=(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) dentro=!dentro;
       }
+      if(dentro) return l;
+    }
   }
   return null;
 }
 
-/* ELIMINAR LOTE */
-function eliminarLote(lote){
-  lotes = lotes.filter(l=>l.id!==lote.id);
-  fetch("/lotes/eliminar-lote/",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json","X-CSRFToken":getCookie("csrftoken") },
-      body:JSON.stringify({id:lote.id})
-  });
+/* ── CAMBIAR ESTADO (1 CLIC) ── */
+function cambiarEstado(lote, nuevoEstado){
+  const idx = lotes.findIndex(l => l.id === lote.id);
+  if(idx < 0) return;
+  lotes[idx].estado = nuevoEstado;
   dibujarLotes();
+
+  fetch("/lotes/cambiar-estado/", {
+    method: "POST",
+    headers: {"Content-Type":"application/json","X-CSRFToken": getCookie("csrftoken")},
+    body: JSON.stringify({id: lote.id, estado: nuevoEstado})
+  }).catch(err => console.error("Error guardando estado:", err));
 }
 
-/* MOUSE */
-container.addEventListener("mousedown",function(e){
-  let rect = canvas.getBoundingClientRect();
-  let x=(e.clientX-rect.left)/scale;
-  let y=(e.clientY-rect.top)/scale;
-
-  if(e.altKey && esAdmin){ let lote=obtenerLoteEn(x,y); if(lote){ eliminarLote(lote); return; } }
-  if(e.shiftKey && esAdmin && modoDibujo==="rect"){ isDrawingRect=true; rectStartX=x; rectStartY=y; }
-  else{ isDragging=true; startX=e.clientX-posX; startY=e.clientY-posY; }
+/* ── EVENTOS MOUSE ── */
+container.addEventListener("mousedown", function(e){
+  isDragging = true;
+  dragMovido = false;
+  startX = e.clientX - posX;
+  startY = e.clientY - posY;
 });
 
-document.addEventListener("mousemove",function(e){
-  if(isDragging){ posX=e.clientX-startX; posY=e.clientY-startY; limitar(); actualizarTransform(); }
-  if(isDrawingRect){
-      let rect = canvas.getBoundingClientRect();
-      let x=(e.clientX-rect.left)/scale;
-      let y=(e.clientY-rect.top)/scale;
-      dibujarLotes();
-      ctx.strokeStyle="black";
-      ctx.strokeRect(rectStartX,rectStartY,x-rectStartX,y-rectStartY);
+document.addEventListener("mousemove", function(e){
+  if(isDragging){
+    const dx = e.clientX - (startX + posX);
+    const dy = e.clientY - (startY + posY);
+    if(Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMovido = true;
+    posX = e.clientX - startX;
+    posY = e.clientY - startY;
+    limitar();
+    actualizarTransform();
+  }
+
+  // Tooltip
+  if(!isDragging){
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top)  / scale;
+    const lote = obtenerLoteEn(x, y);
+    if(lote){
+      tooltip.style.display = "block";
+      tooltip.style.left = (e.clientX + 14) + "px";
+      tooltip.style.top  = (e.clientY - 10) + "px";
+      const estados = {vendido:"🔴 Vendido", reservado:"🟡 Reservado", disponible:"🟢 Disponible"};
+      tooltip.textContent = `Lote ${lote.id} — ${estados[lote.estado] || lote.estado}`;
+    } else {
+      tooltip.style.display = "none";
+    }
   }
 });
 
-document.addEventListener("mouseup",function(e){
-  isDragging=false;
-  if(isDrawingRect){
-      let rect = canvas.getBoundingClientRect();
-      let x=(e.clientX-rect.left)/scale;
-      let y=(e.clientY-rect.top)/scale;
-      guardarRect(rectStartX,rectStartY,x-rectStartX,y-rectStartY);
-      isDrawingRect=false;
+document.addEventListener("mouseup", function(e){
+  isDragging = false;
+  if(!dragMovido && esAdmin){
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top)  / scale;
+    const lote = obtenerLoteEn(x, y);
+    if(lote) cambiarEstado(lote, modo);
   }
+  tooltip.style.display = "none";
 });
 
-/* POLIGONO */
-container.addEventListener("click",function(e){
-  if(!esAdmin || modoDibujo!=="poligono") return;
-  let rect=canvas.getBoundingClientRect();
-  let x=(e.clientX-rect.left)/scale;
-  let y=(e.clientY-rect.top)/scale;
-  puntos.push({x,y});
-  dibujarLotes();
-  ctx.strokeStyle="black";
-  ctx.lineWidth=18;
-  ctx.beginPath();
-  puntos.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-  ctx.stroke();
-});
-
-/* CLICK DERECHO = FINALIZAR POLIGONO */
-container.addEventListener("contextmenu",function(e){
+/* ── ZOOM MOUSE ── */
+container.addEventListener("wheel", function(e){
   e.preventDefault();
-  if(!esAdmin || modoDibujo!=="poligono") return;
-  if(puntos.length<3) return;
-  guardarPoligono(puntos);
-  puntos=[]; modoDibujo="rect";
-});
-
-/* ZOOM MOUSE */
-container.addEventListener("wheel",function(e){
-  e.preventDefault();
-  let rect=container.getBoundingClientRect();
-  let cx=e.clientX-rect.left;
-  let cy=e.clientY-rect.top;
-
-  let prev=scale;
-  scale += (e.deltaY<0?0.1:-0.1);
-  if(scale<minScale) scale=minScale;
-  if(scale>5) scale=5;
-
-  let ratio = scale/prev;
+  const rect = container.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const prev = scale;
+  scale += (e.deltaY < 0 ? 0.1 : -0.1);
+  if(scale < minScale) scale = minScale;
+  if(scale > 8) scale = 8;
+  const ratio = scale / prev;
   posX = cx - (cx - posX) * ratio;
   posY = cy - (cy - posY) * ratio;
-
   limitar();
   actualizarTransform();
 });
 
-/* TOUCH */
-container.addEventListener("touchstart",function(e){
-  if(e.touches.length===1){ let t=e.touches[0]; isDragging=true; startX=t.clientX-posX; startY=t.clientY-posY; }
-  if(e.touches.length===2){ lastDistance=getDistance(e.touches); }
+/* ── TOUCH ── */
+container.addEventListener("touchstart", function(e){
+  if(e.touches.length===1){
+    isDragging=true; dragMovido=false;
+    startX = e.touches[0].clientX - posX;
+    startY = e.touches[0].clientY - posY;
+  }
+  if(e.touches.length===2) lastDistance = getDistance(e.touches);
 },{passive:false});
 
 container.addEventListener("touchmove", function(e){
   e.preventDefault();
-
-  if(e.touches.length === 1 && isDragging){
-      let t = e.touches[0];
-      posX = t.clientX - startX;
-      posY = t.clientY - startY;
-      limitar(); actualizarTransform();
+  if(e.touches.length===1 && isDragging){
+    const dx = e.touches[0].clientX - (startX + posX);
+    const dy = e.touches[0].clientY - (startY + posY);
+    if(Math.abs(dx)>5 || Math.abs(dy)>5) dragMovido = true;
+    posX = e.touches[0].clientX - startX;
+    posY = e.touches[0].clientY - startY;
+    limitar(); actualizarTransform();
   }
-
-  if(e.touches.length === 2){
-      let newDist = getDistance(e.touches);
-      let rect = container.getBoundingClientRect();
-      let cx = (e.touches[0].clientX + e.touches[1].clientX)/2 - rect.left;
-      let cy = (e.touches[0].clientY + e.touches[1].clientY)/2 - rect.top;
-
-      if(lastDistance){
-          let prev = scale;
-          scale += (newDist - lastDistance) * 0.005;
-          if(scale<minScale) scale=minScale;
-          if(scale>5) scale=5;
-
-          let ratio = scale/prev;
-          posX = cx - (cx - posX) * ratio;
-          posY = cy - (cy - posY) * ratio;
-      }
-
-      lastDistance = newDist;
-      limitar();
-      actualizarTransform();
+  if(e.touches.length===2){
+    const newDist = getDistance(e.touches);
+    const rect = container.getBoundingClientRect();
+    const cx = (e.touches[0].clientX + e.touches[1].clientX)/2 - rect.left;
+    const cy = (e.touches[0].clientY + e.touches[1].clientY)/2 - rect.top;
+    if(lastDistance){
+      const prev = scale;
+      scale += (newDist - lastDistance) * 0.005;
+      if(scale < minScale) scale = minScale;
+      if(scale > 8) scale = 8;
+      const ratio = scale / prev;
+      posX = cx - (cx - posX) * ratio;
+      posY = cy - (cy - posY) * ratio;
+    }
+    lastDistance = newDist;
+    limitar(); actualizarTransform();
   }
 },{passive:false});
 
 container.addEventListener("touchend", function(e){
-  isDragging=false;
-  lastDistance=null;
+  if(!dragMovido && esAdmin && e.changedTouches.length===1){
+    const t = e.changedTouches[0];
+    const rect = canvas.getBoundingClientRect();
+    const x = (t.clientX - rect.left) / scale;
+    const y = (t.clientY - rect.top)  / scale;
+    const lote = obtenerLoteEn(x, y);
+    if(lote) cambiarEstado(lote, modo);
+  }
+  isDragging = false;
+  lastDistance = null;
 });
 
-/* GUARDAR RECT */
-function guardarRect(x,y,w,h){
-  const planoId=document.getElementById("plano_id").value;
-  fetch("/lotes/guardar-lote/",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json","X-CSRFToken":getCookie("csrftoken") },
-    body:JSON.stringify({x,y,width:w,height:h,estado:modo,plano_id:planoId})
-  })
-  .then(r=>r.json())
-  .then(d=>{ lotes.push({id:d.id,x,y,width:w,height:h,estado:modo}); historial.push(d.id); dibujarLotes(); });
-}
-
-/* GUARDAR POLIGONO */
-function guardarPoligono(puntos){
-  const planoId=document.getElementById("plano_id").value;
-  fetch("/lotes/guardar-lote/",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json","X-CSRFToken":getCookie("csrftoken") },
-    body:JSON.stringify({puntos,estado:modo,plano_id:planoId})
-  })
-  .then(r=>r.json())
-  .then(d=>{ lotes.push({id:d.id,puntos:[...puntos],estado:modo}); historial.push(d.id); dibujarLotes(); });
-}
-
-/* DESHACER */
-function deshacer(){
-  if(historial.length===0) return;
-  let id=historial.pop();
-  lotes=lotes.filter(l=>l.id!==id);
-  fetch("/lotes/eliminar-lote/",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json","X-CSRFToken":getCookie("csrftoken") },
-    body:JSON.stringify({id})
-  });
-  dibujarLotes();
-}
-
-/* CSRF */
-function getCookie(name){
-  let v=null;
-  if(document.cookie){
-    document.cookie.split(';').forEach(c=>{ c=c.trim(); if(c.startsWith(name+'=')){ v=decodeURIComponent(c.substring(name.length+1)); } });
-  }
-  return v;
-}
-
-/* DISTANCIA TOUCH */
-function getDistance(t){
-  let dx=t[0].clientX-t[1].clientX;
-  let dy=t[0].clientY-t[1].clientY;
-  return Math.sqrt(dx*dx+dy*dy);
-}
-
-/* LIMIT Y TRANSFORM */
+/* ── HELPERS ── */
 function limitar(){
-  let w=plano.naturalWidth*scale;
-  let h=plano.naturalHeight*scale;
-  let minX=container.clientWidth-w;
-  let minY=container.clientHeight-h;
-  if(posX>0) posX=0;
-  if(posY>0) posY=0;
-  if(posX<minX) posX=minX;
-  if(posY<minY) posY=minY;
+  const w = planoImg.naturalWidth  * scale;
+  const h = planoImg.naturalHeight * scale;
+  const minX = container.clientWidth  - w;
+  const minY = container.clientHeight - h;
+  if(posX > 0) posX = 0;
+  if(posY > 0) posY = 0;
+  if(posX < minX) posX = minX;
+  if(posY < minY) posY = minY;
 }
 function actualizarTransform(){
-  let t=`translate(${posX}px,${posY}px) scale(${scale})`;
-  plano.style.transform=t;
-  canvas.style.transform=t;
+  const t = `translate(${posX}px,${posY}px) scale(${scale})`;
+  planoImg.style.transform = t;
+  canvas.style.transform   = t;
+}
+function getCookie(name){
+  let v=null;
+  if(document.cookie) document.cookie.split(';').forEach(c=>{
+    c=c.trim(); if(c.startsWith(name+'=')) v=decodeURIComponent(c.substring(name.length+1));
+  });
+  return v;
+}
+function getDistance(t){
+  const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY;
+  return Math.sqrt(dx*dx+dy*dy);
 }
 </script>
 {% endif %}

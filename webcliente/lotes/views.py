@@ -19,7 +19,7 @@ def ver_plano(request):
 
     lotes = []
 
-    for l in lotes_qs:
+    for idx, l in enumerate(lotes_qs, start=1):
         lotes.append({
             "id": l.id,
             "x": l.x,
@@ -27,7 +27,6 @@ def ver_plano(request):
             "width": l.width,
             "height": l.height,
             "estado": l.estado,
-            # 🔥 ASEGURAR LISTA REAL
             "puntos": list(l.puntos) if l.puntos else None
         })
 
@@ -74,6 +73,23 @@ def guardar_lote(request):
             "id": lote.id
         })
     
+
+
+@login_required
+def cambiar_estado_lote(request):
+    """Cambia el estado de un lote con un solo clic (disponible → vendido → reservado → disponible)."""
+    if request.method == "POST":
+        if not request.user.is_staff:
+            return JsonResponse({"error": "No autorizado"}, status=403)
+        data = json.loads(request.body)
+        lote = get_object_or_404(Lote, id=data["id"])
+        nuevo_estado = data.get("estado")  # estado enviado desde el frontend
+        if nuevo_estado in ["disponible", "vendido", "reservado"]:
+            lote.estado = nuevo_estado
+            lote.save()
+            return JsonResponse({"status": "ok", "estado": lote.estado})
+        return JsonResponse({"error": "Estado inválido"}, status=400)
+    return JsonResponse({"error": "Método no permitido"}, status=405)
 
 
 @login_required

@@ -4,7 +4,7 @@ from django.db import models
 
 logger = logging.getLogger(__name__)
 
-ESCALA_PNG = 2  # Matrix(2,2) en la conversión → multiplicar coords por 2
+ESCALA_PNG = 1.5  # Matrix(1.5,1.5) — balance calidad/velocidad para PDFs grandes
 
 
 class Plano(models.Model):
@@ -17,9 +17,11 @@ class Plano(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # Si el archivo subido es PDF → convertir + importar lotes automáticamente
+        # Si el archivo subido es PDF → convertir + importar lotes en hilo separado
         if self.imagen and self.imagen.name.lower().endswith('.pdf'):
-            self._procesar_pdf()
+            import threading
+            t = threading.Thread(target=self._procesar_pdf, daemon=True)
+            t.start()
 
     def _procesar_pdf(self):
         """

@@ -1,33 +1,28 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<meta charset="utf-8">
 <title>Mapa de Lotes</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #0f172a; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
 
-#container {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: #1e293b;
-  touch-action: none;
-}
-#plano, #draw-layer {
-  position: absolute;
-  left: 0; top: 0;
-  transform-origin: top left;
-}
+#map { width: 100vw; height: 100vh; background: #1e293b; }
+.leaflet-container { background: #1e293b; }
 
 /* ── Panel superior de estadísticas ── */
 .stats-panel {
   position: fixed;
   top: 12px; left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 1000;
   background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 16px;
@@ -41,67 +36,37 @@ body { background: #0f172a; font-family: 'Segoe UI', sans-serif; overflow: hidde
   flex-wrap: wrap;
   justify-content: center;
 }
-.stats-title {
-  font-weight: 700;
-  font-size: 15px;
-  color: #fbbf24;
-  white-space: nowrap;
-}
+.stats-title { font-weight: 700; font-size: 15px; color: #fbbf24; white-space: nowrap; }
 .stat-chip {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  display: flex; align-items: center; gap: 7px;
   background: rgba(255,255,255,0.06);
-  border-radius: 10px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
+  border-radius: 10px; padding: 6px 12px;
+  font-size: 13px; font-weight: 600; white-space: nowrap;
 }
-.dot {
-  width: 12px; height: 12px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
+.dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
 
 /* ── Leyenda inferior ── */
 .leyenda {
   position: fixed;
   bottom: 14px; left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 1000;
   background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
   padding: 8px 18px;
-  display: flex;
-  gap: 18px;
-  color: #fff;
-  font-size: 12px;
+  display: flex; gap: 18px;
+  color: #fff; font-size: 12px;
   backdrop-filter: blur(12px);
+  flex-wrap: wrap; justify-content: center;
 }
 .leyenda-item { display: flex; align-items: center; gap: 6px; }
-
-/* ── Tooltip ── */
-#tooltip {
-  position: fixed;
-  background: rgba(0,0,0,0.88);
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  pointer-events: none;
-  display: none;
-  z-index: 200;
-  border: 1px solid rgba(255,255,255,0.1);
-}
 
 /* ── Mensaje sin plano ── */
 .sin-plano {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  height: 100vh;
-  color: #fff; text-align: center; gap: 12px;
+  height: 100vh; color: #fff; text-align: center; gap: 12px;
 }
 </style>
 </head>
@@ -115,10 +80,8 @@ body { background: #0f172a; font-family: 'Segoe UI', sans-serif; overflow: hidde
     <p style="color:#94a3b8;">El mapa estará disponible en breve.</p>
   </div>
   {% else %}
-  <div id="container">
-    <img id="plano" src="{{ plano.imagen.url }}" alt="Plano">
-    <canvas id="draw-layer"></canvas>
-  </div>
+  <div id="map"></div>
+  <input type="hidden" id="plano_url" value="{{ plano.imagen.url }}">
   {% endif %}
 
 <!-- Panel de estadísticas -->
@@ -150,7 +113,7 @@ body { background: #0f172a; font-family: 'Segoe UI', sans-serif; overflow: hidde
     <span class="dot" style="background:rgba(245,158,11,0.6);"></span> Separado / Reservado
   </div>
   <div class="leyenda-item">
-    <span class="dot" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);"></span> Disponible
+    <span class="dot" style="background:rgba(16,185,129,0.5);"></span> Disponible
   </div>
   <div class="leyenda-item" style="color:#64748b;">
     <i class="bi bi-hand-index"></i> Toca un lote para ver su estado
@@ -165,168 +128,59 @@ body { background: #0f172a; font-family: 'Segoe UI', sans-serif; overflow: hidde
 </div>
 {% endif %}
 
-<div id="tooltip"></div>
-
 {% if plano %}
 <script>
 let lotes = [];
-try { lotes = JSON.parse('{{ lotes|escapejs }}'); } catch(e) {}
+try { lotes = JSON.parse('{{ lotes|escapejs }}'); } catch (e) { console.error(e); }
 
-const planoImg  = document.getElementById("plano");
-const canvas    = document.getElementById("draw-layer");
-const container = document.getElementById("container");
-const tooltip   = document.getElementById("tooltip");
-const ctx       = canvas.getContext("2d");
-
-let scale=1, minScale=1;
-let posX=0, posY=0;
-let isDragging=false, dragMovido=false;
-let startX, startY, lastDistance=null;
-
-/* ── INIT ── */
-function iniciar() {
-  if (!planoImg.naturalWidth) { setTimeout(iniciar, 100); return; }
-  canvas.width  = planoImg.naturalWidth;
-  canvas.height = planoImg.naturalHeight;
-  minScale = Math.max(container.clientWidth / planoImg.naturalWidth,
-                      container.clientHeight / planoImg.naturalHeight);
-  scale = minScale;
-  actualizarTransform();
-  dibujarLotes();
+function estiloPorEstado(estado) {
+  if (estado === "vendido")   return { color: "#b91c1c", fillColor: "#e53935", fillOpacity: 0.55, weight: 1.2 };
+  if (estado === "reservado") return { color: "#b45309", fillColor: "#f59e0b", fillOpacity: 0.55, weight: 1.2 };
+  if (estado === "bloqueado") return { color: "#334155", fillColor: "#475569", fillOpacity: 0.85, weight: 0.5 };
+  /* disponible */
+  return { color: "#64748b", fillColor: "#10b981", fillOpacity: 0.10, weight: 0.8 };
 }
-planoImg.onload = iniciar;
-if (planoImg.complete) iniciar();
+const ETIQUETAS = {
+  vendido:    "🔴 Vendido",
+  reservado:  "🟡 Separado / Reservado",
+  disponible: "🟢 Disponible",
+  bloqueado:  "⬛ No disponible",
+};
 
-/* ── DIBUJAR ── */
-function colorPorEstado(estado) {
-  if (estado === "vendido")   return { fill: "rgba(229,57,53,0.50)",  stroke: "rgba(180,20,20,0.9)" };
-  if (estado === "reservado") return { fill: "rgba(245,158,11,0.50)", stroke: "rgba(200,120,0,0.9)" };
-  return { fill: "rgba(255,255,255,0.04)", stroke: "rgba(255,255,255,0.15)" };
-}
+const planoUrl = document.getElementById("plano_url").value;
+const img = new Image();
+img.onload = () => iniciarMapa(img.naturalWidth, img.naturalHeight);
+img.src = planoUrl;
 
-function dibujarLotes() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  lotes.forEach(l => {
-    const c = colorPorEstado(l.estado);
-    ctx.fillStyle   = c.fill;
-    ctx.strokeStyle = c.stroke;
-    ctx.lineWidth   = 1.5;
-    if (l.puntos && l.puntos.length >= 3) {
-      ctx.beginPath();
-      l.puntos.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-      ctx.closePath();
-      ctx.fill(); ctx.stroke();
-    } else if (l.width != null) {
-      ctx.fillRect(l.x, l.y, l.width, l.height);
-      ctx.strokeRect(l.x, l.y, l.width, l.height);
-    }
+function iniciarMapa(W, H) {
+  const map = L.map('map', {
+    crs: L.CRS.Simple,
+    minZoom: -5,
+    maxZoom: 4,
+    zoomControl: true,
+    attributionControl: false,
+    zoomSnap: 0.1,
   });
-}
 
-/* ── DETECTAR LOTE ── */
-function obtenerLoteEn(x, y) {
-  for (let i = lotes.length - 1; i >= 0; i--) {
-    const l = lotes[i];
-    if (l.width != null && x >= l.x && x <= l.x + l.width && y >= l.y && y <= l.y + l.height) return l;
-    if (l.puntos && l.puntos.length >= 3) {
-      let dentro = false, j = l.puntos.length - 1;
-      for (let k = 0; k < l.puntos.length; j = k++) {
-        const xi = l.puntos[k].x, yi = l.puntos[k].y;
-        const xj = l.puntos[j].x, yj = l.puntos[j].y;
-        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) dentro = !dentro;
-      }
-      if (dentro) return l;
+  const bounds = [[0, 0], [H, W]];
+  L.imageOverlay(planoUrl, bounds).addTo(map);
+  map.fitBounds(bounds);
+  map.setMaxBounds(bounds);
+
+  const aLatLng = p => [H - p.y, p.x];
+
+  lotes.forEach(l => {
+    if (!l.puntos || l.puntos.length < 3) return;
+    // Los bloqueados no son lotes reales: no se resaltan ni muestran tooltip de estado
+    if (l.estado === 'bloqueado') {
+      L.polygon(l.puntos.map(aLatLng), estiloPorEstado('bloqueado')).addTo(map);
+      return;
     }
-  }
-  return null;
-}
-
-/* ── MOUSE ── */
-container.addEventListener("mousedown", e => {
-  isDragging = true; dragMovido = false;
-  startX = e.clientX - posX; startY = e.clientY - posY;
-});
-document.addEventListener("mousemove", e => {
-  if (isDragging) {
-    if (Math.abs(e.clientX - (startX + posX)) > 3 || Math.abs(e.clientY - (startY + posY)) > 3)
-      dragMovido = true;
-    posX = e.clientX - startX; posY = e.clientY - startY;
-    limitar(); actualizarTransform();
-  }
-  // Tooltip (solo lectura)
-  const rect = canvas.getBoundingClientRect();
-  const lote = obtenerLoteEn((e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale);
-  if (lote && !isDragging) {
-    const etiquetas = { vendido: "🔴 Vendido", reservado: "🟡 Separado / Reservado", disponible: "🟢 Disponible" };
-    tooltip.textContent = etiquetas[lote.estado] || lote.estado;
-    tooltip.style.display = "block";
-    tooltip.style.left = (e.clientX + 14) + "px";
-    tooltip.style.top  = (e.clientY - 10) + "px";
-  } else {
-    tooltip.style.display = "none";
-  }
-});
-document.addEventListener("mouseup", () => { isDragging = false; });
-
-/* ── ZOOM ── */
-container.addEventListener("wheel", e => {
-  e.preventDefault();
-  const rect = container.getBoundingClientRect();
-  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-  const prev = scale;
-  scale = Math.max(minScale, Math.min(8, scale + (e.deltaY < 0 ? 0.1 : -0.1)));
-  const ratio = scale / prev;
-  posX = cx - (cx - posX) * ratio; posY = cy - (cy - posY) * ratio;
-  limitar(); actualizarTransform();
-});
-
-/* ── TOUCH ── */
-container.addEventListener("touchstart", e => {
-  if (e.touches.length === 1) {
-    isDragging = true; dragMovido = false;
-    startX = e.touches[0].clientX - posX; startY = e.touches[0].clientY - posY;
-  }
-  if (e.touches.length === 2) lastDistance = getDist(e.touches);
-}, { passive: false });
-
-container.addEventListener("touchmove", e => {
-  e.preventDefault();
-  if (e.touches.length === 1 && isDragging) {
-    const dx = e.touches[0].clientX - (startX + posX);
-    const dy = e.touches[0].clientY - (startY + posY);
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) dragMovido = true;
-    posX = e.touches[0].clientX - startX; posY = e.touches[0].clientY - startY;
-    limitar(); actualizarTransform();
-  }
-  if (e.touches.length === 2) {
-    const nd = getDist(e.touches);
-    const rect = container.getBoundingClientRect();
-    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
-    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
-    if (lastDistance) {
-      const prev = scale;
-      scale = Math.max(minScale, Math.min(8, scale + (nd - lastDistance) * 0.005));
-      const r = scale / prev;
-      posX = cx - (cx - posX) * r; posY = cy - (cy - posY) * r;
-    }
-    lastDistance = nd; limitar(); actualizarTransform();
-  }
-}, { passive: false });
-container.addEventListener("touchend", e => { isDragging = false; lastDistance = null; });
-
-/* ── HELPERS ── */
-function limitar() {
-  const w = planoImg.naturalWidth * scale, h = planoImg.naturalHeight * scale;
-  posX = Math.min(0, Math.max(container.clientWidth  - w, posX));
-  posY = Math.min(0, Math.max(container.clientHeight - h, posY));
-}
-function actualizarTransform() {
-  const t = `translate(${posX}px,${posY}px) scale(${scale})`;
-  planoImg.style.transform = canvas.style.transform = t;
-}
-function getDist(t) {
-  const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
-  return Math.sqrt(dx * dx + dy * dy);
+    const poly = L.polygon(l.puntos.map(aLatLng), estiloPorEstado(l.estado)).addTo(map);
+    poly.bindTooltip(ETIQUETAS[l.estado] || l.estado, { sticky: true, direction: "top" });
+    poly.on('mouseover', () => poly.setStyle({ weight: 2.5, color: "#fff" }));
+    poly.on('mouseout',  () => poly.setStyle(estiloPorEstado(l.estado)));
+  });
 }
 </script>
 {% endif %}

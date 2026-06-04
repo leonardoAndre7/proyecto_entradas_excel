@@ -165,6 +165,7 @@ class Lote(models.Model):
             ("disponible", "Disponible"),
             ("vendido",    "Vendido"),
             ("reservado",  "Reservado"),
+            ("bloqueado",  "Bloqueado"),  # zonas que NO son lotes (caminos, lagunas, etc.)
         ],
         default="disponible"
     )

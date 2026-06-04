@@ -1,31 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+<meta charset="utf-8">
 <title>Plano — Administración</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-serif; }
 
-#container {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: #eee;
-  touch-action: none;
-}
-#plano, #draw-layer {
-  position: absolute;
-  left: 0; top: 0;
-  transform-origin: top left;
-}
+#map { width: 100vw; height: 100vh; background: #1e293b; }
+.leaflet-container { background: #1e293b; }
 
 /* Panel de control */
 .panel {
   position: fixed;
   top: 12px; left: 12px;
-  z-index: 100;
+  z-index: 1000;
   background: rgba(15, 23, 42, 0.95);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 14px;
@@ -35,10 +30,10 @@ body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-seri
   gap: 8px;
   color: #fff;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  min-width: 175px;
+  min-width: 185px;
 }
 .panel-title { font-weight: 700; font-size: 14px; color: #fbbf24; margin-bottom: 2px; }
-.panel-sub   { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+.panel-sub   { font-size: 11px; color: #94a3b8; margin-bottom: 4px; line-height: 1.35; }
 .modo-btn {
   padding: 8px 14px; border: none; border-radius: 9px;
   cursor: pointer; font-weight: 600; font-size: 13px;
@@ -51,16 +46,10 @@ body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-seri
 .btn-vendido    { background: #dc2626; color: #fff; }
 .btn-reservado  { background: #d97706; color: #fff; }
 .btn-disponible { background: #059669; color: #fff; }
-.divider { border-top: 1px solid rgba(255,255,255,0.1); }
-
-#tooltip {
-  position: fixed;
-  background: rgba(0,0,0,0.88);
-  color: #fff; padding: 5px 11px;
-  border-radius: 7px; font-size: 12px;
-  pointer-events: none; display: none; z-index: 200;
-  border: 1px solid rgba(255,255,255,0.1);
-}
+.btn-bloqueado  { background: #475569; color: #fff; }
+.divider { border-top: 1px solid rgba(255,255,255,0.1); margin: 2px 0; }
+.contador { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.contador strong { color: #fff; }
 </style>
 </head>
 <body>
@@ -75,11 +64,9 @@ body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-seri
     <a href="/admin/lotes/plano/" style="color:#60a5fa;margin-top:8px;">→ Ir al Admin de Planos</a>
   </div>
   {% else %}
-  <div id="container">
-    <img id="plano" src="{{ plano.imagen.url }}" alt="Plano">
-    <canvas id="draw-layer"></canvas>
-    <input type="hidden" id="plano_id" value="{{ plano.id }}">
-  </div>
+  <div id="map"></div>
+  <input type="hidden" id="plano_id" value="{{ plano.id }}">
+  <input type="hidden" id="plano_url" value="{{ plano.imagen.url }}">
   {% endif %}
 {% else %}
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#fff;text-align:center;gap:14px;">
@@ -89,10 +76,11 @@ body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-seri
 </div>
 {% endif %}
 
-<!-- Panel admin — siempre visible -->
+<!-- Panel admin -->
+{% if plano %}
 <div class="panel">
   <div class="panel-title">🗺️ Gestión de Lotes</div>
-  <div class="panel-sub">Clic en un lote para cambiar estado</div>
+  <div class="panel-sub">Selecciona un modo y haz clic en cada lote, uno por uno, para cambiar su estado.</div>
   <div class="divider"></div>
   <button class="modo-btn btn-vendido activo" id="btn-vendido"    onclick="setModo('vendido')">
     🔴 Marcar Vendido
@@ -103,17 +91,20 @@ body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-seri
   <button class="modo-btn btn-disponible"     id="btn-disponible" onclick="setModo('disponible')">
     🟢 Disponible
   </button>
+  <button class="modo-btn btn-bloqueado"      id="btn-bloqueado"  onclick="setModo('bloqueado')">
+    ⬛ Bloquear (no es lote)
+  </button>
+  <div class="divider"></div>
+  <div class="contador" id="contador">Cargando…</div>
 </div>
-
-<div id="tooltip"></div>
+{% endif %}
 
 {% if plano %}
 <script>
 let lotes = [];
-try { lotes = JSON.parse('{{ lotes|escapejs }}'); } catch(e) {}
+try { lotes = JSON.parse('{{ lotes|escapejs }}'); } catch (e) { console.error("Error leyendo lotes:", e); }
 
 let modo = "vendido";
-
 function setModo(m) {
   modo = m;
   document.querySelectorAll('.modo-btn').forEach(b => b.classList.remove('activo'));
@@ -121,168 +112,118 @@ function setModo(m) {
   if (btn) btn.classList.add('activo');
 }
 
-const planoImg  = document.getElementById("plano");
-const canvas    = document.getElementById("draw-layer");
-const container = document.getElementById("container");
-const tooltip   = document.getElementById("tooltip");
-const ctx       = canvas.getContext("2d");
-
-let scale = 1, minScale = 1;
-let posX = 0, posY = 0;
-let isDragging = false, dragMovido = false;
-let startX, startY, lastDistance = null;
-
-function iniciar() {
-  if (!planoImg.naturalWidth) { setTimeout(iniciar, 100); return; }
-  canvas.width  = planoImg.naturalWidth;
-  canvas.height = planoImg.naturalHeight;
-  minScale = Math.max(
-    container.clientWidth  / planoImg.naturalWidth,
-    container.clientHeight / planoImg.naturalHeight
-  );
-  scale = minScale;
-  actualizarTransform();
-  dibujarLotes();
+/* Colores por estado */
+function estiloPorEstado(estado) {
+  if (estado === "vendido")   return { color: "#b91c1c", fillColor: "#dc2626", fillOpacity: 0.55, weight: 1.5 };
+  if (estado === "reservado") return { color: "#b45309", fillColor: "#d97706", fillOpacity: 0.55, weight: 1.5 };
+  if (estado === "bloqueado") return { color: "#334155", fillColor: "#475569", fillOpacity: 0.75, weight: 1   };
+  /* disponible */
+  return { color: "#64748b", fillColor: "#22c55e", fillOpacity: 0.0, weight: 1 };
 }
-planoImg.onload = iniciar;
-if (planoImg.complete) iniciar();
+const ETIQUETAS = {
+  vendido:    "🔴 Vendido",
+  reservado:  "🟡 Separado",
+  disponible: "🟢 Disponible",
+  bloqueado:  "⬛ Bloqueado",
+};
 
-function colorPorEstado(estado) {
-  if (estado === "vendido")   return { fill: "rgba(220,38,38,0.50)",  stroke: "rgba(185,28,28,0.9)" };
-  if (estado === "reservado") return { fill: "rgba(217,119,6,0.50)",  stroke: "rgba(180,100,0,0.9)" };
-  return { fill: "rgba(0,0,0,0)", stroke: "rgba(80,80,80,0.2)" };
-}
+/* ── Inicializar Leaflet cuando se conozcan las dimensiones de la imagen ── */
+const planoUrl = document.getElementById("plano_url").value;
+const planoId  = document.getElementById("plano_id").value;
 
-function dibujarLotes() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  lotes.forEach(l => {
-    const c = colorPorEstado(l.estado);
-    ctx.fillStyle = c.fill; ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.5;
-    if (l.puntos && l.puntos.length >= 3) {
-      ctx.beginPath();
-      l.puntos.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-    } else if (l.width != null) {
-      ctx.fillRect(l.x, l.y, l.width, l.height);
-      ctx.strokeRect(l.x, l.y, l.width, l.height);
-    }
+const img = new Image();
+img.onload = () => iniciarMapa(img.naturalWidth, img.naturalHeight);
+img.onerror = () => document.getElementById('contador').textContent = "⚠️ No se pudo cargar la imagen del plano.";
+img.src = planoUrl;
+
+function iniciarMapa(W, H) {
+  const map = L.map('map', {
+    crs: L.CRS.Simple,
+    minZoom: -5,
+    maxZoom: 4,
+    zoomControl: true,
+    attributionControl: false,
+    zoomSnap: 0.1,
   });
+
+  // bounds en coordenadas [y, x] de Leaflet (CRS.Simple). Eje Y invertido respecto a la imagen.
+  const bounds = [[0, 0], [H, W]];
+  L.imageOverlay(planoUrl, bounds).addTo(map);
+  map.fitBounds(bounds);
+  map.setMaxBounds(bounds);
+
+  // Convierte un punto {x, y} en pixeles de imagen → latlng de Leaflet (Y invertida)
+  const aLatLng = p => [H - p.y, p.x];
+
+  const capas = {};   // id -> polygon
+
+  lotes.forEach(l => {
+    if (!l.puntos || l.puntos.length < 3) return;
+    const latlngs = l.puntos.map(aLatLng);
+    const poly = L.polygon(latlngs, estiloPorEstado(l.estado)).addTo(map);
+
+    poly.bindTooltip(ETIQUETAS[l.estado] || l.estado, { sticky: true, direction: "top" });
+
+    poly.on('click', () => {
+      cambiarEstado(l, poly, modo);
+    });
+    // resalte al pasar el mouse
+    poly.on('mouseover', () => poly.setStyle({ weight: 3, color: "#fff" }));
+    poly.on('mouseout',  () => poly.setStyle(estiloPorEstado(l.estado)));
+
+    capas[l.id] = poly;
+  });
+
+  actualizarContador();
+
+  function cambiarEstado(lote, poly, nuevoEstado) {
+    const anterior = lote.estado;
+    lote.estado = nuevoEstado;
+    poly.setStyle(estiloPorEstado(nuevoEstado));
+    poly.setTooltipContent(ETIQUETAS[nuevoEstado] || nuevoEstado);
+    actualizarContador();
+
+    fetch("/lotes/cambiar-estado/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+      body: JSON.stringify({ id: lote.id, estado: nuevoEstado })
+    })
+    .then(r => { if (!r.ok) throw new Error(r.status); })
+    .catch(err => {
+      console.error("Error guardando:", err);
+      // revertir en caso de error
+      lote.estado = anterior;
+      poly.setStyle(estiloPorEstado(anterior));
+      poly.setTooltipContent(ETIQUETAS[anterior] || anterior);
+      actualizarContador();
+      alert("No se pudo guardar el cambio. Revisa tu conexión.");
+    });
+  }
+
+  function actualizarContador() {
+    let v = 0, r = 0, b = 0;
+    lotes.forEach(l => {
+      if (l.estado === 'vendido')   v++;
+      else if (l.estado === 'reservado') r++;
+      else if (l.estado === 'bloqueado') b++;
+    });
+    const totalLotes = lotes.length - b;       // bloqueados no son lotes reales
+    const disp = totalLotes - v - r;
+    document.getElementById('contador').innerHTML =
+      `Lotes: <strong>${totalLotes}</strong> · ` +
+      `🔴 <strong>${v}</strong> · 🟡 <strong>${r}</strong> · 🟢 <strong>${disp}</strong>` +
+      (b ? ` · ⬛ <strong>${b}</strong>` : ``);
+  }
 }
 
-function obtenerLoteEn(x, y) {
-  for (let i = lotes.length - 1; i >= 0; i--) {
-    const l = lotes[i];
-    if (l.width != null && x >= l.x && x <= l.x+l.width && y >= l.y && y <= l.y+l.height) return l;
-    if (l.puntos && l.puntos.length >= 3) {
-      let dentro = false, j = l.puntos.length - 1;
-      for (let k = 0; k < l.puntos.length; j = k++) {
-        const xi=l.puntos[k].x, yi=l.puntos[k].y, xj=l.puntos[j].x, yj=l.puntos[j].y;
-        if (((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) dentro = !dentro;
-      }
-      if (dentro) return l;
-    }
-  }
-  return null;
-}
-
-function cambiarEstado(lote, nuevoEstado) {
-  const idx = lotes.findIndex(l => l.id === lote.id);
-  if (idx < 0) return;
-  lotes[idx].estado = nuevoEstado;
-  dibujarLotes();
-  fetch("/lotes/cambiar-estado/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
-    body: JSON.stringify({ id: lote.id, estado: nuevoEstado })
-  }).catch(err => console.error("Error guardando:", err));
-}
-
-/* ── Mouse ── */
-container.addEventListener("mousedown", e => {
-  isDragging = true; dragMovido = false;
-  startX = e.clientX - posX; startY = e.clientY - posY;
-});
-document.addEventListener("mousemove", e => {
-  if (isDragging) {
-    if (Math.abs(e.clientX-(startX+posX)) > 3 || Math.abs(e.clientY-(startY+posY)) > 3) dragMovido = true;
-    posX = e.clientX - startX; posY = e.clientY - startY;
-    limitar(); actualizarTransform();
-  }
-  if (!isDragging) {
-    const rect = canvas.getBoundingClientRect();
-    const lote = obtenerLoteEn((e.clientX-rect.left)/scale, (e.clientY-rect.top)/scale);
-    if (lote) {
-      const etq = { vendido:"🔴 Vendido", reservado:"🟡 Separado", disponible:"🟢 Disponible" };
-      tooltip.textContent = `Lote — ${etq[lote.estado]||lote.estado}`;
-      tooltip.style.display = "block";
-      tooltip.style.left = (e.clientX+14)+"px"; tooltip.style.top = (e.clientY-10)+"px";
-    } else { tooltip.style.display = "none"; }
-  }
-});
-document.addEventListener("mouseup", e => {
-  isDragging = false;
-  if (!dragMovido) {
-    const rect = canvas.getBoundingClientRect();
-    const lote = obtenerLoteEn((e.clientX-rect.left)/scale, (e.clientY-rect.top)/scale);
-    if (lote) cambiarEstado(lote, modo);
-  }
-  tooltip.style.display = "none";
-});
-
-/* ── Zoom ── */
-container.addEventListener("wheel", e => {
-  e.preventDefault();
-  const rect = container.getBoundingClientRect();
-  const cx = e.clientX-rect.left, cy = e.clientY-rect.top, prev = scale;
-  scale = Math.max(minScale, Math.min(8, scale+(e.deltaY<0?0.1:-0.1)));
-  const r = scale/prev;
-  posX = cx-(cx-posX)*r; posY = cy-(cy-posY)*r;
-  limitar(); actualizarTransform();
-});
-
-/* ── Touch ── */
-container.addEventListener("touchstart", e => {
-  if (e.touches.length===1) { isDragging=true; dragMovido=false; startX=e.touches[0].clientX-posX; startY=e.touches[0].clientY-posY; }
-  if (e.touches.length===2) lastDistance=getDist(e.touches);
-},{passive:false});
-container.addEventListener("touchmove", e => {
-  e.preventDefault();
-  if (e.touches.length===1 && isDragging) {
-    if (Math.abs(e.touches[0].clientX-(startX+posX))>5 || Math.abs(e.touches[0].clientY-(startY+posY))>5) dragMovido=true;
-    posX=e.touches[0].clientX-startX; posY=e.touches[0].clientY-startY; limitar(); actualizarTransform();
-  }
-  if (e.touches.length===2) {
-    const nd=getDist(e.touches), rect=container.getBoundingClientRect();
-    const cx=(e.touches[0].clientX+e.touches[1].clientX)/2-rect.left;
-    const cy=(e.touches[0].clientY+e.touches[1].clientY)/2-rect.top;
-    if (lastDistance) { const prev=scale, r=(scale=Math.max(minScale,Math.min(8,scale+(nd-lastDistance)*0.005)))/prev; posX=cx-(cx-posX)*r; posY=cy-(cy-posY)*r; }
-    lastDistance=nd; limitar(); actualizarTransform();
-  }
-},{passive:false});
-container.addEventListener("touchend", e => {
-  if (!dragMovido && e.changedTouches.length===1) {
-    const t=e.changedTouches[0], rect=canvas.getBoundingClientRect();
-    const lote=obtenerLoteEn((t.clientX-rect.left)/scale,(t.clientY-rect.top)/scale);
-    if (lote) cambiarEstado(lote, modo);
-  }
-  isDragging=false; lastDistance=null;
-});
-
-function limitar() {
-  const w=planoImg.naturalWidth*scale, h=planoImg.naturalHeight*scale;
-  posX=Math.min(0,Math.max(container.clientWidth-w,posX));
-  posY=Math.min(0,Math.max(container.clientHeight-h,posY));
-}
-function actualizarTransform() {
-  const t=`translate(${posX}px,${posY}px) scale(${scale})`;
-  planoImg.style.transform=canvas.style.transform=t;
-}
 function getCookie(name) {
-  let v=null;
-  document.cookie.split(';').forEach(c=>{ c=c.trim(); if(c.startsWith(name+'=')) v=decodeURIComponent(c.substring(name.length+1)); });
+  let v = null;
+  document.cookie.split(';').forEach(c => {
+    c = c.trim();
+    if (c.startsWith(name + '=')) v = decodeURIComponent(c.substring(name.length + 1));
+  });
   return v;
 }
-function getDist(t) { const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
 </script>
 {% endif %}
 

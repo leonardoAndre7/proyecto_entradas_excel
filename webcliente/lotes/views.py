@@ -49,9 +49,11 @@ def ver_mapa_publico(request):
     lotes = _get_lotes_data(plano) if plano else []
 
     # Estadísticas para el panel de resumen
-    total      = len(lotes)
-    vendidos   = sum(1 for l in lotes if l['estado'] == 'vendido')
-    reservados = sum(1 for l in lotes if l['estado'] == 'reservado')
+    # Los lotes "bloqueados" no son lotes reales → se excluyen del conteo
+    vendidos    = sum(1 for l in lotes if l['estado'] == 'vendido')
+    reservados  = sum(1 for l in lotes if l['estado'] == 'reservado')
+    bloqueados  = sum(1 for l in lotes if l['estado'] == 'bloqueado')
+    total       = len(lotes) - bloqueados
     disponibles = total - vendidos - reservados
 
     return render(request, "lotes/plano_publico.html", {
@@ -75,7 +77,7 @@ def cambiar_estado_lote(request):
         data       = json.loads(request.body)
         lote       = get_object_or_404(Lote, id=data["id"])
         nuevo_estado = data.get("estado")
-        if nuevo_estado in ["disponible", "vendido", "reservado"]:
+        if nuevo_estado in ["disponible", "vendido", "reservado", "bloqueado"]:
             lote.estado = nuevo_estado
             lote.save()
             return JsonResponse({"status": "ok", "estado": lote.estado})

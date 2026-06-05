@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Reporte por asesor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; padding: 24px 16px; }
+.wrap { max-width: 760px; margin: 0 auto; }
+h1 { font-size: 22px; color: #fbbf24; margin-bottom: 4px; }
+.sub { color: #94a3b8; font-size: 13px; margin-bottom: 18px; }
+.acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.btn { padding: 10px 16px; border-radius: 10px; border: none; font-weight: 700; font-size: 14px;
+       cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; }
+.btn-excel { background: #059669; color: #fff; }
+.btn-resp  { background: #475569; color: #fff; }
+.btn-volver{ background: #0ea5e9; color: #fff; }
+table { width: 100%; border-collapse: collapse; background: rgba(15,23,42,0.6);
+        border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; }
+th, td { padding: 11px 14px; text-align: left; font-size: 14px; }
+thead th { background: rgba(14,165,233,0.18); color: #fff; font-weight: 700; }
+tbody tr { border-top: 1px solid rgba(255,255,255,0.06); }
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+td.num, th.num { text-align: center; }
+.chip { display: inline-block; min-width: 34px; text-align: center; padding: 3px 8px; border-radius: 999px; font-weight: 700; }
+.chip-sep { background: rgba(217,119,6,0.25);  color: #fbbf24; }
+.chip-ven { background: rgba(220,38,38,0.22);   color: #fca5a5; }
+tfoot td { font-weight: 800; background: rgba(255,255,255,0.04); border-top: 2px solid rgba(255,255,255,0.12); }
+.vacio { color: #64748b; font-style: italic; padding: 18px 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 Reporte por asesor</h1>
+  <div class="sub">Lotes separados (activos) y vendidos por cada asesor.</div>
+
+  <div class="acciones">
+    <a class="btn btn-excel" href="/lotes/reporte/excel/">⬇️ Exportar reporte a Excel</a>
+    <a class="btn btn-resp"  href="/lotes/exportar-estados/">🗂️ Respaldo de todos los lotes</a>
+    <a class="btn btn-volver" href="/plano/">← Volver al mapa</a>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Asesor</th>
+        <th class="num">🟡 Separados</th>
+        <th class="num">🔴 Vendidos</th>
+        <th class="num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in filas %}
+      <tr>
+        <td>{{ f.username }}</td>
+        <td class="num"><span class="chip chip-sep">{{ f.separados }}</span></td>
+        <td class="num"><span class="chip chip-ven">{{ f.vendidos }}</span></td>
+        <td class="num">{{ f.separados|add:f.vendidos }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="vacio">Todavía no hay separaciones ni ventas registradas por asesores.</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if filas %}
+    <tfoot>
+      <tr>
+        <td>TOTAL</td>
+        <td class="num">{{ total_separados }}</td>
+        <td class="num">{{ total_vendidos }}</td>
+        <td class="num">{{ total_separados|add:total_vendidos }}</td>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+</div>
+</body>
+</html>

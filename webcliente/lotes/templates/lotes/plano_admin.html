@@ -24,18 +24,26 @@ body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-seri
   background: rgba(15, 23, 42, 0.95);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 14px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   color: #fff;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  min-width: 185px;
+  min-width: 190px;
+  max-height: 92vh;
 }
-.panel-title { font-weight: 700; font-size: 14px; color: #fbbf24; margin-bottom: 2px; }
-.panel-sub   { font-size: 11px; color: #94a3b8; margin-bottom: 4px; line-height: 1.35; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-title { font-weight: 700; font-size: 14px; color: #fbbf24; }
+.toggle-btn {
+  background: rgba(255,255,255,0.1); border: none; color: #fff;
+  border-radius: 7px; width: 28px; height: 26px; cursor: pointer; font-size: 13px;
+}
+.panel-sub   { font-size: 11px; color: #94a3b8; margin-bottom: 2px; line-height: 1.35; }
+.panel-body { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.panel.collapsed .panel-body { display: none; }
 .modo-btn {
-  padding: 8px 14px; border: none; border-radius: 9px;
+  padding: 9px 14px; border: none; border-radius: 9px;
   cursor: pointer; font-weight: 600; font-size: 13px;
   display: flex; align-items: center; gap: 7px;
   transition: opacity 0.15s, transform 0.1s;
@@ -47,9 +55,64 @@ body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-seri
 .btn-reservado  { background: #d97706; color: #fff; }
 .btn-disponible { background: #059669; color: #fff; }
 .btn-bloqueado  { background: #475569; color: #fff; }
+.btn-precio        { background: #0d9488; color: #fff; }
+.btn-precio-masivo { background: #0f766e; color: #fff; }
+.btn-numero        { background: #6366f1; color: #fff; }
+.btn-vernum        { background: #4f46e5; color: #fff; }
+.buscar-row { display: flex; gap: 6px; }
+.buscar-row input {
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.15); background: #1e293b; color: #fff; font-size: 13px;
+}
+.buscar-row button { width: auto; padding: 8px 12px; }
+/* Etiqueta de número sobre cada lote */
+.num-label {
+  color: #fff; font-size: 11px; font-weight: 700; white-space: nowrap;
+  text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 2px #000; text-align: center;
+  transform: translate(-50%, -50%); pointer-events: none;
+}
+.masivo-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1; margin-top: 10px; cursor: pointer; }
+.masivo-check input { width: 16px; height: 16px; }
+.btn-azul       { background: #0ea5e9; color: #fff; text-decoration: none; justify-content: center; }
+.btn-morado     { background: #7c3aed; color: #fff; text-decoration: none; justify-content: center; }
+.btn-gris       { background: #334155; color: #fff; justify-content: center; }
 .divider { border-top: 1px solid rgba(255,255,255,0.1); margin: 2px 0; }
-.contador { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.contador { font-size: 11px; color: #94a3b8; }
 .contador strong { color: #fff; }
+
+/* ── Modal de precio ── */
+#precio-modal, #precio-masivo-modal {
+  display: none; position: fixed; inset: 0; z-index: 3000;
+  background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+}
+.modal-card {
+  background: #0f172a; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px; padding: 22px; width: 300px; max-width: 92vw;
+  color: #fff; box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}
+.modal-card h3 { color: #fbbf24; font-size: 16px; margin-bottom: 14px; }
+.mon-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.mon-btn {
+  flex: 1; padding: 9px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.15);
+  background: #1e293b; color: #cbd5e1; font-weight: 700; cursor: pointer; font-size: 14px;
+}
+.mon-btn.activo { background: #0d9488; color: #fff; border-color: #0d9488; }
+#precio-input {
+  width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15);
+  background: #1e293b; color: #fff; font-size: 18px; font-weight: 700; text-align: right;
+}
+#precio-preview { font-size: 13px; color: #5eead4; margin-top: 8px; min-height: 18px; text-align: right; }
+.modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+.modal-actions button { padding: 11px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; color: #fff; font-size: 14px; }
+.m-guardar { flex: 1; background: #0d9488; }
+.m-cancelar { background: #334155; }
+.m-quitar { background: #7f1d1d; }
+
+/* ── Móvil ── */
+@media (max-width: 600px) {
+  .panel { top: 8px; left: 8px; right: 8px; min-width: 0; max-height: 80vh; }
+  .modo-btn { padding: 11px 14px; font-size: 14px; }  /* objetivos de toque más grandes */
+}
 </style>
 </head>
 <body>
@@ -78,24 +141,54 @@ body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-seri
 
 <!-- Panel admin -->
 {% if plano %}
-<div class="panel">
-  <div class="panel-title">🗺️ Gestión de Lotes</div>
-  <div class="panel-sub">Selecciona un modo y haz clic en cada lote, uno por uno, para cambiar su estado.</div>
-  <div class="divider"></div>
-  <button class="modo-btn btn-vendido activo" id="btn-vendido"    onclick="setModo('vendido')">
-    🔴 Marcar Vendido
-  </button>
-  <button class="modo-btn btn-reservado"      id="btn-reservado"  onclick="setModo('reservado')">
-    🟡 Marcar Separado
-  </button>
-  <button class="modo-btn btn-disponible"     id="btn-disponible" onclick="setModo('disponible')">
-    🟢 Disponible
-  </button>
-  <button class="modo-btn btn-bloqueado"      id="btn-bloqueado"  onclick="setModo('bloqueado')">
-    ⬛ Bloquear (no es lote)
-  </button>
-  <div class="divider"></div>
-  <div class="contador" id="contador">Cargando…</div>
+<div class="panel" id="panel">
+  <div class="panel-head">
+    {% if solo_separar %}
+    <div class="panel-title">🟡 Modo Asesor</div>
+    {% else %}
+    <div class="panel-title">🗺️ Gestión de Lotes</div>
+    {% endif %}
+    <button class="toggle-btn" id="toggle" onclick="togglePanel()" title="Mostrar/ocultar">▾</button>
+  </div>
+
+  <div class="panel-body" id="panel-body">
+    <div class="buscar-row">
+      <input type="number" id="buscar-num" placeholder="Ir al lote N°" onkeydown="if(event.key==='Enter')buscarLote()">
+      <button class="modo-btn btn-azul" onclick="buscarLote()">🔍</button>
+    </div>
+    <button class="modo-btn btn-vernum" onclick="toggleNumeros()">🔢 Ver / ocultar números</button>
+    <div class="divider"></div>
+  {% if solo_separar %}
+    <div class="panel-sub">Separa lotes disponibles. Solo puedes quitar <b>tus propias</b> separaciones.</div>
+    <div class="divider"></div>
+    <button class="modo-btn btn-reservado activo" id="btn-reservado" onclick="setModo('reservado')">
+      🟡 Separar lote
+    </button>
+    <button class="modo-btn btn-disponible" id="btn-disponible" onclick="setModo('disponible')">
+      ♻️ Quitar mi separación
+    </button>
+  {% else %}
+    <div class="panel-sub">Selecciona un modo y haz clic en cada lote para cambiar su estado.</div>
+    <div class="divider"></div>
+    <button class="modo-btn btn-vendido activo" id="btn-vendido"    onclick="setModo('vendido')">🔴 Marcar Vendido</button>
+    <button class="modo-btn btn-reservado"      id="btn-reservado"  onclick="setModo('reservado')">🟡 Marcar Separado</button>
+    <button class="modo-btn btn-disponible"     id="btn-disponible" onclick="setModo('disponible')">🟢 Disponible</button>
+    <button class="modo-btn btn-bloqueado"      id="btn-bloqueado"  onclick="setModo('bloqueado')">⬛ Bloquear (no es lote)</button>
+    <button class="modo-btn btn-precio"         id="btn-precio"     onclick="setModo('precio')">💲 Poner precio (uno por uno)</button>
+    <button class="modo-btn btn-precio-masivo"  onclick="abrirPrecioMasivo()">💰 Precio a TODOS</button>
+    <button class="modo-btn btn-numero"         id="btn-numero"     onclick="setModo('numero')">🔢 Poner número (corregir)</button>
+    <div class="divider"></div>
+    <a href="/lotes/crear-asesor/" class="modo-btn btn-azul">➕ Añadir Asesor</a>
+    <a href="/lotes/reporte/"      class="modo-btn btn-morado">📊 Reportes / Excel</a>
+  {% endif %}
+    <div class="divider"></div>
+    <div class="contador" id="contador">Cargando…</div>
+    <div class="contador" id="tc-info"></div>
+    <form method="post" action="{% url 'logout' %}" style="margin-top:4px;">
+      {% csrf_token %}
+      <button type="submit" class="modo-btn btn-gris">🚪 Cerrar sesión</button>
+    </form>
+  </div>
 </div>
 {% endif %}
 
@@ -104,7 +197,10 @@ body { overflow: hidden; background: #1e293b; font-family: 'Segoe UI', sans-seri
 let lotes = [];
 try { lotes = JSON.parse('{{ lotes|escapejs }}'); } catch (e) { console.error("Error leyendo lotes:", e); }
 
-let modo = "vendido";
+const SOLO_SEPARAR = {% if solo_separar %}true{% else %}false{% endif %};
+const USUARIO_ACTUAL = "{{ usuario_actual|escapejs }}";
+
+let modo = SOLO_SEPARAR ? "reservado" : "vendido";
 function setModo(m) {
   modo = m;
   document.querySelectorAll('.modo-btn').forEach(b => b.classList.remove('activo'));
@@ -112,13 +208,19 @@ function setModo(m) {
   if (btn) btn.classList.add('activo');
 }
 
+function togglePanel() {
+  const p = document.getElementById('panel');
+  p.classList.toggle('collapsed');
+  document.getElementById('toggle').textContent = p.classList.contains('collapsed') ? '▸' : '▾';
+}
+
 /* Colores por estado */
 function estiloPorEstado(estado) {
-  if (estado === "vendido")   return { color: "#b91c1c", fillColor: "#dc2626", fillOpacity: 0.55, weight: 1.5 };
-  if (estado === "reservado") return { color: "#b45309", fillColor: "#d97706", fillOpacity: 0.55, weight: 1.5 };
-  if (estado === "bloqueado") return { color: "#334155", fillColor: "#475569", fillOpacity: 0.75, weight: 1   };
+  if (estado === "vendido")   return { color: "#b91c1c", fillColor: "#dc2626", fillOpacity: 0.55, weight: 1.5, opacity: 0.9, dashArray: null };
+  if (estado === "reservado") return { color: "#b45309", fillColor: "#d97706", fillOpacity: 0.55, weight: 1.5, opacity: 0.9, dashArray: null };
+  if (estado === "bloqueado") return { color: "#64748b", fillColor: "#475569", fillOpacity: 0.0, weight: 1, opacity: 0.30, dashArray: "4 4" };  // TRANSPARENTE
   /* disponible */
-  return { color: "#64748b", fillColor: "#22c55e", fillOpacity: 0.0, weight: 1 };
+  return { color: "#64748b", fillColor: "#22c55e", fillOpacity: 0.0, weight: 1, opacity: 0.6, dashArray: null };
 }
 const ETIQUETAS = {
   vendido:    "🔴 Vendido",
@@ -126,6 +228,189 @@ const ETIQUETAS = {
   disponible: "🟢 Disponible",
   bloqueado:  "⬛ Bloqueado",
 };
+
+let TC = null;        // tipo de cambio USD→PEN (se carga del servidor)
+let capasRef = null;  // referencia a los polígonos (id -> polygon)
+let mapRef = null;    // referencia al mapa (para buscar/zoom)
+let labelLayer = null; // capa con las etiquetas de número
+
+/* Precio en ambas monedas. El valor base se guarda en US$; los soles se calculan en vivo. */
+function formatPrecio(usd) {
+  if (usd == null) return "";
+  const u = "US$ " + Number(usd).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  if (TC) return u + "  ·  S/ " + Number(usd * TC).toLocaleString('es-PE', { maximumFractionDigits: 2 });
+  return u;
+}
+
+/* Escapa texto para evitar inyección HTML (XSS) en tooltips y etiquetas */
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = (s == null ? '' : String(s));
+  return d.innerHTML;
+}
+
+/* Texto del tooltip: estado + quién separó + precio (US$ y S/) */
+function textoTooltip(l) {
+  if (l.estado === "bloqueado") return ETIQUETAS.bloqueado;   // solo "Bloqueado": sin precio ni nada más
+  let t = (l.numero ? "Lote " + esc(l.numero) + "  —  " : "") + (ETIQUETAS[l.estado] || l.estado);
+  if (l.estado === "reservado" && l.separado_por) t += "  ·  por " + esc(l.separado_por);
+  if (l.estado === "reservado" && l.separado_en)  t += "  ·  " + esc(l.separado_en);
+  if (l.precio != null) t += "  ·  " + formatPrecio(l.precio);
+  return t;
+}
+
+/* ── Modal de precio (elegir US$ o S/) ── */
+let _precioLote = null, _precioPoly = null, _monedaSel = 'USD';
+function abrirPrecioModal(lote, poly) {
+  _precioLote = lote; _precioPoly = poly; _monedaSel = 'USD';
+  document.getElementById('mon-usd').classList.add('activo');
+  document.getElementById('mon-pen').classList.remove('activo');
+  document.getElementById('precio-input').value = lote.precio != null ? lote.precio : '';
+  actualizarPreview();
+  document.getElementById('precio-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('precio-input').focus(), 50);
+}
+function cerrarPrecioModal() { document.getElementById('precio-modal').style.display = 'none'; }
+function setMoneda(m) {
+  const inp = document.getElementById('precio-input');
+  let val = parseFloat(inp.value);
+  if (!isNaN(val) && TC) {            // convertir el monto al cambiar de moneda
+    if (m === 'PEN' && _monedaSel === 'USD') val = val * TC;
+    else if (m === 'USD' && _monedaSel === 'PEN') val = val / TC;
+    inp.value = Math.round(val * 100) / 100;
+  }
+  _monedaSel = m;
+  document.getElementById('mon-usd').classList.toggle('activo', m === 'USD');
+  document.getElementById('mon-pen').classList.toggle('activo', m === 'PEN');
+  actualizarPreview();
+}
+function actualizarPreview() {
+  const val  = parseFloat(document.getElementById('precio-input').value);
+  const prev = document.getElementById('precio-preview');
+  if (isNaN(val) || !TC) { prev.textContent = ''; return; }
+  prev.textContent = (_monedaSel === 'USD')
+    ? '≈ S/ '  + (val * TC).toLocaleString('es-PE', { maximumFractionDigits: 2 })
+    : '≈ US$ ' + (val / TC).toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+function guardarPrecio() { enviarPrecio(document.getElementById('precio-input').value.trim(), _monedaSel); }
+function quitarPrecio()  { enviarPrecio('', 'USD'); }
+function enviarPrecio(monto, moneda) {
+  fetch("/lotes/set-precio/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+    body: JSON.stringify({ id: _precioLote.id, monto: monto, moneda: moneda })
+  })
+  .then(async r => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || ("Error " + r.status));
+    if (data.usd_pen) TC = data.usd_pen;
+    _precioLote.precio = data.precio;  // en US$
+    if (_precioPoly) _precioPoly.setTooltipContent(textoTooltip(_precioLote));
+    cerrarPrecioModal();
+  })
+  .catch(err => { alert(err.message || "No se pudo guardar el precio."); });
+}
+
+/* ── Modal de PRECIO MASIVO (a todos los lotes) ── */
+let _monedaMasiva = 'USD';
+function abrirPrecioMasivo() {
+  _monedaMasiva = 'USD';
+  document.getElementById('mm-usd').classList.add('activo');
+  document.getElementById('mm-pen').classList.remove('activo');
+  document.getElementById('masivo-input').value = '';
+  document.getElementById('masivo-solo').checked = false;
+  actualizarPreviewMasivo();
+  document.getElementById('precio-masivo-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('masivo-input').focus(), 50);
+}
+function cerrarPrecioMasivo() { document.getElementById('precio-masivo-modal').style.display = 'none'; }
+function setMonedaMasiva(m) {
+  const inp = document.getElementById('masivo-input');
+  let val = parseFloat(inp.value);
+  if (!isNaN(val) && TC) {
+    if (m === 'PEN' && _monedaMasiva === 'USD') val = val * TC;
+    else if (m === 'USD' && _monedaMasiva === 'PEN') val = val / TC;
+    inp.value = Math.round(val * 100) / 100;
+  }
+  _monedaMasiva = m;
+  document.getElementById('mm-usd').classList.toggle('activo', m === 'USD');
+  document.getElementById('mm-pen').classList.toggle('activo', m === 'PEN');
+  actualizarPreviewMasivo();
+}
+function actualizarPreviewMasivo() {
+  const val  = parseFloat(document.getElementById('masivo-input').value);
+  const prev = document.getElementById('masivo-preview');
+  if (isNaN(val) || !TC) { prev.textContent = ''; return; }
+  prev.textContent = (_monedaMasiva === 'USD')
+    ? '≈ S/ '  + (val * TC).toLocaleString('es-PE', { maximumFractionDigits: 2 })
+    : '≈ US$ ' + (val / TC).toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+function aplicarPrecioMasivo() {
+  const monto   = document.getElementById('masivo-input').value.trim();
+  const solo    = document.getElementById('masivo-solo').checked;
+  const alcance = solo ? 'los lotes SIN precio' : 'TODOS los lotes';
+  const accion  = (monto === '') ? ('quitar el precio de ' + alcance) : ('aplicar este precio a ' + alcance);
+  if (!confirm('¿Seguro que quieres ' + accion + '?')) return;
+  fetch("/lotes/set-precio-masivo/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+    body: JSON.stringify({ monto: monto, moneda: _monedaMasiva, solo_sin_precio: solo })
+  })
+  .then(async r => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || ("Error " + r.status));
+    if (data.usd_pen) TC = data.usd_pen;
+    lotes.forEach(l => {                       // actualizar precios y tooltips en el mapa
+      if (l.estado === 'bloqueado') return;
+      if (solo && l.precio != null) return;
+      l.precio = data.precio;
+      if (capasRef && capasRef[l.id]) capasRef[l.id].setTooltipContent(textoTooltip(l));
+    });
+    cerrarPrecioMasivo();
+    alert('✅ Precio aplicado a ' + data.actualizados + ' lote(s).');
+  })
+  .catch(err => { alert(err.message || "No se pudo aplicar el precio masivo."); });
+}
+
+/* ── Número de lote: corregir, buscar, ver/ocultar ── */
+function fijarNumero(lote, poly) {
+  const val = prompt("Número del lote (deja vacío para quitarlo):", lote.numero || "");
+  if (val === null) return;
+  fetch("/lotes/set-numero/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+    body: JSON.stringify({ id: lote.id, numero: val.trim() })
+  })
+  .then(async r => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || ("Error " + r.status));
+    lote.numero = data.numero;
+    poly.setTooltipContent(textoTooltip(lote));
+  })
+  .catch(err => { alert(err.message || "No se pudo guardar el número."); });
+}
+
+function buscarLote() {
+  const v = (document.getElementById('buscar-num').value || '').trim();
+  if (!v) return;
+  let l = lotes.find(x => x.numero && String(x.numero) === v);
+  if (!l) l = lotes.find(x => x.numero && parseInt(x.numero, 10) === parseInt(v, 10));
+  if (!l) { alert('No se encontró el lote N° ' + v); return; }
+  const poly = capasRef && capasRef[l.id];
+  if (poly && mapRef) {
+    mapRef.fitBounds(poly.getBounds(), { maxZoom: 3 });
+    const orig = estiloPorEstado(l.estado);
+    poly.setStyle({ color: '#ffffff', weight: 5, fillColor: '#fde047', fillOpacity: 0.75 });
+    poly.openTooltip();
+    setTimeout(() => poly.setStyle(orig), 1800);
+  }
+}
+
+function toggleNumeros() {
+  if (!mapRef || !labelLayer) return;
+  if (mapRef.hasLayer(labelLayer)) mapRef.removeLayer(labelLayer);
+  else mapRef.addLayer(labelLayer);
+}
 
 /* ── Inicializar Leaflet cuando se conozcan las dimensiones de la imagen ── */
 const planoUrl = document.getElementById("plano_url").value;
@@ -138,76 +423,124 @@ img.src = planoUrl;
 
 function iniciarMapa(W, H) {
   const map = L.map('map', {
-    crs: L.CRS.Simple,
-    minZoom: -5,
-    maxZoom: 4,
-    zoomControl: true,
-    attributionControl: false,
-    zoomSnap: 0.1,
+    crs: L.CRS.Simple, minZoom: -5, maxZoom: 4,
+    zoomControl: true, attributionControl: false, zoomSnap: 0.1,
   });
 
-  // bounds en coordenadas [y, x] de Leaflet (CRS.Simple). Eje Y invertido respecto a la imagen.
   const bounds = [[0, 0], [H, W]];
   L.imageOverlay(planoUrl, bounds).addTo(map);
   map.fitBounds(bounds);
   map.setMaxBounds(bounds);
 
-  // Convierte un punto {x, y} en pixeles de imagen → latlng de Leaflet (Y invertida)
-  const aLatLng = p => [H - p.y, p.x];
-
-  const capas = {};   // id -> polygon
+  const aLatLng = p => [H - p.y, p.x];   // píxel de imagen → latlng (Y invertida)
+  const capas = {};                       // id -> polygon
+  capasRef = capas;                       // exponer para el precio masivo / buscador
+  mapRef = map;
 
   lotes.forEach(l => {
     if (!l.puntos || l.puntos.length < 3) return;
-    const latlngs = l.puntos.map(aLatLng);
-    const poly = L.polygon(latlngs, estiloPorEstado(l.estado)).addTo(map);
-
-    poly.bindTooltip(ETIQUETAS[l.estado] || l.estado, { sticky: true, direction: "top" });
+    const poly = L.polygon(l.puntos.map(aLatLng), estiloPorEstado(l.estado)).addTo(map);
+    poly.bindTooltip(textoTooltip(l), { sticky: true, direction: "top" });
 
     poly.on('click', () => {
+      // Los asesores ignoran las zonas bloqueadas (no son lotes)
+      if (SOLO_SEPARAR && l.estado === 'bloqueado') return;
+      if (modo === 'precio') {
+        if (l.estado === 'bloqueado') { alert('Las zonas bloqueadas no llevan precio.'); return; }
+        abrirPrecioModal(l, poly); return;
+      }
+      if (modo === 'numero') { fijarNumero(l, poly); return; }
+      if (modo === 'vendido' && !confirm('¿Marcar este lote como VENDIDO?')) return;
       cambiarEstado(l, poly, modo);
     });
-    // resalte al pasar el mouse
-    poly.on('mouseover', () => poly.setStyle({ weight: 3, color: "#fff" }));
+    poly.on('mouseover', () => poly.setStyle({ weight: 3, color: "#fff", opacity: 1 }));
     poly.on('mouseout',  () => poly.setStyle(estiloPorEstado(l.estado)));
 
     capas[l.id] = poly;
   });
 
+  // Capa de etiquetas con el número de cada lote (se muestra/oculta con el botón)
+  labelLayer = L.layerGroup();
+  lotes.forEach(l => {
+    if (!l.numero || !l.puntos || l.puntos.length < 3) return;
+    const cx = l.puntos.reduce((s, p) => s + p.x, 0) / l.puntos.length;
+    const cy = l.puntos.reduce((s, p) => s + p.y, 0) / l.puntos.length;
+    L.marker([H - cy, cx], {
+      interactive: false,
+      icon: L.divIcon({ className: 'num-label', html: esc(l.numero) })
+    }).addTo(labelLayer);
+  });
+
   actualizarContador();
 
+  /* Cambiar estado (confirmando contra el servidor) */
   function cambiarEstado(lote, poly, nuevoEstado) {
-    const anterior = lote.estado;
-    lote.estado = nuevoEstado;
-    poly.setStyle(estiloPorEstado(nuevoEstado));
-    poly.setTooltipContent(ETIQUETAS[nuevoEstado] || nuevoEstado);
-    actualizarContador();
-
     fetch("/lotes/cambiar-estado/", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
       body: JSON.stringify({ id: lote.id, estado: nuevoEstado })
     })
-    .then(r => { if (!r.ok) throw new Error(r.status); })
-    .catch(err => {
-      console.error("Error guardando:", err);
-      // revertir en caso de error
-      lote.estado = anterior;
-      poly.setStyle(estiloPorEstado(anterior));
-      poly.setTooltipContent(ETIQUETAS[anterior] || anterior);
+    .then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || ("Error " + r.status));
+      lote.estado       = data.estado;
+      lote.separado_por = data.separado_por || null;
+      lote.separado_en  = data.separado_en  || null;
+      if (data.precio !== undefined) lote.precio = data.precio;
+      poly.setStyle(estiloPorEstado(lote.estado));
+      poly.setTooltipContent(textoTooltip(lote));
       actualizarContador();
-      alert("No se pudo guardar el cambio. Revisa tu conexión.");
-    });
+    })
+    .catch(err => { console.error(err); alert(err.message || "No se pudo guardar el cambio."); });
+  }
+
+  /* Tipo de cambio: cargar al inicio y refrescar cada 30 min */
+  cargarTipoCambio();
+  setInterval(cargarTipoCambio, 30 * 60 * 1000);
+  function cargarTipoCambio() {
+    fetch("/lotes/tipo-cambio/")
+      .then(r => r.json())
+      .then(d => {
+        if (d.usd_pen) TC = d.usd_pen;
+        const info = document.getElementById('tc-info');
+        if (info && TC) info.innerHTML = `💱 TC: <strong>S/ ${Number(TC).toFixed(4)}</strong>` + (d.actualizado ? ` · ${d.actualizado}` : '');
+        // refrescar tooltips de lotes con precio para mostrar los soles
+        lotes.forEach(l => { if (l.precio != null && capas[l.id]) capas[l.id].setTooltipContent(textoTooltip(l)); });
+      })
+      .catch(() => {});
+  }
+
+  /* Actualización en vivo: cada 20 s sincroniza los estados con el servidor */
+  setInterval(refrescarEstados, 20000);
+  function refrescarEstados() {
+    fetch("/lotes/estados/")
+      .then(r => r.json())
+      .then(data => {
+        if (!data.lotes) return;
+        const idx = {}; lotes.forEach(l => idx[l.id] = l);
+        let cambios = false;
+        data.lotes.forEach(s => {
+          const l = idx[s.id]; if (!l) return;
+          if (l.estado !== s.estado || l.separado_por !== s.separado_por || l.precio !== s.precio) {
+            l.estado = s.estado; l.separado_por = s.separado_por; l.precio = s.precio;
+            const poly = capas[s.id];
+            if (poly) { poly.setStyle(estiloPorEstado(l.estado)); poly.setTooltipContent(textoTooltip(l)); }
+            cambios = true;
+          }
+        });
+        if (cambios) actualizarContador();
+      })
+      .catch(() => {});  // si falla la red, lo intenta de nuevo en 20s
   }
 
   function actualizarContador() {
     let v = 0, r = 0, b = 0;
     lotes.forEach(l => {
-      if (l.estado === 'vendido')   v++;
+      if (l.estado === 'vendido')        v++;
       else if (l.estado === 'reservado') r++;
       else if (l.estado === 'bloqueado') b++;
     });
-    const totalLotes = lotes.length - b;       // bloqueados no son lotes reales
+    const totalLotes = lotes.length - b;
     const disp = totalLotes - v - r;
     document.getElementById('contador').innerHTML =
       `Lotes: <strong>${totalLotes}</strong> · ` +
@@ -225,6 +558,45 @@ function getCookie(name) {
   return v;
 }
 </script>
+
+<!-- Modal de precio (solo se usa con el botón 💲 Poner precio) -->
+<div id="precio-modal">
+  <div class="modal-card">
+    <h3>💲 Precio del lote</h3>
+    <div class="mon-row">
+      <button type="button" class="mon-btn activo" id="mon-usd" onclick="setMoneda('USD')">US$ Dólares</button>
+      <button type="button" class="mon-btn"        id="mon-pen" onclick="setMoneda('PEN')">S/ Soles</button>
+    </div>
+    <input type="number" id="precio-input" step="0.01" min="0" placeholder="0.00" oninput="actualizarPreview()">
+    <div id="precio-preview"></div>
+    <div class="modal-actions">
+      <button type="button" class="m-guardar"  onclick="guardarPrecio()">Guardar</button>
+      <button type="button" class="m-cancelar" onclick="cerrarPrecioModal()">Cancelar</button>
+      <button type="button" class="m-quitar"   onclick="quitarPrecio()" title="Quitar precio">🗑️</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de PRECIO MASIVO (botón 💰 Precio a TODOS) -->
+<div id="precio-masivo-modal">
+  <div class="modal-card">
+    <h3>💰 Precio a TODOS los lotes</h3>
+    <div class="mon-row">
+      <button type="button" class="mon-btn activo" id="mm-usd" onclick="setMonedaMasiva('USD')">US$ Dólares</button>
+      <button type="button" class="mon-btn"        id="mm-pen" onclick="setMonedaMasiva('PEN')">S/ Soles</button>
+    </div>
+    <input type="number" id="masivo-input" step="0.01" min="0" placeholder="0.00" oninput="actualizarPreviewMasivo()">
+    <div id="masivo-preview"></div>
+    <label class="masivo-check">
+      <input type="checkbox" id="masivo-solo">
+      Solo a los lotes que aún no tienen precio
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="m-guardar"  onclick="aplicarPrecioMasivo()">Aplicar</button>
+      <button type="button" class="m-cancelar" onclick="cerrarPrecioMasivo()">Cancelar</button>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 </body>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Añadir Asesor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f172a;
+  font-family: 'Segoe UI', sans-serif;
+  color: #e2e8f0;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 30px 16px;
+}
+.card {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 26px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+h1 { font-size: 20px; color: #fbbf24; margin-bottom: 4px; }
+.sub { font-size: 13px; color: #94a3b8; margin-bottom: 18px; line-height: 1.4; }
+label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 5px; }
+input[type=text], input[type=password] {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: #1e293b;
+  color: #fff;
+  font-size: 14px;
+}
+input:focus { outline: 2px solid #0ea5e9; border-color: #0ea5e9; }
+.btn {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #0ea5e9;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.88; }
+.alert { padding: 11px 14px; border-radius: 9px; font-size: 13px; margin-bottom: 14px; font-weight: 600; }
+.ok  { background: rgba(5,150,105,0.18); border: 1px solid #059669; color: #6ee7b7; }
+.err { background: rgba(220,38,38,0.18); border: 1px solid #dc2626; color: #fca5a5; }
+.volver { display: inline-block; margin-top: 18px; color: #60a5fa; text-decoration: none; font-size: 14px; }
+.volver:hover { text-decoration: underline; }
+.divider { border-top: 1px solid rgba(255,255,255,0.1); margin: 20px 0 14px; }
+.lista-title { font-size: 13px; color: #94a3b8; font-weight: 700; margin-bottom: 8px; }
+.asesor-item {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px; padding: 8px 12px;
+  font-size: 13px; margin-bottom: 6px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
+.vacio { font-size: 13px; color: #64748b; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>➕ Añadir Asesor</h1>
+  <p class="sub">El asesor podrá iniciar sesión y <b>únicamente separar lotes</b>. No verá los demás botones ni podrá vender, liberar ni bloquear.</p>
+
+  {% if creado %}
+    <div class="alert ok">✅ Asesor «{{ creado }}» creado correctamente. Ya puede iniciar sesión.</div>
+  {% endif %}
+  {% if error %}
+    <div class="alert err">⚠️ {{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/lotes/crear-asesor/">
+    {% csrf_token %}
+    <label for="username">Nombre de usuario</label>
+    <input type="text" id="username" name="username" placeholder="ej: asesor_juan" autocomplete="off" required>
+
+    <label for="password">Contraseña</label>
+    <input type="text" id="password" name="password" placeholder="ej: paraiso2026" autocomplete="off" required>
+
+    <button class="btn" type="submit">Crear asesor</button>
+  </form>
+
+  <div class="divider"></div>
+  <div class="lista-title">Asesores actuales ({{ asesores|length }})</div>
+  {% for a in asesores %}
+    <div class="asesor-item"><span class="dot"></span> {{ a.username }}</div>
+  {% empty %}
+    <div class="vacio">Aún no hay asesores creados.</div>
+  {% endfor %}
+
+  <a class="volver" href="/plano/">← Volver al mapa</a>
+</div>
+</body>
+</html>

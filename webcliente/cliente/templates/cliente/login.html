@@ -177,7 +177,14 @@
         <h3><i class="bi bi-shield-lock-fill"></i> Iniciar Sesión</h3>
         
         <!-- Error Alerts -->
-        {% if form.errors %}
+        {% if messages %}
+            {% for m in messages %}
+            <div class="error-message">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <span>{{ m }}</span>
+            </div>
+            {% endfor %}
+        {% elif form.errors %}
         <div class="error-message">
             <i class="bi bi-exclamation-triangle-fill fs-5"></i>
             <span>Usuario o contraseña incorrectos.</span>

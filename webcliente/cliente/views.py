@@ -1,6 +1,7 @@
 import io
 import os
 import csv
+import time
 import logging
 import base64
 import secrets
@@ -20,6 +21,8 @@ from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.contrib import messages
+from django.contrib.auth import views as auth_views
+from django.core.cache import cache
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.generic import CreateView, UpdateView, DeleteView, ListView
@@ -67,7 +70,71 @@ def verificar_permiso_evento(user, evento):
 # ==========================================
 @login_required(login_url='/participantes/login/')
 def home_redirect(request):
+    # Los asesores de lotes entran directo al mapa
+    if request.user.groups.filter(name='Asesores').exists():
+        return redirect('plano')
     return redirect('dashboard_eventos')
+
+
+# ==========================================
+# 🔒 LOGIN CON PROTECCIÓN ANTI-FUERZA BRUTA
+# Máx. 3 intentos por IP → bloqueo escalonado (15s, 30s, 60s, 120s... tope 15 min)
+# ==========================================
+LOGIN_MAX_INTENTOS = 3
+LOGIN_ESPERA_BASE  = 15      # segundos del primer bloqueo
+LOGIN_ESPERA_TOPE  = 900     # tope de espera (15 minutos)
+
+
+def _client_ip(request):
+    """IP real del cliente (considera el proxy de Render vía X-Forwarded-For)."""
+    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', 'desconocida')
+
+
+class LoginConThrottle(auth_views.LoginView):
+    template_name = 'cliente/login.html'
+
+    def _keys(self):
+        ip = _client_ip(self.request)
+        return (f"login_fails_{ip}", f"login_lock_{ip}", f"login_level_{ip}")
+
+    def _espera_restante(self):
+        _, k_lock, _ = self._keys()
+        restante = int(cache.get(k_lock, 0) - time.time())
+        return restante if restante > 0 else 0
+
+    def post(self, request, *args, **kwargs):
+        # Si está bloqueado, ni siquiera intentamos autenticar
+        restante = self._espera_restante()
+        if restante > 0:
+            messages.error(request, f"🔒 Demasiados intentos. Espera {restante} segundos antes de volver a intentar.")
+            return self.render_to_response(self.get_context_data(form=self.get_form()))
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Login correcto → limpiar todos los contadores de esa IP
+        cache.delete_many(list(self._keys()))
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        # Credenciales incorrectas → contar el intento
+        k_fails, k_lock, k_level = self._keys()
+        fails = cache.get(k_fails, 0) + 1
+        if fails >= LOGIN_MAX_INTENTOS:
+            # Bloqueo escalonado: 15s, 30s, 60s, 120s... (cada bloqueo dura el doble)
+            level  = cache.get(k_level, 0) + 1
+            espera = min(LOGIN_ESPERA_BASE * (2 ** (level - 1)), LOGIN_ESPERA_TOPE)
+            cache.set(k_lock,  time.time() + espera, timeout=espera + 120)
+            cache.set(k_level, level, timeout=86400)   # la escalada se recuerda 24 h
+            cache.delete(k_fails)
+            messages.error(self.request, f"🔒 Demasiados intentos fallidos. Acceso bloqueado por {espera} segundos.")
+        else:
+            cache.set(k_fails, fails, timeout=3600)
+            restantes = LOGIN_MAX_INTENTOS - fails
+            messages.error(self.request, f"Usuario o contraseña incorrectos. Te queda(n) {restantes} intento(s).")
+        return super().form_invalid(form)
 
 
 # ==========================================

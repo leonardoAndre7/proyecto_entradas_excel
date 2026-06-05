@@ -169,18 +169,41 @@ function iniciarMapa(W, H) {
 
   const aLatLng = p => [H - p.y, p.x];
 
+  let TC = null;
+  const capasPub = {};
+  function formatPrecio(usd) {
+    if (usd == null) return "";
+    const u = "US$ " + Number(usd).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    if (TC) return u + "  ·  S/ " + Number(usd * TC).toLocaleString('es-PE', { maximumFractionDigits: 2 });
+    return u;
+  }
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = (s == null ? '' : String(s));
+    return d.innerHTML;
+  }
+  function tip(l) {
+    let t = (l.numero ? "Lote " + esc(l.numero) + "  —  " : "") + (ETIQUETAS[l.estado] || l.estado);
+    if (l.precio != null) t += "  ·  " + formatPrecio(l.precio);
+    return t;
+  }
+
   lotes.forEach(l => {
     if (!l.puntos || l.puntos.length < 3) return;
-    // Los bloqueados no son lotes reales: no se resaltan ni muestran tooltip de estado
-    if (l.estado === 'bloqueado') {
-      L.polygon(l.puntos.map(aLatLng), estiloPorEstado('bloqueado')).addTo(map);
-      return;
-    }
+    // Los bloqueados no son lotes reales: no se dibujan (transparentes)
+    if (l.estado === 'bloqueado') return;
     const poly = L.polygon(l.puntos.map(aLatLng), estiloPorEstado(l.estado)).addTo(map);
-    poly.bindTooltip(ETIQUETAS[l.estado] || l.estado, { sticky: true, direction: "top" });
+    poly.bindTooltip(tip(l), { sticky: true, direction: "top" });
     poly.on('mouseover', () => poly.setStyle({ weight: 2.5, color: "#fff" }));
     poly.on('mouseout',  () => poly.setStyle(estiloPorEstado(l.estado)));
+    capasPub[l.id] = poly;
   });
+
+  // Tipo de cambio en vivo para mostrar los soles
+  fetch("/lotes/tipo-cambio/").then(r => r.json()).then(d => {
+    if (d.usd_pen) TC = d.usd_pen;
+    lotes.forEach(l => { if (l.precio != null && capasPub[l.id]) capasPub[l.id].setTooltipContent(tip(l)); });
+  }).catch(() => {});
 }
 </script>
 {% endif %}

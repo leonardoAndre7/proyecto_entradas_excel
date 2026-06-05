@@ -437,7 +437,17 @@ function iniciarMapa(W, H) {
   capasRef = capas;                       // exponer para el precio masivo / buscador
   mapRef = map;
 
-  lotes.forEach(l => {
+  // Área (caja) de un lote — para ordenar el dibujado
+  const areaDe = (l) => {
+    if (!l.puntos || l.puntos.length < 3) return 0;
+    let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
+    l.puntos.forEach(p => { mnx = Math.min(mnx, p.x); mxx = Math.max(mxx, p.x); mny = Math.min(mny, p.y); mxy = Math.max(mxy, p.y); });
+    return (mxx - mnx) * (mxy - mny);
+  };
+  // Dibujar los GRANDES al fondo y los pequeños encima → las piezas chicas quedan clickeables
+  const ordenLotes = [...lotes].sort((a, b) => areaDe(b) - areaDe(a));
+
+  ordenLotes.forEach(l => {
     if (!l.puntos || l.puntos.length < 3) return;
     const poly = L.polygon(l.puntos.map(aLatLng), estiloPorEstado(l.estado)).addTo(map);
     poly.bindTooltip(textoTooltip(l), { sticky: true, direction: "top" });

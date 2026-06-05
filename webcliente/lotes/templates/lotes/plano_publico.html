@@ -188,7 +188,14 @@ function iniciarMapa(W, H) {
     return t;
   }
 
-  lotes.forEach(l => {
+  // Área (caja) de un lote — los grandes al fondo, los pequeños encima (clickeables)
+  const areaDe = (l) => {
+    if (!l.puntos || l.puntos.length < 3) return 0;
+    let mnx = Infinity, mny = Infinity, mxx = -Infinity, mxy = -Infinity;
+    l.puntos.forEach(p => { mnx = Math.min(mnx, p.x); mxx = Math.max(mxx, p.x); mny = Math.min(mny, p.y); mxy = Math.max(mxy, p.y); });
+    return (mxx - mnx) * (mxy - mny);
+  };
+  [...lotes].sort((a, b) => areaDe(b) - areaDe(a)).forEach(l => {
     if (!l.puntos || l.puntos.length < 3) return;
     // Los bloqueados no son lotes reales: no se dibujan (transparentes)
     if (l.estado === 'bloqueado') return;

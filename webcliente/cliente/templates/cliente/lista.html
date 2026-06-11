@@ -453,6 +453,9 @@
                     <button type="button" class="btn btn-info-glow" data-bs-toggle="modal" data-bs-target="#importExcelModal">
                         <i class="bi bi-file-earmark-arrow-up-fill"></i> Importar Excel
                     </button>
+                    <a href="{% url 'editor_entrada' evento_id=evento.id %}" class="btn btn-warning-glow">
+                        <i class="bi bi-qr-code"></i> Editor de Entrada
+                    </a>
                     <form method="post" action="{% url 'enviar_masivo' evento_id=evento.id %}" class="d-inline"
                           onsubmit="return confirm('¿Enviar boletes a TODOS los aprobados? Esta acción no se puede deshacer.')">
                         {% csrf_token %}

@@ -973,22 +973,47 @@ def generar_imagen_personalizada(participante, qr_img):
     if not os.path.exists(base_path):
         return None
         
-    fondo = Image.open(base_path).convert("RGB")
-    
-    # 2. Posicionar QR ajustado al cuadrilátero del boleto
-    pos_x, pos_y, qr_width, qr_height = 168, 405, 567, 569 # Coordenadas predeterminadas
-    qr_resized = qr_img.resize((qr_width, qr_height), Image.Resampling.LANCZOS)
-    
-    entrada_completa = fondo.copy()
-    entrada_completa.paste(qr_resized, (pos_x, pos_y))
+    fondo = Image.open(base_path).convert("RGBA")
+
+    # 2. Posicionar QR — usar config del evento o defaults
+    pos_x     = evento.qr_pos_x if evento else 168
+    pos_y     = evento.qr_pos_y if evento else 405
+    qr_width  = evento.qr_ancho if evento else 567
+    qr_height = evento.qr_alto  if evento else 569
+
+    color_fondo = (evento.qr_color_fondo if evento else '#ffffff')
+    transparente = (color_fondo == 'transparent')
+
+    if transparente:
+        # Regenerar QR con fondo transparente usando colores del evento
+        color_frente = (evento.qr_color_frente if evento else '#000000')
+        qr_obj = qrcode.QRCode(box_size=10, border=4)
+        qr_obj.add_data(qr_img.size)  # dummy data; el QR real ya viene como parámetro
+        # Usamos el qr_img original pero lo re-coloreamos si es RGBA
+        qr_resized = qr_img.convert("RGBA").resize((qr_width, qr_height), Image.Resampling.LANCZOS)
+        # Hacer el blanco transparente
+        r, g, b, a = qr_resized.split()
+        mask = qr_resized.convert("L").point(lambda p: 0 if p > 200 else 255)
+        qr_resized.putalpha(mask)
+        entrada_completa = fondo.copy()
+        capa = Image.new("RGBA", fondo.size, (0, 0, 0, 0))
+        capa.paste(qr_resized, (pos_x, pos_y))
+        entrada_completa = Image.alpha_composite(entrada_completa, capa)
+    else:
+        qr_resized = qr_img.convert("RGB").resize((qr_width, qr_height), Image.Resampling.LANCZOS)
+        entrada_completa = fondo.copy()
+        entrada_completa.paste(qr_resized, (pos_x, pos_y))
+
+    entrada_completa = entrada_completa.convert("RGB")
     
     # 3. Dibujar Nombre del Participante debajo del QR
     draw = ImageDraw.Draw(entrada_completa)
     nombre = (participante.nombres or "").upper()
     
-    font_path = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", "Roboto-Bold.ttf")
+    fuente_archivo = (evento.qr_fuente if evento and evento.qr_fuente else 'Roboto-Bold.ttf')
+    font_path = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", fuente_archivo)
     if not os.path.exists(font_path):
-        font_path = "arial.ttf" # Fallback
+        font_path = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", "Roboto-Bold.ttf")
         
     # Tamaño de fuente automático para que encaje
     font_size = 120
@@ -1948,6 +1973,174 @@ def mi_cuenta(request):
         'perfil': perfil,
         'google_configurado': google_configurado,
     })
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 🎨 EDITOR VISUAL DE ENTRADA (QR Position + Color + Font)
+# ══════════════════════════════════════════════════════════════════════
+import json as _json
+
+FUENTES_DISPONIBLES = [
+    ('Roboto-Bold.ttf',    'Roboto Bold'),
+    ('Poppins-Bold.ttf',   'Poppins Bold'),
+    ('Poppins-Regular.ttf','Poppins Regular'),
+    ('arial.ttf',          'Arial'),
+    ('ARIALBD.TTF',        'Arial Bold'),
+    ('ariblk.ttf',         'Arial Black'),
+    ('ARIALN.TTF',         'Arial Narrow'),
+    ('ARIALNB.TTF',        'Arial Narrow Bold'),
+]
+
+
+@login_required(login_url='/participantes/login/')
+def editor_entrada(request, evento_id):
+    evento = get_object_or_404(Evento, pk=evento_id)
+
+    img_ancho, img_alto = 900, 1500
+    base_path = os.path.join(settings.BASE_DIR, 'cliente', 'static', 'img', 'asesor.jpeg')
+    if evento.imagen_fondo:
+        base_path = evento.imagen_fondo.path
+    if os.path.exists(base_path):
+        with Image.open(base_path) as img:
+            img_ancho, img_alto = img.size
+
+    fondo_url = evento.imagen_fondo.url if evento.imagen_fondo else None
+
+    return render(request, 'cliente/editor_entrada.html', {
+        'evento': evento,
+        'img_ancho': img_ancho,
+        'img_alto': img_alto,
+        'fondo_url': fondo_url,
+        'fuentes': FUENTES_DISPONIBLES,
+    })
+
+
+@login_required(login_url='/participantes/login/')
+def preview_entrada_ajax(request, evento_id):
+    """Genera y devuelve la imagen del boleto con los params actuales (base64 JPEG)."""
+    evento = get_object_or_404(Evento, pk=evento_id)
+
+    try:
+        pos_x        = int(request.GET.get('pos_x',         evento.qr_pos_x))
+        pos_y        = int(request.GET.get('pos_y',         evento.qr_pos_y))
+        ancho        = int(request.GET.get('ancho',         evento.qr_ancho))
+        alto         = int(request.GET.get('alto',          evento.qr_alto))
+        color_frente = request.GET.get('color_frente', evento.qr_color_frente)
+        color_fondo  = request.GET.get('color_fondo',  evento.qr_color_fondo)
+        fuente       = request.GET.get('fuente', evento.qr_fuente)
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Parámetros inválidos'}, status=400)
+
+    # Validar que la fuente sea una de las permitidas (seguridad)
+    fuentes_permitidas = {f for f, _ in FUENTES_DISPONIBLES}
+    if fuente not in fuentes_permitidas:
+        fuente = 'Roboto-Bold.ttf'
+
+    # Cargar fondo
+    base_path = os.path.join(settings.BASE_DIR, 'cliente', 'static', 'img', 'asesor.jpeg')
+    if evento.imagen_fondo:
+        base_path = evento.imagen_fondo.path
+    if not os.path.exists(base_path):
+        return JsonResponse({'error': 'No hay imagen de fondo configurada'}, status=400)
+
+    fondo = Image.open(base_path).convert("RGBA")
+    entrada = fondo.copy()
+
+    # Generar QR de muestra
+    qr_obj = qrcode.QRCode(box_size=10, border=4)
+    qr_obj.add_data("PREVIEW-QR")
+    qr_obj.make(fit=True)
+
+    transparente = (color_fondo == 'transparent')
+    if transparente:
+        qr_img = qr_obj.make_image(fill_color=color_frente, back_color=(255, 255, 255, 0))
+        qr_img = qr_img.convert("RGBA").resize((max(1, ancho), max(1, alto)), Image.Resampling.LANCZOS)
+        capa = Image.new("RGBA", entrada.size, (0, 0, 0, 0))
+        capa.paste(qr_img, (pos_x, pos_y))
+        entrada = Image.alpha_composite(entrada, capa)
+    else:
+        qr_img = qr_obj.make_image(fill_color=color_frente, back_color=color_fondo).convert("RGBA")
+        qr_img = qr_img.resize((max(1, ancho), max(1, alto)), Image.Resampling.LANCZOS)
+        entrada.paste(qr_img, (pos_x, pos_y))
+
+    # Dibujar nombre de muestra
+    draw = ImageDraw.Draw(entrada)
+    nombre = "NOMBRE APELLIDO"
+    font_path = os.path.join(settings.BASE_DIR, "cliente", "static", "fonts", fuente)
+    font_size = 120
+    while font_size > 40:
+        try:
+            font = ImageFont.truetype(font_path, font_size)
+        except Exception:
+            font = ImageFont.load_default()
+            break
+        bbox = draw.textbbox((0, 0), nombre, font=font)
+        if (bbox[2] - bbox[0]) <= (ancho - 30):
+            break
+        font_size -= 8
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except Exception:
+        font = ImageFont.load_default()
+    bbox = draw.textbbox((0, 0), nombre, font=font)
+    texto_x = pos_x + (ancho // 2) - ((bbox[2] - bbox[0]) // 2)
+    texto_y = pos_y + alto + 40
+    draw.text((texto_x, texto_y), nombre, font=font, fill="white", stroke_width=6, stroke_fill="black")
+
+    buffer = BytesIO()
+    entrada.convert("RGB").save(buffer, format="JPEG", quality=85)
+    img_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    return JsonResponse({'imagen': img_b64, 'img_ancho': fondo.width, 'img_alto': fondo.height})
+
+
+@login_required(login_url='/participantes/login/')
+def preview_qr_ajax(request, evento_id):
+    """Devuelve solo la imagen del QR (PNG base64) con los colores pedidos."""
+    cf          = request.GET.get('color_frente', '#000000')
+    cb          = request.GET.get('color_fondo',  '#ffffff')
+    transparente = (cb == 'transparent')
+
+    qr_obj = qrcode.QRCode(box_size=10, border=2)
+    qr_obj.add_data("https://ede-evento.com/preview")
+    qr_obj.make(fit=True)
+
+    # qrcode siempre genera en modo RGB internamente; back_color con alpha es ignorado.
+    # Generamos con fondo blanco y luego hacemos los píxeles blancos transparentes manualmente.
+    qr_img = qr_obj.make_image(fill_color=cf, back_color="white").convert("RGBA")
+
+    if transparente:
+        pixels = list(qr_img.getdata())
+        pixels = [(r, g, b, 0) if r > 240 and g > 240 and b > 240 else (r, g, b, a)
+                  for r, g, b, a in pixels]
+        qr_img.putdata(pixels)
+
+    buffer = BytesIO()
+    qr_img.save(buffer, format="PNG")
+    img_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    return JsonResponse({'qr': img_b64})
+
+
+@login_required(login_url='/participantes/login/')
+def guardar_config_qr(request, evento_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    evento = get_object_or_404(Evento, pk=evento_id)
+    try:
+        data = _json.loads(request.body)
+        evento.qr_pos_x        = int(data['pos_x'])
+        evento.qr_pos_y        = int(data['pos_y'])
+        evento.qr_ancho        = int(data['ancho'])
+        evento.qr_alto         = int(data['alto'])
+        evento.qr_color_frente = data['color_frente']
+        evento.qr_color_fondo  = data['color_fondo']
+        fuentes_permitidas = {f for f, _ in FUENTES_DISPONIBLES}
+        fuente = data.get('fuente', evento.qr_fuente)
+        if fuente in fuentes_permitidas:
+            evento.qr_fuente = fuente
+        evento.save()
+        return JsonResponse({'status': 'ok'})
+    except (KeyError, ValueError) as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
 
 @login_required(login_url='/participantes/login/')

@@ -71,6 +71,15 @@ class Evento(models.Model):
     imagen_fondo = models.ImageField(upload_to="event_backgrounds/", blank=True, null=True, verbose_name="Fondo del Boleto (asesor.jpeg)")
     banner = models.ImageField(upload_to="event_banners/", blank=True, null=True, verbose_name="Banner de Cabecera")
 
+    # 🔲 Configuración del QR en el boleto (editor visual)
+    qr_pos_x       = models.IntegerField(default=168,      verbose_name="QR Posición X (px)")
+    qr_pos_y       = models.IntegerField(default=405,      verbose_name="QR Posición Y (px)")
+    qr_ancho       = models.IntegerField(default=567,      verbose_name="QR Ancho (px)")
+    qr_alto        = models.IntegerField(default=569,      verbose_name="QR Alto (px)")
+    qr_color_frente = models.CharField(max_length=7, default="#000000", verbose_name="QR Color frente")
+    qr_color_fondo  = models.CharField(max_length=20, default="#ffffff", verbose_name="QR Color fondo")
+    qr_fuente       = models.CharField(max_length=50, default="Roboto-Bold.ttf", verbose_name="Fuente del nombre")
+
     def __img_fondo_path(self):
         if self.imagen_fondo:
             return self.imagen_fondo.path

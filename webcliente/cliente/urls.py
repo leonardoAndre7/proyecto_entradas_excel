@@ -65,6 +65,12 @@ urlpatterns = [
     # 👤 Perfil propio del usuario
     path('mi-cuenta/', views.mi_cuenta, name='mi_cuenta'),
 
+    # 🎨 Editor visual de entrada (QR position + color)
+    path('eventos/<int:evento_id>/editor-entrada/', views.editor_entrada, name='editor_entrada'),
+    path('eventos/<int:evento_id>/preview-entrada/', views.preview_entrada_ajax, name='preview_entrada_ajax'),
+    path('eventos/<int:evento_id>/preview-qr/', views.preview_qr_ajax, name='preview_qr_ajax'),
+    path('eventos/<int:evento_id>/guardar-config-qr/', views.guardar_config_qr, name='guardar_config_qr'),
+
     # 🔐 Google OAuth2 — Conexión de Gmail para envío de entradas
     path('google/auth/', views.google_auth_inicio, name='google_auth_inicio'),
     path('google/callback/', views.google_auth_callback, name='google_auth_callback'),

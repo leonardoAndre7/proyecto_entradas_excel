@@ -1,0 +1,454 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de Entrada — {{ evento.nombre }}</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Roboto:wght@700&family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root { --primary:#0ea5e9; --bg:#090d16; --card:rgba(15,23,42,.75); --border:rgba(255,255,255,.08); }
+* { box-sizing:border-box; }
+body { background:var(--bg); font-family:'Outfit',sans-serif; color:#f1f5f9; min-height:100vh; }
+.editor-grid { display:grid; grid-template-columns:340px 1fr; gap:20px; padding:20px; min-height:100vh; }
+
+/* ── Panel izquierdo ── */
+.controls-panel {
+  background:var(--card); border:1px solid var(--border); border-radius:20px;
+  padding:20px; display:flex; flex-direction:column; gap:14px;
+  height:fit-content; position:sticky; top:20px; backdrop-filter:blur(16px);
+  max-height:calc(100vh - 40px); overflow-y:auto;
+}
+.controls-panel::-webkit-scrollbar { width:4px; }
+.controls-panel::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
+.panel-title { font-size:17px; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:8px; }
+.section-label { font-size:10px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+.ctrl label { font-size:12px; font-weight:600; color:#94a3b8; margin-bottom:3px; display:flex; justify-content:space-between; }
+.ctrl label span { color:#f1f5f9; font-weight:700; }
+.ctrl input[type=range] { width:100%; accent-color:var(--primary); cursor:pointer; }
+.color-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.color-box label { font-size:10px; font-weight:600; color:#94a3b8; margin-bottom:3px; display:block; }
+.color-box input[type=color] { width:100%; height:36px; border:1px solid var(--border); border-radius:8px; cursor:pointer; background:none; padding:2px; }
+.chk-row { display:flex; align-items:center; gap:8px; font-size:12px; color:#94a3b8; font-weight:600; cursor:pointer; }
+.chk-row input[type=checkbox] { width:15px; height:15px; accent-color:var(--primary); cursor:pointer; }
+
+/* Fuentes */
+.font-grid { display:flex; flex-direction:column; gap:5px; }
+.font-opt { padding:7px 11px; border:1px solid var(--border); border-radius:9px; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:9px; background:rgba(255,255,255,.02); }
+.font-opt:hover { border-color:var(--primary); background:rgba(14,165,233,.08); }
+.font-opt.active { border-color:var(--primary); background:rgba(14,165,233,.15); }
+.font-dot { width:14px; height:14px; border-radius:50%; border:2px solid #475569; flex-shrink:0; transition:all .15s; }
+.font-opt.active .font-dot { background:var(--primary); border-color:var(--primary); }
+.font-name { font-size:13px; color:#f1f5f9; }
+
+.divider { border-color:var(--border); margin:0; }
+.btn-preview { background:linear-gradient(135deg,#0ea5e9,#6366f1); border:none; border-radius:11px; color:#fff; font-weight:700; font-size:13px; padding:10px; cursor:pointer; transition:opacity .2s; display:flex; align-items:center; justify-content:center; gap:7px; }
+.btn-preview:hover { opacity:.85; }
+.btn-save { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); border-radius:11px; color:#10b981; font-weight:700; font-size:13px; padding:10px; cursor:pointer; transition:background .2s; display:flex; align-items:center; justify-content:center; gap:7px; }
+.btn-save:hover { background:rgba(16,185,129,.2); }
+.btn-back { background:none; border:1px solid var(--border); border-radius:11px; color:#94a3b8; font-size:12px; padding:9px; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px; transition:border-color .2s; }
+.btn-back:hover { border-color:#94a3b8; color:#f1f5f9; }
+
+/* ── Panel derecho ── */
+.preview-panel { display:flex; flex-direction:column; gap:14px; }
+.preview-header { font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px; }
+.preview-header small { font-size:11px; color:#94a3b8; font-weight:400; }
+.tabs-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.tab-btn { padding:6px 14px; border-radius:9px; border:1px solid var(--border); background:none; color:#94a3b8; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
+.tab-btn.active { background:rgba(14,165,233,.15); border-color:var(--primary); color:var(--primary); }
+.guide-btns { display:flex; gap:5px; flex-wrap:wrap; margin-left:8px; align-items:center; }
+.guide-label-txt { font-size:10px; color:#475569; font-weight:700; }
+.guide-btn { padding:4px 10px; border-radius:7px; border:1px solid var(--border); background:none; color:#64748b; font-size:11px; font-weight:600; cursor:pointer; transition:all .2s; }
+.guide-btn.active { border-color:#facc15; background:rgba(250,204,21,.1); color:#facc15; }
+
+/* Canvas wrapper */
+.canvas-wrapper { position:relative; display:inline-block; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#0f172a; }
+.canvas-wrapper img.bg-img { display:block; max-height:72vh; width:auto; pointer-events:none; user-select:none; }
+
+/* QR overlay draggable */
+.qr-drag { position:absolute; cursor:move; user-select:none; }
+.name-label-preview {
+  position:absolute;
+  color:#fff;
+  text-shadow: 0 0 6px #000, 0 0 3px #000;
+  font-weight:700;
+  white-space:nowrap;
+  pointer-events:none;
+  transform:translateX(-50%);
+}
+
+/* Guías */
+.guide-layer { position:absolute; inset:0; pointer-events:none; }
+.g-h { position:absolute; left:0; right:0; border-top:1px dashed; }
+.g-v { position:absolute; top:0; bottom:0; border-left:1px dashed; }
+.g-lbl { position:absolute; font-size:9px; font-weight:700; padding:1px 4px; background:rgba(0,0,0,.5); border-radius:3px; }
+
+/* Preview render */
+.result-img { max-height:72vh; width:auto; border-radius:14px; border:1px solid var(--border); display:none; }
+.spinner { display:none; width:30px; height:30px; border:3px solid rgba(14,165,233,.3); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; margin:40px auto; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.render-empty { color:#64748b; font-size:13px; margin-top:16px; display:none; }
+.toast-msg { position:fixed; bottom:18px; right:18px; padding:9px 16px; border-radius:9px; font-weight:600; font-size:12px; opacity:0; transition:opacity .3s; z-index:9999; }
+.toast-msg.ok { background:#10b981; color:#fff; }
+.toast-msg.err { background:#ef4444; color:#fff; }
+.toast-msg.show { opacity:1; }
+</style>
+</head>
+<body>
+<div class="editor-grid">
+
+  <!-- ─── PANEL IZQUIERDO ─── -->
+  <aside class="controls-panel">
+    <div class="panel-title"><i class="bi bi-qr-code"></i> Editor de Entrada</div>
+
+    <div style="font-size:11px;color:#94a3b8;background:rgba(14,165,233,.07);border:1px solid rgba(14,165,233,.18);border-radius:8px;padding:8px 12px;">
+      <i class="bi bi-info-circle me-1" style="color:var(--primary)"></i>
+      Arrastra el QR para posicionarlo. Los cambios se ven en tiempo real.
+    </div>
+
+    <!-- Posición & Tamaño -->
+    <div>
+      <div class="section-label">Posición y Tamaño del QR</div>
+      <div class="ctrl"><label>Posición X <span id="lbl-x">{{ evento.qr_pos_x }}</span> px</label>
+        <input type="range" id="sl-x" min="0" max="{{ img_ancho }}" value="{{ evento.qr_pos_x }}" oninput="syncSlider('x',this.value)"></div>
+      <div class="ctrl" style="margin-top:6px"><label>Posición Y <span id="lbl-y">{{ evento.qr_pos_y }}</span> px</label>
+        <input type="range" id="sl-y" min="0" max="{{ img_alto }}" value="{{ evento.qr_pos_y }}" oninput="syncSlider('y',this.value)"></div>
+      <div class="ctrl" style="margin-top:6px"><label>Ancho <span id="lbl-w">{{ evento.qr_ancho }}</span> px</label>
+        <input type="range" id="sl-w" min="50" max="{{ img_ancho }}" value="{{ evento.qr_ancho }}" oninput="syncSlider('w',this.value)"></div>
+      <div class="ctrl" style="margin-top:6px"><label>Alto <span id="lbl-h">{{ evento.qr_alto }}</span> px</label>
+        <input type="range" id="sl-h" min="50" max="{{ img_alto }}" value="{{ evento.qr_alto }}" oninput="syncSlider('h',this.value)"></div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Colores -->
+    <div>
+      <div class="section-label">Color del QR</div>
+      <div class="color-row">
+        <div class="color-box">
+          <label>Frente (módulos)</label>
+          <input type="color" id="cl-frente" value="{{ evento.qr_color_frente }}" oninput="refreshQR()">
+        </div>
+        <div class="color-box" id="box-fondo">
+          <label>Fondo</label>
+          <input type="color" id="cl-fondo" value="{% if evento.qr_color_fondo == 'transparent' %}#ffffff{% else %}{{ evento.qr_color_fondo }}{% endif %}" oninput="refreshQR()">
+        </div>
+      </div>
+      <label class="chk-row" style="margin-top:9px">
+        <input type="checkbox" id="chk-transparente"
+               {% if evento.qr_color_fondo == 'transparent' %}checked{% endif %}
+               onchange="toggleTransparente(this.checked)">
+        Fondo transparente
+      </label>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Tipografía -->
+    <div>
+      <div class="section-label">Tipografía del nombre</div>
+      <div class="font-grid">
+        {% for archivo, nombre_fuente in fuentes %}
+        <div class="font-opt {% if evento.qr_fuente == archivo %}active{% endif %}"
+             onclick="selectFont('{{ archivo }}', this)" data-font="{{ archivo }}">
+          <div class="font-dot"></div>
+          <span class="font-name">{{ nombre_fuente }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <button class="btn-preview" onclick="generarPreview()">
+      <i class="bi bi-image"></i> Ver Preview (alta resolución)
+    </button>
+    <button class="btn-save" onclick="guardarConfig()">
+      <i class="bi bi-floppy"></i> Guardar Configuración
+    </button>
+    <a href="{% url 'participante_lista' evento_id=evento.id %}" class="btn-back">
+      <i class="bi bi-arrow-left"></i> Volver a participantes
+    </a>
+  </aside>
+
+  <!-- ─── PANEL DERECHO ─── -->
+  <main class="preview-panel">
+    <div class="preview-header">
+      <i class="bi bi-ticket-perforated"></i> {{ evento.nombre }}
+      <small>— Editor visual</small>
+    </div>
+
+    <div class="tabs-bar">
+      <button class="tab-btn active" id="tab-overlay" onclick="switchTab('overlay')">
+        <i class="bi bi-bounding-box"></i> Editor en vivo
+      </button>
+      <button class="tab-btn" id="tab-render" onclick="switchTab('render')">
+        <i class="bi bi-image"></i> Preview renderizado
+      </button>
+      <div class="guide-btns" id="guide-controls">
+        <span class="guide-label-txt">GUÍAS:</span>
+        <button class="guide-btn" id="gbtn-center" onclick="toggleGuide('center')"><i class="bi bi-crosshair"></i> Centro</button>
+        <button class="guide-btn" id="gbtn-thirds" onclick="toggleGuide('thirds')"><i class="bi bi-grid-3x3"></i> Tercios</button>
+        <button class="guide-btn" id="gbtn-grid"   onclick="toggleGuide('grid')"><i class="bi bi-grid"></i> Cuadrícula</button>
+      </div>
+    </div>
+
+    <!-- Vista overlay (editor en vivo) -->
+    <div id="view-overlay">
+      <div class="canvas-wrapper" id="canvas-wrapper">
+        {% if fondo_url %}
+          <img class="bg-img" id="bg-img" src="{{ fondo_url }}" onload="initOverlay()" alt="Fondo">
+        {% else %}
+          <img class="bg-img" id="bg-img" src="{% static 'img/asesor.jpeg' %}" onload="initOverlay()" alt="Fondo">
+        {% endif %}
+        <!-- Guías -->
+        <div class="guide-layer" id="guide-layer"></div>
+        <!-- QR draggable -->
+        <div class="qr-drag" id="qr-drag">
+          <img id="qr-img-preview" style="width:100%;height:100%;display:block;border-radius:4px;" alt="QR">
+        </div>
+        <!-- Nombre preview -->
+        <div class="name-label-preview" id="name-label">NOMBRE APELLIDO</div>
+      </div>
+    </div>
+
+    <!-- Vista render (alta resolución) -->
+    <div id="view-render" style="display:none">
+      <div class="spinner" id="spinner"></div>
+      <img class="result-img" id="result-img" alt="Preview generado">
+      <div class="render-empty" id="render-empty">
+        <i class="bi bi-arrow-left-circle me-1"></i> Haz clic en "Ver Preview" para generar la imagen de alta resolución.
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast-msg" id="toast"></div>
+
+<script>
+const EVENTO_ID  = {{ evento.id }};
+const IMG_ANCHO  = {{ img_ancho }};
+const IMG_ALTO   = {{ img_alto }};
+const CSRF_TOKEN = "{{ csrf_token }}";
+
+const cfg = {
+  x: {{ evento.qr_pos_x }},
+  y: {{ evento.qr_pos_y }},
+  w: {{ evento.qr_ancho }},
+  h: {{ evento.qr_alto }},
+  cf: "{{ evento.qr_color_frente }}",
+  cb: "{{ evento.qr_color_fondo }}",
+  fuente: "{{ evento.qr_fuente }}",
+};
+
+let scale = 1;
+const FONT_CSS_MAP = {
+  'Roboto-Bold.ttf':    'bold 1em Roboto, Arial',
+  'Poppins-Bold.ttf':   'bold 1em Poppins, Arial',
+  'Poppins-Regular.ttf':'normal 1em Poppins, Arial',
+  'arial.ttf':          'normal 1em Arial',
+  'ARIALBD.TTF':        'bold 1em Arial',
+  'ariblk.ttf':         '900 1em Arial Black, Arial',
+  'ARIALN.TTF':         'normal 1em Arial Narrow, Arial',
+  'ARIALNB.TTF':        'bold 1em Arial Narrow, Arial',
+};
+
+// ── Init ────────────────────────────────────────────────
+function initOverlay() {
+  const img = document.getElementById('bg-img');
+  scale = img.offsetWidth / IMG_ANCHO;
+  positionAll();
+}
+
+function positionAll() {
+  const drag = document.getElementById('qr-drag');
+  drag.style.left   = (cfg.x * scale) + 'px';
+  drag.style.top    = (cfg.y * scale) + 'px';
+  drag.style.width  = (cfg.w * scale) + 'px';
+  drag.style.height = (cfg.h * scale) + 'px';
+  updateNameLabel();
+  refreshQR();
+}
+
+// ── Render QR en tiempo real (DataURL → <img>) ───────────
+let qrTimer = null;
+function refreshQR() {
+  clearTimeout(qrTimer);
+  qrTimer = setTimeout(_renderQR, 80);
+}
+
+function _renderQR() {
+  const cf     = document.getElementById('cl-frente').value;
+  const transp = document.getElementById('chk-transparente').checked;
+  const cb     = transp ? 'transparent' : document.getElementById('cl-fondo').value;
+
+  cfg.cf = cf;
+  cfg.cb = cb;
+
+  // En el overlay siempre fondo transparente → solo se ven los módulos del QR
+  const params = new URLSearchParams({ color_frente: cf, color_fondo: 'transparent' });
+  fetch(`/participantes/eventos/${EVENTO_ID}/preview-qr/?${params}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.qr) {
+        document.getElementById('qr-img-preview').src = 'data:image/png;base64,' + data.qr;
+      }
+    })
+    .catch(console.error);
+}
+
+// ── Nombre label preview ─────────────────────────────────
+function updateNameLabel() {
+  const lbl = document.getElementById('name-label');
+  const centerX = (cfg.x + cfg.w / 2) * scale;
+  const bottomY = (cfg.y + cfg.h) * scale + 16;
+  lbl.style.left    = centerX + 'px';
+  lbl.style.top     = bottomY + 'px';
+  const fontSize = Math.max(10, Math.round(cfg.w * scale / 10));
+  lbl.style.fontSize = fontSize + 'px';
+  const fontCSS = FONT_CSS_MAP[cfg.fuente] || 'bold 1em Arial';
+  lbl.style.font = fontCSS.replace('1em', fontSize + 'px');
+}
+
+// ── Sliders ─────────────────────────────────────────────
+function syncSlider(key, val) {
+  val = parseInt(val);
+  const lbls = { x:'lbl-x', y:'lbl-y', w:'lbl-w', h:'lbl-h' };
+  cfg[key] = val;
+  document.getElementById(lbls[key]).textContent = val;
+  positionAll();
+}
+
+// ── Transparente ─────────────────────────────────────────
+function toggleTransparente(checked) {
+  document.getElementById('box-fondo').style.opacity = checked ? '0.35' : '1';
+  document.getElementById('cl-fondo').disabled = checked;
+  refreshQR();
+}
+
+// ── Drag ────────────────────────────────────────────────
+let dragging = false, startMX, startMY, startCX, startCY;
+document.getElementById('qr-drag').addEventListener('mousedown', e => {
+  dragging = true; startMX = e.clientX; startMY = e.clientY;
+  startCX = cfg.x; startCY = cfg.y; e.preventDefault();
+});
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  cfg.x = Math.max(0, Math.min(IMG_ANCHO - cfg.w, Math.round(startCX + (e.clientX - startMX) / scale)));
+  cfg.y = Math.max(0, Math.min(IMG_ALTO  - cfg.h, Math.round(startCY + (e.clientY - startMY) / scale)));
+  document.getElementById('sl-x').value = cfg.x; document.getElementById('lbl-x').textContent = cfg.x;
+  document.getElementById('sl-y').value = cfg.y; document.getElementById('lbl-y').textContent = cfg.y;
+  positionAll();
+});
+document.addEventListener('mouseup', () => dragging = false);
+window.addEventListener('resize', initOverlay);
+
+// ── Guías ────────────────────────────────────────────────
+const activeGuides = new Set();
+function toggleGuide(t) {
+  activeGuides.has(t) ? activeGuides.delete(t) : activeGuides.add(t);
+  document.getElementById('gbtn-' + t).classList.toggle('active', activeGuides.has(t));
+  renderGuides();
+}
+function renderGuides() {
+  const layer = document.getElementById('guide-layer');
+  layer.innerHTML = '';
+  if (activeGuides.has('center')) {
+    mkLine(layer,'h',50,'rgba(250,204,21,.8)'); mkLine(layer,'v',50,'rgba(250,204,21,.8)');
+    mkLbl(layer,'— 50% —', '50%','50%','#facc15');
+  }
+  if (activeGuides.has('thirds')) {
+    [33.33,66.66].forEach(p => { mkLine(layer,'h',p,'rgba(251,146,60,.65)'); mkLine(layer,'v',p,'rgba(251,146,60,.65)'); });
+  }
+  if (activeGuides.has('grid')) {
+    for (let p=10;p<100;p+=10) { mkLine(layer,'h',p,'rgba(148,163,184,.15)'); mkLine(layer,'v',p,'rgba(148,163,184,.15)'); }
+  }
+}
+function mkLine(p,dir,pct,color) {
+  const d = document.createElement('div');
+  d.className = dir==='h' ? 'g-h':'g-v';
+  d.style[dir==='h'?'top':'left'] = pct+'%';
+  d.style[dir==='h'?'borderTopColor':'borderLeftColor'] = color;
+  p.appendChild(d);
+}
+function mkLbl(p,txt,top,left,color) {
+  const d=document.createElement('div'); d.className='g-lbl';
+  d.style.top=top; d.style.left=left; d.style.color=color; d.textContent=txt;
+  p.appendChild(d);
+}
+
+// ── Tipografía ───────────────────────────────────────────
+function selectFont(archivo, el) {
+  cfg.fuente = archivo;
+  document.querySelectorAll('.font-opt').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  updateNameLabel();
+}
+
+// ── Tabs ─────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('view-overlay').style.display = tab==='overlay' ? '':'none';
+  document.getElementById('view-render').style.display  = tab==='render'  ? '':'none';
+  document.getElementById('guide-controls').style.display = tab==='overlay' ? '':'none';
+  document.getElementById('tab-overlay').classList.toggle('active', tab==='overlay');
+  document.getElementById('tab-render').classList.toggle('active', tab==='render');
+  if (tab==='render' && document.getElementById('result-img').style.display==='none')
+    document.getElementById('render-empty').style.display='';
+}
+
+// ── Preview alta resolución ───────────────────────────────
+async function generarPreview() {
+  switchTab('render');
+  document.getElementById('render-empty').style.display = 'none';
+  document.getElementById('result-img').style.display   = 'none';
+  document.getElementById('spinner').style.display      = 'block';
+  const params = new URLSearchParams({
+    pos_x:cfg.x, pos_y:cfg.y, ancho:cfg.w, alto:cfg.h,
+    color_frente:cfg.cf, color_fondo:cfg.cb, fuente:cfg.fuente,
+  });
+  try {
+    const data = await fetch(`/participantes/eventos/${EVENTO_ID}/preview-entrada/?${params}`).then(r=>r.json());
+    document.getElementById('spinner').style.display = 'none';
+    if (data.imagen) {
+      const img = document.getElementById('result-img');
+      img.src = 'data:image/jpeg;base64,' + data.imagen;
+      img.style.display = 'block';
+    } else { showToast('Error: '+(data.error||'desconocido'),'err'); document.getElementById('render-empty').style.display=''; }
+  } catch { document.getElementById('spinner').style.display='none'; document.getElementById('render-empty').style.display=''; showToast('Error de conexión','err'); }
+}
+
+// ── Guardar ──────────────────────────────────────────────
+async function guardarConfig() {
+  try {
+    const data = await fetch(`/participantes/eventos/${EVENTO_ID}/guardar-config-qr/`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
+      body:JSON.stringify({pos_x:cfg.x, pos_y:cfg.y, ancho:cfg.w, alto:cfg.h,
+                           color_frente:cfg.cf, color_fondo:cfg.cb, fuente:cfg.fuente}),
+    }).then(r=>r.json());
+    showToast(data.status==='ok' ? '✓ Guardado' : 'Error: '+data.error, data.status==='ok'?'ok':'err');
+  } catch { showToast('Error de conexión','err'); }
+}
+
+// ── Toast ────────────────────────────────────────────────
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className=`toast-msg ${type} show`;
+  setTimeout(()=>{ t.className='toast-msg'; },3000);
+}
+
+// ── Init al cargar ────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('chk-transparente').checked) toggleTransparente(true);
+  const img = document.getElementById('bg-img');
+  if (img.complete && img.naturalWidth > 0) {
+    initOverlay();
+  } else {
+    img.addEventListener('load', initOverlay);
+  }
+});
+</script>
+</body>
+</html>

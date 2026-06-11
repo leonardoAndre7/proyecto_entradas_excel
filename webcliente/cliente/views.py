@@ -984,25 +984,32 @@ def generar_imagen_personalizada(participante, qr_img):
     color_fondo = (evento.qr_color_fondo if evento else '#ffffff')
     transparente = (color_fondo == 'transparent')
 
+    color_frente = (evento.qr_color_frente if evento else '#000000')
+
+    # Re-colorear QR pixel a pixel: módulos → color_frente, fondo → color_fondo o transparente
+    qr_rgba = qr_img.convert("RGBA").resize((qr_width, qr_height), Image.Resampling.LANCZOS)
+    pixels = list(qr_rgba.getdata())
+    try:
+        cf = color_frente.lstrip('#')
+        cf_rgb = (int(cf[0:2], 16), int(cf[2:4], 16), int(cf[4:6], 16))
+    except Exception:
+        cf_rgb = (0, 0, 0)
     if transparente:
-        # Regenerar QR con fondo transparente usando colores del evento
-        color_frente = (evento.qr_color_frente if evento else '#000000')
-        qr_obj = qrcode.QRCode(box_size=10, border=4)
-        qr_obj.add_data(qr_img.size)  # dummy data; el QR real ya viene como parámetro
-        # Usamos el qr_img original pero lo re-coloreamos si es RGBA
-        qr_resized = qr_img.convert("RGBA").resize((qr_width, qr_height), Image.Resampling.LANCZOS)
-        # Hacer el blanco transparente
-        r, g, b, a = qr_resized.split()
-        mask = qr_resized.convert("L").point(lambda p: 0 if p > 200 else 255)
-        qr_resized.putalpha(mask)
-        entrada_completa = fondo.copy()
-        capa = Image.new("RGBA", fondo.size, (0, 0, 0, 0))
-        capa.paste(qr_resized, (pos_x, pos_y))
-        entrada_completa = Image.alpha_composite(entrada_completa, capa)
+        pixels = [(cf_rgb[0], cf_rgb[1], cf_rgb[2], 255) if not (r > 200 and g > 200 and b > 200)
+                  else (255, 255, 255, 0) for r, g, b, a in pixels]
     else:
-        qr_resized = qr_img.convert("RGB").resize((qr_width, qr_height), Image.Resampling.LANCZOS)
-        entrada_completa = fondo.copy()
-        entrada_completa.paste(qr_resized, (pos_x, pos_y))
+        try:
+            cb = color_fondo.lstrip('#')
+            cb_rgb = (int(cb[0:2], 16), int(cb[2:4], 16), int(cb[4:6], 16))
+        except Exception:
+            cb_rgb = (255, 255, 255)
+        pixels = [(cf_rgb[0], cf_rgb[1], cf_rgb[2], 255) if not (r > 200 and g > 200 and b > 200)
+                  else (cb_rgb[0], cb_rgb[1], cb_rgb[2], 255) for r, g, b, a in pixels]
+    qr_rgba.putdata(pixels)
+    entrada_completa = fondo.copy()
+    capa = Image.new("RGBA", fondo.size, (0, 0, 0, 0))
+    capa.paste(qr_rgba, (pos_x, pos_y), qr_rgba)
+    entrada_completa = Image.alpha_composite(entrada_completa, capa)
 
     entrada_completa = entrada_completa.convert("RGB")
     
@@ -2052,16 +2059,25 @@ def preview_entrada_ajax(request, evento_id):
     qr_obj.make(fit=True)
 
     transparente = (color_fondo == 'transparent')
+    # back_color con alpha es ignorado por qrcode (genera en RGB); aplicar transparencia manualmente
+    qr_img = qr_obj.make_image(fill_color=color_frente, back_color="white").convert("RGBA")
+    pixels = list(qr_img.getdata())
     if transparente:
-        qr_img = qr_obj.make_image(fill_color=color_frente, back_color=(255, 255, 255, 0))
-        qr_img = qr_img.convert("RGBA").resize((max(1, ancho), max(1, alto)), Image.Resampling.LANCZOS)
-        capa = Image.new("RGBA", entrada.size, (0, 0, 0, 0))
-        capa.paste(qr_img, (pos_x, pos_y))
-        entrada = Image.alpha_composite(entrada, capa)
+        pixels = [(r, g, b, 0) if r > 240 and g > 240 and b > 240 else (r, g, b, a)
+                  for r, g, b, a in pixels]
     else:
-        qr_img = qr_obj.make_image(fill_color=color_frente, back_color=color_fondo).convert("RGBA")
-        qr_img = qr_img.resize((max(1, ancho), max(1, alto)), Image.Resampling.LANCZOS)
-        entrada.paste(qr_img, (pos_x, pos_y))
+        try:
+            cb = color_fondo.lstrip('#')
+            cb_rgb = (int(cb[0:2], 16), int(cb[2:4], 16), int(cb[4:6], 16))
+            pixels = [(cb_rgb[0], cb_rgb[1], cb_rgb[2], 255) if r > 240 and g > 240 and b > 240
+                      else (r, g, b, a) for r, g, b, a in pixels]
+        except Exception:
+            pass
+    qr_img.putdata(pixels)
+    qr_img = qr_img.resize((max(1, ancho), max(1, alto)), Image.Resampling.LANCZOS)
+    capa = Image.new("RGBA", entrada.size, (0, 0, 0, 0))
+    capa.paste(qr_img, (pos_x, pos_y), qr_img)
+    entrada = Image.alpha_composite(entrada, capa)
 
     # Dibujar nombre de muestra
     draw = ImageDraw.Draw(entrada)

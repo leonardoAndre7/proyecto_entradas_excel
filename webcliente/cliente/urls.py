@@ -29,6 +29,7 @@ urlpatterns = [
     path('eventos/<int:evento_id>/exportar-excel/', views.exportar_excel, name='exportar_excel'),
     path('eventos/<int:evento_id>/importar-excel/', views.importar_excel, name='importar_excel'),
     path('eventos/<int:evento_id>/enviar-masivo/', views.enviar_masivo, name='enviar_masivo'),
+    path('eventos/<int:evento_id>/enviar-siguiente/', views.enviar_siguiente_pendiente, name='enviar_siguiente_pendiente'),
     
     path('eventos/<int:evento_id>/check-admin-masivo/', views.check_admin_masivo, name='check_admin_masivo'),
     path('eventos/<int:evento_id>/check-contabilidad-masivo/', views.check_contabilidad_masivo, name='check_contabilidad_masivo'),

@@ -226,6 +226,7 @@ class Participante(models.Model):
 
     validado_admin = models.BooleanField(default=False)
     validado_contabilidad = models.BooleanField(default=False)
+    email_enviado = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         # 🔹 Calcular total

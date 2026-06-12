@@ -899,6 +899,9 @@ def enviar_entrada_participante(participante):
             except Exception as e:
                 logger.error(f"Error enviando WhatsApp Custom API: {e}")
 
+    if email_ok:
+        Participante.objects.filter(pk=participante.pk).update(email_enviado=True)
+
     return email_ok
 
 @login_required(login_url='/participantes/login/')
@@ -1147,17 +1150,44 @@ def importar_excel(request, evento_id):
                         precio=precio,
                         pago_confirmado=True
                     )
-                    enviar_entrada_participante(part)
                     enviados += 1
                 except Exception as e:
                     errores += 1
                     logger.error(f"Fallo importando participante: {e}")
             
-            messages.success(request, f"✅ Importación exitosa. {enviados} participantes creados. {errores} errores.")
+            messages.success(request, f"✅ {enviados} participantes importados. Usa 'Enviar tickets pendientes' para despachar los boletos por correo.")
         except Exception as e:
             messages.error(request, f"❌ Error de lectura de Excel: {e}")
             
     return redirect('participante_lista', evento_id=evento.id)
+
+
+# ==========================================
+# 📧 ENVIAR SIGUIENTE TICKET PENDIENTE (AJAX one-by-one)
+# ==========================================
+@login_required(login_url='/participantes/login/')
+def enviar_siguiente_pendiente(request, evento_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method not allowed'}, status=405)
+    evento = get_object_or_404(Evento, pk=evento_id)
+    pendiente = Participante.objects.filter(
+        evento=evento, pago_confirmado=True, email_enviado=False
+    ).first()
+
+    if not pendiente:
+        total = Participante.objects.filter(evento=evento, pago_confirmado=True).count()
+        return JsonResponse({'status': 'done', 'pendientes': 0, 'total': total})
+
+    ok = enviar_entrada_participante(pendiente)
+
+    pendientes = Participante.objects.filter(evento=evento, pago_confirmado=True, email_enviado=False).count()
+    total = Participante.objects.filter(evento=evento, pago_confirmado=True).count()
+    return JsonResponse({
+        'status': 'ok' if ok else 'error',
+        'nombre': pendiente.nombres,
+        'pendientes': pendientes,
+        'total': total,
+    })
 
 
 # ==========================================

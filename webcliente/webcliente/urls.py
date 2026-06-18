@@ -31,6 +31,9 @@ urlpatterns = [
     path('plano/', lotes_views.ver_plano,         name="plano"),        # admin
     path('mapa/',  lotes_views.ver_mapa_publico,  name="mapa_publico"), # clientes
 
+    # 🔌 API REST — sin autenticación de sesión, protegida por X-API-Key
+    path('api/registrar-participante/', views.api_registrar_participante, name='api_registrar_participante'),
+
     # 🔐 Google OAuth2 — rutas en raíz para coincidir con Google Cloud Console
     # Google Console tiene: http://localhost:8000/google/callback/
     #                        https://ede-evento.com/google/callback/

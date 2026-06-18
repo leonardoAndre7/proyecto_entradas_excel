@@ -37,6 +37,9 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
+# --- API KEY (para endpoint REST externo) ---
+API_KEY = config('API_KEY', default='cambiar-en-produccion-render')
+
 # --- TWILIO / WHAPI / IMGBB ---
 TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID", default="")
 TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN", default="")

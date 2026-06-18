@@ -1,6 +1,7 @@
 import io
 import os
 import csv
+import json
 import time
 import logging
 import base64
@@ -18,6 +19,7 @@ from django.db.models import Q, Max, IntegerField, Sum
 from django.db.models.functions import Cast, Substr
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
+from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.contrib import messages
@@ -1135,13 +1137,18 @@ def importar_excel(request, evento_id):
                         precio = tarifas_dict[tipo_encontrado].get(preventa_tipo, Decimal("0.00"))
                     
                     tarifa_db = Tarifa.objects.filter(evento=evento, tipo_entrada=tipo_encontrado).first()
-                    
+
+                    dni_limpio = str(row['DNI']).strip()
+                    if Participante.objects.filter(evento=evento, dni=dni_limpio).exists():
+                        errores += 1
+                        continue
+
                     part = Participante.objects.create(
                         evento=evento,
                         tarifa=tarifa_db,
                         nombres=row['Nombre'],
                         apellidos="",
-                        dni=str(row['DNI']),
+                        dni=dni_limpio,
                         celular=telefono,
                         correo=row['Correo'] if not pd.isna(row.get('Correo')) else '',
                         vendedor=row['Vendedor'] if not pd.isna(row.get('Vendedor')) else '',
@@ -1155,7 +1162,8 @@ def importar_excel(request, evento_id):
                     errores += 1
                     logger.error(f"Fallo importando participante: {e}")
             
-            messages.success(request, f"✅ {enviados} participantes importados. Usa 'Enviar tickets pendientes' para despachar los boletos por correo.")
+            omitidos = errores
+            messages.success(request, f"✅ {enviados} participantes importados. {omitidos} omitidos (DNI duplicado o error). Usa 'Enviar tickets pendientes' para despachar los boletos por correo.")
         except Exception as e:
             messages.error(request, f"❌ Error de lectura de Excel: {e}")
             
@@ -2325,3 +2333,86 @@ def usuario_eliminar(request, pk):
     perfil.user.delete()
     messages.success(request, f"Usuario '{username}' eliminado permanentemente.")
     return redirect('usuario_lista')
+
+
+# ==========================================
+# 🔌 API REST — Registrar Participante
+# POST /api/registrar-participante/
+# Header: X-API-Key: <settings.API_KEY>
+# ==========================================
+@csrf_exempt
+def api_registrar_participante(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+
+    api_key = request.headers.get('X-API-Key', '')
+    if api_key != settings.API_KEY:
+        return JsonResponse({'ok': False, 'error': 'API Key inválida'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'JSON inválido'}, status=400)
+
+    nombres = str(data.get('nombres') or '').strip()
+    if not nombres:
+        return JsonResponse({'ok': False, 'error': 'El campo "nombres" es requerido'}, status=400)
+
+    apellidos    = str(data.get('apellidos') or '').strip()
+    dni          = str(data.get('dni') or '').strip()
+    celular      = str(data.get('celular') or '').strip()
+    correo       = str(data.get('correo') or '').strip()
+    tipo_entrada = str(data.get('tipo_entrada') or '').strip()
+    tipo_tarifa  = str(data.get('tipo_tarifa') or 'pre1').strip().lower()
+    vendedor     = str(data.get('vendedor') or '').strip()
+    evento_id    = data.get('evento_id', 1)
+
+    try:
+        cantidad = int(data.get('cantidad') or 1)
+    except (ValueError, TypeError):
+        cantidad = 1
+
+    try:
+        evento = Evento.objects.get(pk=evento_id)
+    except Evento.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': f'Evento {evento_id} no encontrado'}, status=404)
+
+    # Verificar duplicado por DNI en este evento
+    if dni and Participante.objects.filter(evento=evento, dni=dni).exists():
+        return JsonResponse({'ok': False, 'error': f'Ya existe un participante con DNI {dni} en este evento'}, status=409)
+
+    # Resolver tarifa
+    tarifa = Tarifa.objects.filter(evento=evento, tipo_entrada__iexact=tipo_entrada).first()
+
+    # Determinar precio
+    precio_final = data.get('precio_final')
+    if precio_final is not None:
+        try:
+            precio = Decimal(str(precio_final))
+        except Exception:
+            precio = Decimal('0.00')
+    elif tarifa:
+        campo_map = {'pre1': 'preventa_1', 'pre2': 'preventa_2', 'pre3': 'preventa_3', 'puerta': 'puerta'}
+        precio = getattr(tarifa, campo_map.get(tipo_tarifa, 'preventa_1'), Decimal('0.00'))
+    else:
+        precio = Decimal('0.00')
+
+    try:
+        participante = Participante.objects.create(
+            evento=evento,
+            tarifa=tarifa,
+            nombres=nombres,
+            apellidos=apellidos,
+            dni=dni,
+            celular=celular,
+            correo=correo,
+            vendedor=vendedor,
+            tipo_entrada=tipo_entrada or (tarifa.tipo_entrada if tarifa else ''),
+            cantidad=cantidad,
+            precio=precio,
+            pago_confirmado=True,
+        )
+        return JsonResponse({'ok': True, 'id': participante.id})
+    except Exception as e:
+        logger.error(f"API registrar_participante error: {e}", exc_info=True)
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)

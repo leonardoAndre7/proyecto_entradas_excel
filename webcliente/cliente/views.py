@@ -2397,6 +2397,19 @@ def api_registrar_participante(request):
     else:
         precio = Decimal('0.00')
 
+    # Extraer campos booleanos opcionales (default False si no vienen)
+    pago_confirmado = data.get('pago_confirmado', False)
+    if isinstance(pago_confirmado, str):
+        pago_confirmado = pago_confirmado.lower() in ('true', '1', 'yes', 'on')
+
+    validado_admin = data.get('validado_admin', False)
+    if isinstance(validado_admin, str):
+        validado_admin = validado_admin.lower() in ('true', '1', 'yes', 'on')
+
+    validado_contabilidad = data.get('validado_contabilidad', False)
+    if isinstance(validado_contabilidad, str):
+        validado_contabilidad = validado_contabilidad.lower() in ('true', '1', 'yes', 'on')
+
     try:
         participante = Participante.objects.create(
             evento=evento,
@@ -2410,7 +2423,9 @@ def api_registrar_participante(request):
             tipo_entrada=tipo_entrada or (tarifa.tipo_entrada if tarifa else ''),
             cantidad=cantidad,
             precio=precio,
-            pago_confirmado=True,
+            pago_confirmado=pago_confirmado,
+            validado_admin=validado_admin,
+            validado_contabilidad=validado_contabilidad,
         )
         return JsonResponse({'ok': True, 'id': participante.id})
     except Exception as e:

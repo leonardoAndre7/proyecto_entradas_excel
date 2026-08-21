@@ -1,0 +1,538 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asesores NEXO Business — Únete gratis al grupo | Grupo Hilario Inmobiliaria</title>
+<meta name="description" content="Únete gratis a la comunidad de asesores NEXO Business: comisiones de 5% a 15%, capacitación y acompañamiento constante.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0a1612; --black-soft:#12211c; --green-deep:#12332a; --green:#2f7d68;
+  --green-bright:#73ccb3; --green-light:#bfe8da; --white:#ffffff; --offwhite:#fff9f3;
+  --ink:#12221c; --gray:#5c6e67; --emerald:#2f8f73; --wa:#25D366;
+  --line:rgba(255,255,255,0.12); --radius:18px;
+  --shadow:0 24px 60px -22px rgba(0,0,0,0.4);
+  --surface:rgba(18,51,42,0.55); --border:rgba(115,204,179,0.14); --border-hl:rgba(115,204,179,0.35);
+}
+*,*::before,*::after{box-sizing:border-box; margin:0; padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Inter',-apple-system,sans-serif; color:var(--ink); background:var(--black); line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden;}
+h1,h2,h3,h4{font-family:'Montserrat',sans-serif; font-weight:800; line-height:1.18; letter-spacing:-0.01em; color:var(--black);}
+a{text-decoration:none; color:inherit;}
+img,svg{display:block; max-width:100%;}
+ul{list-style:none;}
+.wrap{max-width:1100px; margin:0 auto; padding:0 24px;}
+section{position:relative; scroll-margin-top:76px;}
+.section-pad{padding:80px 0;}
+.eyebrow{display:inline-flex; align-items:center; gap:8px; font-size:0.72rem; letter-spacing:0.16em; text-transform:uppercase; font-weight:800; color:var(--emerald); margin-bottom:14px;}
+.eyebrow::before{content:""; width:24px; height:2px; background:var(--emerald); display:inline-block;}
+.eyebrow.on-dark{color:var(--green-bright);}
+.eyebrow.on-dark::before{background:var(--green-bright);}
+.section-head{max-width:620px; margin-bottom:40px;}
+.section-head.center{margin-left:auto; margin-right:auto; text-align:center;}
+.section-head h2{font-size:clamp(1.6rem,4vw,2.2rem); margin-bottom:12px;}
+.section-head p{color:var(--gray); font-size:1rem;}
+.section-head.on-dark h2{color:var(--white);}
+.section-head.on-dark p{color:rgba(255,255,255,0.65);}
+
+.btn{position:relative; overflow:hidden; display:inline-flex; align-items:center; justify-content:center; gap:10px; padding:17px 30px; border-radius:999px; font-weight:800; font-size:0.98rem; cursor:pointer; border:1.5px solid transparent; transition:transform .25s ease, box-shadow .25s ease, background .25s ease; white-space:nowrap; font-family:'Inter',sans-serif;}
+.btn-wa{background:var(--wa); color:#fff; box-shadow:0 10px 26px -8px rgba(37,211,102,0.55);}
+.btn-wa:hover{background:#1ebe5d; transform:translateY(-2px); box-shadow:0 16px 34px -8px rgba(37,211,102,0.65);}
+.btn-wa svg{width:19px; height:19px; fill:currentColor; flex-shrink:0;}
+.btn-sm{padding:12px 22px; font-size:0.85rem;}
+
+/* ---------- HEADER ---------- */
+header{position:fixed; top:0; left:0; right:0; z-index:1000; background:rgba(10,22,18,0.0); transition:background .3s ease, padding .3s ease, box-shadow .3s ease; padding:22px 0;}
+header.scrolled{background:rgba(10,22,18,0.94); backdrop-filter:blur(10px); box-shadow:0 10px 30px -20px rgba(0,0,0,0.6); padding:12px 0;}
+header .wrap{display:flex; align-items:center; justify-content:space-between; gap:20px;}
+.logo img{height:30px; width:auto; display:block;}
+nav.main-nav{display:flex; align-items:center; gap:30px;}
+nav.main-nav a{color:var(--white); font-size:0.88rem; font-weight:600; opacity:0.85; transition:opacity .2s ease;}
+nav.main-nav a:hover{opacity:1; color:var(--green-bright);}
+.header-cta{display:flex; align-items:center;}
+.burger{display:none; flex-direction:column; gap:5px; cursor:pointer; background:none; border:none; padding:6px; z-index:1001;}
+.burger span{width:24px; height:2px; background:var(--white); border-radius:2px;}
+.mobile-nav{display:none;}
+
+/* ---------- HERO ---------- */
+.hero-b{background:var(--black); padding:150px 0 70px; overflow:hidden;}
+.hero-b .wrap{display:grid; grid-template-columns:1.05fr 0.95fr; gap:50px; align-items:center;}
+.hero-b h1{color:var(--white); font-size:clamp(2rem,4.4vw,3.1rem); margin-bottom:18px;}
+.hero-b h1 em{font-style:normal; color:var(--green-bright);}
+.hero-b p.lead{color:rgba(255,255,255,0.68); font-size:1.06rem; max-width:520px; margin-bottom:28px;}
+.hero-b .btn-note{margin-top:14px; font-size:0.8rem; color:rgba(255,255,255,0.5);}
+.hero-stats{display:flex; gap:30px; margin-top:36px; flex-wrap:wrap;}
+.hero-stats div b{display:block; font-family:'Montserrat',sans-serif; font-size:1.6rem; color:var(--white);}
+.hero-stats div span{font-size:0.74rem; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.06em;}
+
+.hero-media{position:relative; perspective:1200px;}
+.hero-media-frame{border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); position:relative; aspect-ratio:1000/562; transition:transform .4s ease; will-change:transform;}
+.hero-media-frame img{width:100%; height:100%; object-fit:cover; object-position:center 38%; transform-origin:center center; animation:heroZoom 24s ease-in-out infinite;}
+.hero-media-frame::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, transparent 55%, rgba(10,22,18,0.55)); pointer-events:none;}
+@keyframes heroZoom{0%{transform:scale(1);} 50%{transform:scale(1.09) translateY(-1.5%);} 100%{transform:scale(1);}}
+@media (prefers-reduced-motion: reduce){ .hero-media-frame img{animation:none;} }
+.hm-corner{position:absolute; width:24px; height:24px; z-index:3; pointer-events:none;}
+.hm-corner.tl{top:14px; left:14px;}
+.hm-corner.br{bottom:14px; right:14px; transform:rotate(180deg);}
+.hm-corner path{stroke:rgba(255,255,255,0.6); stroke-width:1.6; fill:none;}
+.floating-badge{position:absolute; z-index:4; background:rgba(10,22,18,0.82); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border:1px solid rgba(115,204,179,0.32); border-radius:14px; padding:12px 16px; box-shadow:0 14px 30px -10px rgba(0,0,0,0.5); opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease;}
+.floating-badge.in{opacity:1; transform:translateY(0);}
+.floating-badge b{display:block; font-family:'Montserrat',sans-serif; font-size:1.1rem; color:var(--green-bright); line-height:1.2;}
+.floating-badge span{font-size:0.66rem; color:rgba(255,255,255,0.65); text-transform:uppercase; letter-spacing:0.04em;}
+.fb-1{top:16px; right:16px;}
+.fb-2{bottom:16px; left:16px;}
+
+/* ---------- BENEFICIOS (chips compactos) ---------- */
+.benef-b{background:var(--offwhite);}
+.chip-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+.chip{background:var(--white); border:1px solid #e4ecda; border-radius:16px; padding:22px 18px; text-align:center; transition:transform .25s ease, box-shadow .25s ease;}
+.chip:hover{transform:translateY(-5px); box-shadow:0 16px 32px -18px rgba(10,22,18,0.25);}
+.chip .chip-icon{width:44px; height:44px; border-radius:12px; background:var(--green-deep); display:flex; align-items:center; justify-content:center; margin:0 auto 14px;}
+.chip .chip-icon svg{width:21px; height:21px; stroke:var(--green-bright);}
+.chip h4{font-size:0.92rem;}
+
+/* ---------- COMISIONES ---------- */
+.comis-b{background:linear-gradient(150deg, var(--green-deep), var(--black)); color:var(--white);}
+.ladder{display:flex; align-items:flex-end; gap:14px; margin:40px 0 16px; overflow-x:auto; padding:4px 4px 10px;}
+.rung{flex:1 0 90px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; -webkit-tap-highlight-color:transparent;}
+.rung .pct{font-family:'Montserrat',sans-serif; font-weight:800; color:var(--white); font-size:1.05rem; opacity:0.5; transform:translateY(6px); transition:opacity .5s ease, transform .5s ease, color .25s ease;}
+.ladder.in .rung .pct{opacity:1; transform:translateY(0);}
+.rung .bar{width:100%; height:0; border-radius:12px 12px 4px 4px; background:linear-gradient(180deg, var(--green-bright), var(--green)); transition:height 1s cubic-bezier(.16,.84,.44,1), box-shadow .25s ease, transform .2s ease, filter .25s ease; transition-delay:calc(var(--i, 0) * 90ms);}
+.ladder.in .rung .bar{height:var(--h);}
+.rung:hover .bar, .rung.active .bar{transform:translateY(-6px); filter:brightness(1.12); box-shadow:0 0 0 3px rgba(255,255,255,0.3) inset, 0 14px 28px -8px rgba(115,204,179,0.55);}
+.rung.active .pct{color:var(--green-bright);}
+.rung span.rname{font-size:0.76rem; font-weight:700; color:rgba(255,255,255,0.75); transition:color .25s ease;}
+.rung.active span.rname{color:var(--green-bright);}
+.ladder-hint{text-align:center; font-size:0.76rem; color:rgba(255,255,255,0.4); margin-bottom:24px;}
+.comis-example{background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); border-radius:var(--radius); padding:22px 24px; margin-bottom:14px; transition:border-color .3s ease, background .3s ease;}
+.comis-example b{color:var(--green-bright); font-family:'Montserrat',sans-serif;}
+.comis-example.pulse{border-color:rgba(115,204,179,0.45); background:rgba(115,204,179,0.08);}
+.comis-note{font-size:0.78rem; color:rgba(255,255,255,0.5); max-width:640px; line-height:1.6;}
+
+/* ---------- COMO FUNCIONA ---------- */
+.pasos-b{background:var(--black); color:var(--white);}
+.pasos-list{display:flex; flex-direction:column; gap:0; max-width:640px; margin:0 auto 36px;}
+.paso{display:flex; gap:20px; padding:22px 0; border-bottom:1px solid rgba(255,255,255,0.1); align-items:center;}
+.paso:last-child{border-bottom:none;}
+.paso .num{flex-shrink:0; width:42px; height:42px; border-radius:50%; background:rgba(115,204,179,0.12); border:1.5px solid var(--green-bright); color:var(--green-bright); font-family:'Montserrat',sans-serif; font-weight:800; display:flex; align-items:center; justify-content:center;}
+.paso.hi .num{background:var(--green-bright); color:var(--black);}
+.paso h4{font-size:1rem; margin-bottom:4px; color:var(--white);}
+.paso.hi h4{color:var(--green-bright);}
+.paso p{color:rgba(255,255,255,0.6); font-size:0.88rem;}
+.pasos-cta{text-align:center;}
+.pasos-cta p{margin-top:14px; font-size:0.8rem; color:rgba(255,255,255,0.45);}
+
+/* ---------- FAQ ---------- */
+.faq-b{background:var(--white);}
+.faq-list{max-width:680px; margin:0 auto; display:flex; flex-direction:column; gap:12px;}
+.faq-item{border:1px solid #e4ecda; border-radius:14px; overflow:hidden;}
+.faq-item summary{cursor:pointer; list-style:none; padding:18px 22px; font-weight:800; font-size:0.94rem; display:flex; justify-content:space-between; align-items:center; gap:14px; font-family:'Montserrat',sans-serif;}
+.faq-item summary::-webkit-details-marker{display:none;}
+.faq-item summary::after{content:"+"; font-size:1.4rem; color:var(--emerald); flex-shrink:0; transition:transform .2s ease;}
+.faq-item[open] summary::after{transform:rotate(45deg);}
+.faq-item p{padding:0 22px 18px; color:var(--gray); font-size:0.88rem;}
+
+/* ---------- CIERRE ---------- */
+.cierre-b{position:relative; padding:100px 0; text-align:center; color:var(--white); overflow:hidden;}
+.cierre-b .bg{position:absolute; inset:0; z-index:0;}
+.cierre-b .bg img{width:100%; height:100%; object-fit:cover;}
+.cierre-b .bg::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,22,18,0.55), rgba(10,22,18,0.94));}
+.cierre-b .content{position:relative; z-index:1; max-width:600px; margin:0 auto;}
+.cierre-b h2{color:var(--white); font-size:clamp(1.7rem,4.4vw,2.4rem); margin-bottom:14px;}
+.cierre-b p{color:rgba(255,255,255,0.68); margin-bottom:28px; font-size:1rem;}
+.cierre-b .fine{margin-top:16px; font-size:0.8rem; color:rgba(255,255,255,0.5);}
+
+/* ---------- FOOTER ---------- */
+footer{background:var(--black); color:rgba(255,255,255,0.6); padding:50px 0 26px; font-size:0.85rem;}
+footer .wrap{display:flex; flex-direction:column; gap:14px; align-items:center; text-align:center;}
+footer img{height:24px;}
+footer .legal{max-width:560px; line-height:1.7; color:rgba(255,255,255,0.4); font-size:0.76rem;}
+
+/* ---------- WHATSAPP FLOAT ---------- */
+.wa-float{position:fixed; bottom:26px; right:26px; z-index:900; width:58px; height:58px; border-radius:50%; background:var(--wa); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 30px -8px rgba(37,211,102,0.6); opacity:0; transform:translateY(16px) scale(0.8); pointer-events:none; transition:opacity .3s ease, transform .3s ease;}
+.wa-float.show{opacity:1; transform:translateY(0) scale(1); pointer-events:auto; animation:wa-pulse 2.4s infinite;}
+.wa-float svg{width:26px; height:26px; fill:#fff;}
+@keyframes wa-pulse{0%{box-shadow:0 0 0 0 rgba(37,211,102,0.5);} 70%{box-shadow:0 0 0 14px rgba(37,211,102,0);} 100%{box-shadow:0 0 0 0 rgba(37,211,102,0);}}
+
+/* ---------- SCROLL REVEAL ---------- */
+.reveal{opacity:0; transform:translateY(28px); will-change:opacity, transform;}
+.reveal.in{opacity:1; transform:translateY(0);}
+
+/* ---------- PINNED SECTIONS ---------- */
+.pin-wrap{position:relative;}
+.pin-wrap .pin-sticky{position:sticky; top:0; min-height:100vh; display:flex; flex-direction:column; justify-content:center;}
+.pin-item{opacity:0; transform:translateY(28px); will-change:opacity, transform;}
+@media (prefers-reduced-motion: reduce){
+  .pin-wrap{height:auto !important;}
+  .pin-wrap .pin-sticky{position:static; min-height:0;}
+  .pin-item{opacity:1 !important; transform:none !important;}
+  .reveal{opacity:1 !important; transform:none !important;}
+}
+
+@media (max-width:980px){
+  .hero-b .wrap{grid-template-columns:1fr;}
+  .hero-media{order:-1;}
+  .floating-badge{padding:9px 13px;}
+  .floating-badge b{font-size:0.96rem;}
+  .chip-grid{grid-template-columns:repeat(2,1fr);}
+}
+@media (max-width:760px){
+  nav.main-nav{display:none;}
+  .burger{display:flex;}
+  .header-cta .btn span.full{display:none;}
+  .section-pad{padding:56px 0;}
+  .ladder{gap:8px;}
+  .rung{flex:1 0 60px;}
+  .rung .bar{font-size:0.85rem;}
+  .mobile-nav.open{display:flex;}
+  .mobile-nav{position:fixed; inset:0; top:0; background:var(--black); z-index:999; flex-direction:column; align-items:center; justify-content:center; gap:28px;}
+  .mobile-nav a{color:var(--white); font-size:1.1rem; font-weight:700;}
+  .mobile-nav .close-x{position:absolute; top:24px; right:24px; background:none; border:none; color:var(--white); font-size:1.6rem; cursor:pointer;}
+}
+@media (max-width:480px){ .chip-grid{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+
+<header id="siteHeader">
+  <div class="wrap">
+    <a class="logo" href="#inicio"><img src="{% static 'nexo_landing/logo-nexo-blanco.png' %}" alt="NEXO Business"></a>
+    <nav class="main-nav">
+      <a href="#beneficios">Beneficios</a>
+      <a href="#comisiones">Comisiones</a>
+      <a href="#faq">Preguntas frecuentes</a>
+    </nav>
+    <div class="header-cta">
+      <a href="https://chat.whatsapp.com/LY1Kgt7635lERMulHwHyuP?s=sw&p=a&ilr=1" class="btn btn-wa btn-sm" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        <span class="full">Unirme gratis al grupo</span>
+      </a>
+    </div>
+    <button class="burger" id="burgerBtn" aria-label="Abrir menú">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="mobile-nav" id="mobileNav">
+    <button class="close-x" id="closeNav" aria-label="Cerrar menú">&times;</button>
+    <a href="#beneficios">Beneficios</a>
+    <a href="#comisiones">Comisiones</a>
+    <a href="#faq">Preguntas frecuentes</a>
+    <a href="https://chat.whatsapp.com/LY1Kgt7635lERMulHwHyuP?s=sw&p=a&ilr=1" class="btn btn-wa" target="_blank" rel="noopener">Unirme gratis al grupo</a>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero-b" id="inicio">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow on-dark">Convocatoria de asesores NEXO Business</span>
+      <h1>Únete a una comunidad que <em>aprende, vende y crece unida</em></h1>
+      <p class="lead">Ingresa gratis al grupo de asesores NEXO. No necesitas experiencia previa — decide después si activas tu membresía.</p>
+      <a href="https://chat.whatsapp.com/LY1Kgt7635lERMulHwHyuP?s=sw&p=a&ilr=1" class="btn btn-wa" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Unirme gratis al grupo
+      </a>
+      <p class="btn-note">Acceso gratuito · Capacitaciones y eventos presenciales</p>
+      <div class="hero-stats">
+        <div><b>+220</b><span>Asesores</span></div>
+        <div><b>Hasta 15%</b><span>De comisión</span></div>
+        <div><b>+3 años</b><span>De trayectoria</span></div>
+      </div>
+    </div>
+    <div class="hero-media" id="heroMedia">
+      <div class="hero-media-frame" id="heroFrame">
+        <img src="{% static 'nexo_landing/equipo.jpg' %}" alt="Equipo NEXO Business en actividad de campo">
+        <svg class="hm-corner tl" viewBox="0 0 26 26"><path d="M1 12 V1 H12"/></svg>
+        <svg class="hm-corner br" viewBox="0 0 26 26"><path d="M1 12 V1 H12"/></svg>
+      </div>
+      <div class="floating-badge fb-1" data-io>
+        <b>+220</b><span>Asesores activos</span>
+      </div>
+      <div class="floating-badge fb-2" data-io style="transition-delay:.15s">
+        <b>+3 años</b><span>De trayectoria</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= BENEFICIOS (compacto) ================= -->
+<section class="benef-b section-pad pin-wrap" id="beneficios" style="height:220vh;">
+ <div class="pin-sticky">
+  <div class="wrap">
+    <div class="section-head center reveal" style="margin-left:auto;margin-right:auto;">
+      <span class="eyebrow" style="justify-content:center;">Por qué unirte</span>
+      <h2>Lo esencial de ser asesor NEXO</h2>
+    </div>
+    <div class="chip-grid">
+      <div class="chip pin-item">
+        <div class="chip-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <h4>Capacitación constante</h4>
+      </div>
+      <div class="chip pin-item">
+        <div class="chip-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15z"/></svg></div>
+        <h4>Material comercial</h4>
+      </div>
+      <div class="chip pin-item">
+        <div class="chip-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><circle cx="12" cy="8" r="4"/></svg></div>
+        <h4>Acompañamiento en el cierre</h4>
+      </div>
+      <div class="chip pin-item">
+        <div class="chip-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 6h7v7"/></svg></div>
+        <h4>Línea de carrera</h4>
+      </div>
+    </div>
+  </div>
+ </div>
+</section>
+
+<!-- ================= COMISIONES ================= -->
+<section class="comis-b section-pad" id="comisiones">
+  <div class="wrap">
+    <div class="section-head on-dark reveal">
+      <span class="eyebrow on-dark">Crece con tus resultados</span>
+      <h2>Comisiones de 5% a 15%</h2>
+      <p>Cada venta te ayuda a avanzar de rango.</p>
+    </div>
+
+    <div class="ladder" id="ladder">
+      <div class="rung active" style="--i:0;" data-pct="5" data-rango="Máster"><span class="pct">5%</span><div class="bar" style="--h:90px;"></div><span class="rname">Máster</span></div>
+      <div class="rung" style="--i:1;" data-pct="7" data-rango="Plata"><span class="pct">7%</span><div class="bar" style="--h:110px;"></div><span class="rname">Plata</span></div>
+      <div class="rung" style="--i:2;" data-pct="10" data-rango="Oro"><span class="pct">10%</span><div class="bar" style="--h:130px;"></div><span class="rname">Oro</span></div>
+      <div class="rung" style="--i:3;" data-pct="12" data-rango="Diamante"><span class="pct">12%</span><div class="bar" style="--h:150px;"></div><span class="rname">Diamante</span></div>
+      <div class="rung" style="--i:4;" data-pct="14" data-rango="Diamante 50K"><span class="pct">14%</span><div class="bar" style="--h:170px;"></div><span class="rname">Diamante 50K</span></div>
+      <div class="rung" style="--i:5;" data-pct="15" data-rango="Diamante 100K"><span class="pct">15%</span><div class="bar" style="--h:190px;"></div><span class="rname">Diamante 100K</span></div>
+    </div>
+    <p class="ladder-hint">Toca un rango para ver el ejemplo en una venta de S/60,000.</p>
+
+    <div class="comis-example" id="comisExample">
+      <p>En una operación de <b>S/60,000</b>, una comisión del <b id="exPct">5%</b> (<b id="exRango">Máster</b>) representa <b id="exMonto">S/3,000</b>.</p>
+    </div>
+    <p class="comis-note">Ejemplo referencial: depende del proyecto, el rango y las políticas vigentes.</p>
+  </div>
+</section>
+
+<!-- ================= CÓMO FUNCIONA ================= -->
+<section class="pasos-b section-pad pin-wrap" id="como-funciona" style="height:180vh;">
+ <div class="pin-sticky">
+  <div class="wrap">
+    <div class="section-head on-dark center reveal">
+      <span class="eyebrow on-dark" style="justify-content:center;">Tu ruta de ingreso</span>
+      <h2>Así de simple es empezar</h2>
+    </div>
+    <div class="pasos-list">
+      <div class="paso hi pin-item">
+        <div class="num">1</div>
+        <div><h4>Únete gratis al grupo</h4><p>Entra al grupo de WhatsApp de asesores NEXO.</p></div>
+      </div>
+      <div class="paso pin-item">
+        <div class="num">2</div>
+        <div><h4>Vive Renacer del Asesor</h4><p>Una experiencia presencial para conocer el sistema de trabajo.</p></div>
+      </div>
+      <div class="paso pin-item">
+        <div class="num">3</div>
+        <div><h4>Activa tu membresía y vende</h4><p>Membresía anual de S/390, acceso al sistema comercial y a tus primeras ventas.</p></div>
+      </div>
+    </div>
+    <div class="pasos-cta">
+      <a href="https://chat.whatsapp.com/LY1Kgt7635lERMulHwHyuP?s=sw&p=a&ilr=1" class="btn btn-wa" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Unirme gratis al grupo
+      </a>
+      <p>Primero conoce la comunidad. Después decides.</p>
+    </div>
+  </div>
+ </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section class="faq-b section-pad" id="faq">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow" style="justify-content:center;">Preguntas frecuentes</span>
+      <h2>Lo esencial antes de unirte</h2>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>¿Necesito experiencia en ventas?</summary>
+        <p>No es indispensable. Buscamos personas comprometidas y con disposición para capacitarse.</p>
+      </details>
+      <details class="faq-item">
+        <summary>¿Cuánto puedo ganar?</summary>
+        <p>Depende de tus ventas, el proyecto y tu rango. No hay ingreso fijo garantizado.</p>
+      </details>
+      <details class="faq-item">
+        <summary>¿Cuándo se pagan las comisiones?</summary>
+        <p>Dentro de las 48 horas después de firmar el contrato y entregar la documentación completa.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CIERRE ================= -->
+<section class="cierre-b" id="cta-final">
+  <div class="bg"><img src="{% static 'nexo_landing/equipo.jpg' %}" alt="Equipo NEXO Business"></div>
+  <div class="content">
+    <span class="eyebrow on-dark" style="justify-content:center;">Tu próxima oportunidad</span>
+    <h2>Puede empezar hoy</h2>
+    <p>Únete gratis, conoce la comunidad y decide después si es para ti.</p>
+    <a href="https://chat.whatsapp.com/LY1Kgt7635lERMulHwHyuP?s=sw&p=a&ilr=1" class="btn btn-wa" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Unirme gratis al grupo
+    </a>
+    <p class="fine">Próximas capacitaciones y Renacer del Asesor.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <img src="{% static 'nexo_landing/logo-nexo-blanco.png' %}" alt="NEXO Business">
+    <p class="legal">
+      NEXO Business — Grupo Hilario Inmobiliaria. Programa de asesores.<br>
+      +51 922 067 234 · nexobusiness@hilariogrp.com<br>
+      Grupo independiente, no afiliado a WhatsApp Inc. Comisiones sujetas a las políticas vigentes.
+    </p>
+  </div>
+</footer>
+
+<a class="wa-float" id="waFloat" href="https://wa.me/51922067234?text=Hola%2C%20vi%20la%20comunidad%20de%20asesores%20de%20NEXO%20Business%20y%20quiero%20unirme%20para%20conocer%20las%20actividades%2C%20capacitaciones%20y%20la%20pr%C3%B3xima%20fecha%20de%20Renacer%20del%20Asesor." target="_blank" rel="noopener" aria-label="WhatsApp">
+  <svg viewBox="0 0 24 24"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.51 2 12.04 2zm0 18.1h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.12.82.84-3.04-.2-.31a8.19 8.19 0 0 1-1.26-4.37c0-4.52 3.68-8.2 8.2-8.2 2.19 0 4.25.85 5.8 2.4a8.14 8.14 0 0 1 2.4 5.81c0 4.52-3.68 8.2-8.2 8.2z"/></svg>
+</a>
+
+<script>
+(function(){
+  var header = document.getElementById('siteHeader');
+  var waFloat = document.getElementById('waFloat');
+  window.addEventListener('scroll', function(){
+    var y = window.scrollY || document.documentElement.scrollTop;
+    if (y > 40) header.classList.add('scrolled'); else header.classList.remove('scrolled');
+    if (y > 500) waFloat.classList.add('show'); else waFloat.classList.remove('show');
+  });
+
+  var burger = document.getElementById('burgerBtn');
+  var mobileNav = document.getElementById('mobileNav');
+  var closeNav = document.getElementById('closeNav');
+  burger.addEventListener('click', function(){ mobileNav.classList.add('open'); });
+  closeNav.addEventListener('click', function(){ mobileNav.classList.remove('open'); });
+  mobileNav.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){ mobileNav.classList.remove('open'); });
+  });
+
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting){
+        entry.target.classList.add('in');
+        io.unobserve(entry.target);
+      }
+    });
+  }, {threshold:0.35});
+  document.querySelectorAll('[data-io]').forEach(function(el){ io.observe(el); });
+  var ladderEl = document.getElementById('ladder');
+  if (ladderEl) io.observe(ladderEl);
+
+  var rungs = document.querySelectorAll('.rung');
+  var exPct = document.getElementById('exPct');
+  var exRango = document.getElementById('exRango');
+  var exMonto = document.getElementById('exMonto');
+  var comisExample = document.getElementById('comisExample');
+  function selectRung(r){
+    rungs.forEach(function(x){ x.classList.remove('active'); });
+    r.classList.add('active');
+    var pct = parseFloat(r.getAttribute('data-pct'));
+    var monto = Math.round(60000 * pct / 100);
+    exPct.textContent = pct + '%';
+    exRango.textContent = r.getAttribute('data-rango');
+    exMonto.textContent = 'S/' + monto.toLocaleString('es-PE');
+    comisExample.classList.add('pulse');
+    setTimeout(function(){ comisExample.classList.remove('pulse'); }, 500);
+  }
+  rungs.forEach(function(r){
+    r.addEventListener('click', function(){ selectRung(r); });
+    r.addEventListener('mouseenter', function(){ selectRung(r); });
+  });
+
+  var heroMedia = document.getElementById('heroMedia');
+  var heroFrame = document.getElementById('heroFrame');
+  if (heroMedia && heroFrame && window.matchMedia('(hover:hover)').matches){
+    heroMedia.addEventListener('mousemove', function(e){
+      var r = heroMedia.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width - 0.5;
+      var py = (e.clientY - r.top) / r.height - 0.5;
+      heroFrame.style.transform = 'rotateY(' + (px * 8) + 'deg) rotateX(' + (py * -8) + 'deg)';
+    });
+    heroMedia.addEventListener('mouseleave', function(){ heroFrame.style.transform = ''; });
+  }
+  var heroSection = document.getElementById('inicio');
+  if (heroMedia && heroSection){
+    window.addEventListener('scroll', function(){
+      var rect = heroSection.getBoundingClientRect();
+      if (rect.bottom > 0 && rect.top < window.innerHeight){
+        var progress = Math.min(Math.max(-rect.top / rect.height, 0), 1);
+        heroMedia.style.transform = 'translateY(' + (progress * 26) + 'px)';
+      }
+    });
+  }
+})();
+
+var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+  if (!items.length) return;
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+  function update() {
+    var vh = window.innerHeight;
+    items.forEach(function (el) {
+      if (reduceMotion) { el.style.opacity = '1'; el.style.transform = 'none'; el.classList.add('in'); return; }
+      var rect = el.getBoundingClientRect();
+      var startAt = vh * 0.88;
+      var endAt = vh * 0.42;
+      var progress = clamp((startAt - rect.top) / (startAt - endAt), 0, 1);
+      el.style.opacity = progress.toFixed(3);
+      el.style.transform = 'translateY(' + (28 * (1 - progress)).toFixed(1) + 'px)';
+      el.classList.toggle('in', progress > 0.97);
+    });
+  }
+  var ticking = false;
+  window.addEventListener('scroll', function () {
+    if (!ticking) { requestAnimationFrame(function () { update(); ticking = false; }); ticking = true; }
+  }, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+})();
+
+(function () {
+  var pinWraps = Array.prototype.slice.call(document.querySelectorAll('.pin-wrap'));
+  if (!pinWraps.length || reduceMotion) return;
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+  var rigs = pinWraps.map(function (wrap) {
+    return { wrap: wrap, sticky: wrap.querySelector('.pin-sticky'), pinItems: Array.prototype.slice.call(wrap.querySelectorAll('.pin-item')) };
+  }).filter(function (r) { return r.sticky && r.pinItems.length; });
+  function update() {
+    rigs.forEach(function (r) {
+      var wrapRect = r.wrap.getBoundingClientRect();
+      if (wrapRect.bottom < -200 || wrapRect.top > window.innerHeight + 200) return;
+      var totalRunway = Math.max(r.wrap.offsetHeight - r.sticky.offsetHeight, 1);
+      var scrolled = clamp(-wrapRect.top, 0, totalRunway);
+      var overall = scrolled / totalRunway;
+      var n = r.pinItems.length;
+      r.pinItems.forEach(function (el, i) {
+        var itemProgress = clamp((overall - i / n) * n, 0, 1);
+        el.style.opacity = itemProgress.toFixed(3);
+        el.style.transform = 'translateY(' + (28 * (1 - itemProgress)).toFixed(1) + 'px)';
+      });
+    });
+  }
+  var ticking2 = false;
+  window.addEventListener('scroll', function () {
+    if (!ticking2) { requestAnimationFrame(function () { update(); ticking2 = false; }); ticking2 = true; }
+  }, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+})();
+</script>
+</body>
+</html>

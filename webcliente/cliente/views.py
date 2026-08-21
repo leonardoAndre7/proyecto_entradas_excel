@@ -79,6 +79,13 @@ def home_redirect(request):
 
 
 # ==========================================
+# 📣 LANDING PÚBLICA — Convocatoria de asesores NEXO Business
+# ==========================================
+def nexo_landing(request):
+    return render(request, 'cliente/nexo_landing.html')
+
+
+# ==========================================
 # 🔒 LOGIN CON PROTECCIÓN ANTI-FUERZA BRUTA
 # Máx. 3 intentos por IP → bloqueo escalonado (15s, 30s, 60s, 120s... tope 15 min)
 # ==========================================

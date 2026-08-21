@@ -25,6 +25,7 @@ from lotes import views as lotes_views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home_redirect, name='index'),
+    path('nexo/', views.nexo_landing, name='nexo_landing'),
     path('participantes/', include('cliente.urls')),
     path('lotes/', include('lotes.urls')),
     # Atajos raíz para fácil acceso

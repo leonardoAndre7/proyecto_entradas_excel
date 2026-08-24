@@ -423,6 +423,13 @@ footer .legal{max-width:560px; line-height:1.7; color:rgba(255,255,255,0.4); fon
 
 <script>
 (function(){
+  // Meta Pixel: evento Lead al hacer clic en cualquier botón de WhatsApp (grupo o chat directo)
+  document.querySelectorAll('a[href*="chat.whatsapp.com"], a[href*="wa.me"]').forEach(function(a){
+    a.addEventListener('click', function(){
+      if (typeof fbq === 'function') { fbq('track', 'Lead'); }
+    });
+  });
+
   var header = document.getElementById('siteHeader');
   var waFloat = document.getElementById('waFloat');
   window.addEventListener('scroll', function(){

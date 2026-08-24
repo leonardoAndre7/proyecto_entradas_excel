@@ -26,6 +26,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home_redirect, name='index'),
     path('nexo/', views.nexo_landing, name='nexo_landing'),
+    path('nexo/track-event/', views.nexo_track_event, name='nexo_track_event'),
     path('participantes/', include('cliente.urls')),
     path('lotes/', include('lotes.urls')),
     # Atajos raíz para fácil acceso

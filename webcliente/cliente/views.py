@@ -85,6 +85,57 @@ def nexo_landing(request):
     return render(request, 'cliente/nexo_landing.html')
 
 
+@csrf_exempt
+def nexo_track_event(request):
+    """Reenvía eventos (PageView, Lead) del pixel a la Conversions API de Meta,
+    con el mismo event_id que usa el navegador para evitar conteo duplicado."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+
+    if not settings.META_CAPI_ACCESS_TOKEN:
+        return JsonResponse({'ok': False, 'error': 'Conversions API no configurada'})
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'JSON inválido'}, status=400)
+
+    event_name = data.get('event_name')
+    event_id = data.get('event_id')
+    if not event_name or not event_id:
+        return JsonResponse({'ok': False, 'error': 'Faltan event_name o event_id'}, status=400)
+
+    user_data = {
+        'client_ip_address': request.META.get('REMOTE_ADDR', ''),
+        'client_user_agent': request.META.get('HTTP_USER_AGENT', ''),
+    }
+    if data.get('fbp'):
+        user_data['fbp'] = data['fbp']
+    if data.get('fbc'):
+        user_data['fbc'] = data['fbc']
+
+    payload = {
+        'data': [{
+            'event_name': event_name,
+            'event_time': int(time.time()),
+            'event_id': event_id,
+            'event_source_url': data.get('event_source_url', ''),
+            'action_source': 'website',
+            'user_data': user_data,
+        }],
+        'access_token': settings.META_CAPI_ACCESS_TOKEN,
+    }
+
+    try:
+        r = requests.post(
+            f'https://graph.facebook.com/v21.0/{settings.META_PIXEL_ID}/events',
+            json=payload, timeout=5,
+        )
+        return JsonResponse({'ok': r.status_code == 200})
+    except requests.RequestException:
+        return JsonResponse({'ok': False})
+
+
 # ==========================================
 # 🔒 LOGIN CON PROTECCIÓN ANTI-FUERZA BRUTA
 # Máx. 3 intentos por IP → bloqueo escalonado (15s, 30s, 60s, 120s... tope 15 min)

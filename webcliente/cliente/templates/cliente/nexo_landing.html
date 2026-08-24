@@ -12,6 +12,17 @@
 
 <!-- Meta Pixel Code -->
 <script>
+function nexoFbCookie(name){var m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return m?m.pop():'';}
+function nexoGenEventId(){return 'evt_'+Date.now()+'_'+Math.random().toString(36).slice(2,10);}
+function nexoSendServerEvent(eventName, eventId){
+  fetch('/nexo/track-event/', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      event_name: eventName, event_id: eventId, event_source_url: window.location.href,
+      fbp: nexoFbCookie('_fbp'), fbc: nexoFbCookie('_fbc')
+    })
+  }).catch(function(){});
+}
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -21,7 +32,9 @@ t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 fbq('init', '1345006321035874');
-fbq('track', 'PageView');
+var nexoPvId = nexoGenEventId();
+fbq('track', 'PageView', {}, {eventID: nexoPvId});
+nexoSendServerEvent('PageView', nexoPvId);
 </script>
 <noscript><img height="1" width="1" style="display:none"
 src="https://www.facebook.com/tr?id=1345006321035874&ev=PageView&noscript=1"
@@ -426,7 +439,9 @@ footer .legal{max-width:560px; line-height:1.7; color:rgba(255,255,255,0.4); fon
   // Meta Pixel: evento Lead al hacer clic en cualquier botón de WhatsApp (grupo o chat directo)
   document.querySelectorAll('a[href*="chat.whatsapp.com"], a[href*="wa.me"]').forEach(function(a){
     a.addEventListener('click', function(){
-      if (typeof fbq === 'function') { fbq('track', 'Lead'); }
+      var leadId = nexoGenEventId();
+      if (typeof fbq === 'function') { fbq('track', 'Lead', {}, {eventID: leadId}); }
+      nexoSendServerEvent('Lead', leadId);
     });
   });
 

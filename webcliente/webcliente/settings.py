@@ -49,6 +49,10 @@ IMGBB_API_KEY = config("IMGBB_API_KEY", default="")
 TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER", default="")
 BASE_URL = config("BASE_URL", default="https://proyecto-entradas-excel-1.onrender.com")
 
+# --- META CONVERSIONS API (tracking servidor de la landing /nexo/) ---
+META_PIXEL_ID = "1345006321035874"
+META_CAPI_ACCESS_TOKEN = config("META_CAPI_ACCESS_TOKEN", default="")
+
 
 
 # ==========================

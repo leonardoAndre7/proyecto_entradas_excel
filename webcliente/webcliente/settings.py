@@ -110,6 +110,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'webcliente.wsgi.application'
 
 # --- BASE DE DATOS ---
+# En Render el disco se borra en cada deploy: si falta DATABASE_URL, Django caería en
+# SQLite y se perderían todos los datos (entradas, lotes, etc.). Mejor fallar con un
+# error claro que arrancar con una base vacía.
+if os.environ.get('RENDER') and not config('DATABASE_URL', default=''):
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "Falta DATABASE_URL en Render: sin ella se usaría SQLite y los datos se perderían en cada deploy."
+    )
+
 DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),

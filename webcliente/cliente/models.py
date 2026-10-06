@@ -102,8 +102,24 @@ class Tarifa(models.Model):
     preventa_3 = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name="Precio Preventa 3")
     puerta = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, verbose_name="Precio Puerta")
 
+    # 📅 Acceso por días: cuántos días distintos puede ingresar esta entrada (1 ingreso por día)
+    dias_validos = models.PositiveSmallIntegerField(default=1, verbose_name="Días de acceso (ingresos permitidos)")
+    # 🕒 Ventana horaria opcional (vacío = sin restricción de hora)
+    hora_desde = models.TimeField(blank=True, null=True, verbose_name="Ingreso permitido desde")
+    hora_hasta = models.TimeField(blank=True, null=True, verbose_name="Ingreso permitido hasta")
+
     def __str__(self):
         return f"{self.tipo_entrada} (S/ {self.preventa_1} - S/ {self.puerta}) - {self.evento.nombre}"
+
+    @property
+    def ventana_horaria_texto(self):
+        if self.hora_desde and self.hora_hasta:
+            return f"{self.hora_desde.strftime('%H:%M')} - {self.hora_hasta.strftime('%H:%M')}"
+        if self.hora_desde:
+            return f"desde {self.hora_desde.strftime('%H:%M')}"
+        if self.hora_hasta:
+            return f"hasta {self.hora_hasta.strftime('%H:%M')}"
+        return ""
 
 
 # ==========================================
@@ -274,6 +290,82 @@ class Participante(models.Model):
             kwargs.pop('force_insert', None)
             kwargs.pop('force_update', None)
         super().save(*args, **kwargs)
+
+    # ------------------------------------------------------------------
+    # 📅 Control de ingresos por día (multi-día, configurable por tarifa)
+    # ------------------------------------------------------------------
+    def _tarifa_efectiva(self):
+        if self.tarifa_id:
+            return self.tarifa
+        if self.evento_id and self.tipo_entrada:
+            return Tarifa.objects.filter(evento=self.evento, tipo_entrada__iexact=self.tipo_entrada).first()
+        return None
+
+    def fechas_ingreso(self):
+        """Lista de datetimes de ingreso. Incluye el ingreso histórico (previo a esta función)."""
+        fechas = list(self.ingresos.order_by('fecha_hora').values_list('fecha_hora', flat=True))
+        if not fechas and self.entrada_usada:
+            # Ingreso anterior a esta función: se sabe que entró, pero no cuándo
+            fechas = [None]
+        return fechas
+
+    @property
+    def ultimo_ingreso(self):
+        return next((f for f in reversed(self.fechas_ingreso()) if f), None)
+
+    def registrar_ingreso(self):
+        """
+        Intenta registrar un ingreso ahora. Devuelve (ok, mensaje).
+        Reglas: máximo `tarifa.dias_validos` ingresos, uno por día calendario,
+        y dentro de la ventana horaria de la tarifa si está definida.
+        """
+        import datetime
+        from django.utils import timezone
+
+        tarifa = self._tarifa_efectiva()
+        limite = max(tarifa.dias_validos, 1) if tarifa else 1
+        ahora = timezone.now()
+        local = timezone.localtime(ahora)
+
+        if tarifa:
+            if tarifa.hora_desde and local.time() < tarifa.hora_desde:
+                return False, f"⏰ Fuera de horario: esta entrada ({tarifa.tipo_entrada}) ingresa {tarifa.ventana_horaria_texto}."
+            if tarifa.hora_hasta and local.time() > tarifa.hora_hasta:
+                return False, f"⏰ Fuera de horario: esta entrada ({tarifa.tipo_entrada}) ingresa {tarifa.ventana_horaria_texto}."
+
+        fechas = self.fechas_ingreso()
+        for f in fechas:
+            if f and timezone.localtime(f).date() == local.date():
+                return False, f"❌ ¡Boleto ya utilizado hoy! Registrado el {timezone.localtime(f).strftime('%d/%m/%Y %I:%M %p')}"
+
+        if len(fechas) >= limite:
+            ultima = next((f for f in reversed(fechas) if f), None)
+            detalle = f" Último ingreso: {timezone.localtime(ultima).strftime('%d/%m/%Y %I:%M %p')}" if ultima else ""
+            return False, f"❌ ¡Boleto ya utilizado! Agotó sus {limite} día(s) de acceso.{detalle}"
+
+        # Si venía de un registro histórico sin fila, conservarlo antes de sumar el nuevo
+        if not self.ingresos.exists() and self.entrada_usada:
+            # Ingreso histórico sin fecha guardada: se conserva como 1 día ya usado
+            # (fechado el día anterior, ya que no se sabe cuándo ocurrió).
+            IngresoParticipante.objects.create(participante=self, fecha_hora=ahora - datetime.timedelta(days=1))
+        IngresoParticipante.objects.create(participante=self, fecha_hora=ahora)
+        if not self.entrada_usada:
+            self.entrada_usada = True
+            self.save(update_fields=['entrada_usada'])
+        dia = len(fechas) + 1
+        extra = f" (día {dia} de {limite})" if limite > 1 else ""
+        return True, f"✅ ¡Acceso Autorizado! Bienvenido al evento{extra}."
+
+
+class IngresoParticipante(models.Model):
+    participante = models.ForeignKey(Participante, on_delete=models.CASCADE, related_name="ingresos")
+    fecha_hora = models.DateTimeField()
+
+    class Meta:
+        ordering = ['fecha_hora']
+
+    def __str__(self):
+        return f"{self.participante_id} - {self.fecha_hora:%d/%m/%Y %H:%M}"
 
 
 # ==========================================

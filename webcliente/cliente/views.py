@@ -22,6 +22,7 @@ from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.utils.dateparse import parse_time
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.core.cache import cache
@@ -337,6 +338,9 @@ def evento_crear_editar(request, pk=None):
         tariff_p2s = request.POST.getlist("tariff_p2")
         tariff_p3s = request.POST.getlist("tariff_p3")
         tariff_puertas = request.POST.getlist("tariff_puerta")
+        tariff_dias = request.POST.getlist("tariff_dias")
+        tariff_hdesdes = request.POST.getlist("tariff_hdesde")
+        tariff_hhastas = request.POST.getlist("tariff_hhasta")
 
         saved_ids = []
 
@@ -351,6 +355,14 @@ def evento_crear_editar(request, pk=None):
             t_p3 = Decimal(tariff_p3s[i] or 0) if i < len(tariff_p3s) else Decimal(0)
             t_puerta = Decimal(tariff_puertas[i] or 0) if i < len(tariff_puertas) else Decimal(0)
 
+            # Días de acceso y ventana horaria (si el formulario no los envía, se conservan los actuales)
+            t_dias = None
+            if i < len(tariff_dias) and (tariff_dias[i] or '').strip().isdigit():
+                t_dias = max(int(tariff_dias[i]), 1)
+            t_hdesde = parse_time(tariff_hdesdes[i]) if i < len(tariff_hdesdes) and tariff_hdesdes[i] else None
+            t_hhasta = parse_time(tariff_hhastas[i]) if i < len(tariff_hhastas) and tariff_hhastas[i] else None
+            horario_enviado = i < len(tariff_hdesdes) and i < len(tariff_hhastas)
+
             if t_id:
                 t_obj = Tarifa.objects.filter(pk=t_id, evento=evento).first()
                 if t_obj:
@@ -359,6 +371,11 @@ def evento_crear_editar(request, pk=None):
                     t_obj.preventa_2 = t_p2
                     t_obj.preventa_3 = t_p3
                     t_obj.puerta = t_puerta
+                    if t_dias is not None:
+                        t_obj.dias_validos = t_dias
+                    if horario_enviado:
+                        t_obj.hora_desde = t_hdesde
+                        t_obj.hora_hasta = t_hhasta
                     t_obj.save()
                     saved_ids.append(t_obj.id)
             else:
@@ -368,12 +385,18 @@ def evento_crear_editar(request, pk=None):
                     preventa_1=t_p1,
                     preventa_2=t_p2,
                     preventa_3=t_p3,
-                    puerta=t_puerta
+                    puerta=t_puerta,
+                    dias_validos=t_dias or 1,
+                    hora_desde=t_hdesde,
+                    hora_hasta=t_hhasta,
                 )
                 saved_ids.append(t_obj.id)
 
-        # Eliminar las tarifas que ya no estén presentes en el formulario
-        Tarifa.objects.filter(evento=evento).exclude(id__in=saved_ids).delete()
+        # Eliminar las tarifas que ya no estén presentes en el formulario.
+        # Seguridad: si el formulario no envió ninguna tarifa no se borra nada, y las
+        # tarifas que ya tienen participantes asociados nunca se eliminan.
+        if saved_ids:
+            Tarifa.objects.filter(evento=evento, participantes__isnull=True).exclude(id__in=saved_ids).delete()
 
         return redirect('dashboard_eventos')
 
@@ -1467,24 +1490,13 @@ def validar_entrada(request, token):
         messages.error(request, "No tienes permisos de validación para este evento.")
         return redirect('dashboard_eventos')
 
-    valido = False
-    if not participante.entrada_usada:
-        participante.entrada_usada = True
-        participante.hora_ingreso = timezone.now()
-        participante.save()
-        valido = True
-        mensaje = "✅ ¡Acceso Autorizado! Bienvenido al evento."
-    else:
-        if participante.hora_ingreso:
-            mensaje = f"❌ ¡Boleto ya Utilizado! Registrado el {participante.hora_ingreso.strftime('%d/%m/%Y %I:%M %p')}"
-        else:
-            mensaje = "❌ ¡Boleto ya Utilizado! (sin fecha de ingreso registrada)"
+    valido, mensaje = participante.registrar_ingreso()
 
     return render(request, 'cliente/entrada_valida.html' if valido else 'cliente/entrada_usada.html', {
         'participante': participante,
         'evento': evento,
         'mensaje': mensaje,
-        'fecha_ingreso': participante.hora_ingreso
+        'fecha_ingreso': participante.ultimo_ingreso
     })
 
 
@@ -1549,11 +1561,11 @@ def marcar_ingreso(request, evento_id, pk):
         return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
     participante = get_object_or_404(Participante, pk=pk, evento=evento)
-    if not participante.entrada_usada:
-        participante.entrada_usada = True
-        participante.hora_ingreso = timezone.now()
-        participante.save()
-        messages.success(request, f"Entrada marcada como ingresada para {participante.nombres}.")
+    ok, mensaje = participante.registrar_ingreso()
+    if ok:
+        messages.success(request, f"Ingreso registrado para {participante.nombres}. {mensaje}")
+    else:
+        messages.warning(request, f"{participante.nombres}: {mensaje}")
     return redirect('participante_lista', evento_id=evento.id)
 
 

@@ -174,6 +174,35 @@ class ReenviarWhatsAppTestCase(TestCase):
         post, textos = self._reenviar(status_code=401, body='{"message":"Invalid API key","statusCode":401}')
         self.assertTrue(any("WhatsApp no enviado" in t and "401" in t for t in textos), textos)
 
+    def test_sin_imgbb_no_se_envia_una_peticion_vacia_y_se_explica(self):
+        Evento.objects.filter(pk=self.evento.pk).update(
+            whatsapp_api_payload='{"chatId": "{celular}@c.us", "url": "{url_imagen}"}', imgbb_api_key="")
+        post, textos = self._reenviar()
+        self.assertEqual(post.call_count, 0)
+        self.assertTrue(any("ImgBB" in t and "WhatsApp no enviado" in t for t in textos), textos)
+
+    def test_imgbb_ok_envia_la_url_en_el_payload(self):
+        Evento.objects.filter(pk=self.evento.pk).update(
+            whatsapp_api_payload='{"chatId": "{celular}@c.us", "url": "{url_imagen}"}', imgbb_api_key="clave-de-prueba")
+        respuestas = []
+
+        def fake_post(url, *a, **kw):
+            r = mock.Mock()
+            if "imgbb" in url:
+                r.status_code = 200
+                r.json.return_value = {"data": {"url": "https://i.ibb.co/x/entrada.png"}}
+            else:
+                respuestas.append(kw.get("json"))
+                r.status_code = 201
+                r.text = "{}"
+                r.json.return_value = {}
+            return r
+
+        with mock.patch("cliente.views.enviar_correo_con_smtp_evento", return_value=True), \
+             mock.patch("cliente.views.requests.post", side_effect=fake_post):
+            self.client.post(self.url, follow=True)
+        self.assertEqual(respuestas, [{"chatId": "51955060412@c.us", "url": "https://i.ibb.co/x/entrada.png"}])
+
     def test_401_muestra_la_cabecera_enviada_sin_revelar_la_clave(self):
         clave = "owa_k1_" + "ab" * 32 + "ede"          # clave con texto de más pegado al final
         Evento.objects.filter(pk=self.evento.pk).update(whatsapp_api_headers=f"X-API-Key: {clave}")

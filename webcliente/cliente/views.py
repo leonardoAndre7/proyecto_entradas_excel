@@ -894,20 +894,31 @@ def enviar_whatsapp_entrada(participante, buffer):
 
     # Subir imagen a ImgBB (necesaria para {url_imagen} y para Twilio)
     imgbb_url = None
+    imgbb_error = None
     if evento.imgbb_api_key:
         try:
             encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
             resp = requests.post(
                 "https://api.imgbb.com/1/upload",
                 data={"key": evento.imgbb_api_key, "image": encoded_image},
-                timeout=15
+                timeout=30
             )
             if resp.status_code == 200:
                 imgbb_url = resp.json()["data"]["url"]
             else:
+                imgbb_error = f"ImgBB respondió {resp.status_code}: {resp.text[:120]}"
                 logger.error(f"ImgBB respondió {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
+            imgbb_error = f"ImgBB falló: {e}"
             logger.error(f"Error subiendo imagen a ImgBB: {e}")
+    else:
+        imgbb_error = "el evento no tiene la ImgBB API Key"
+
+    # Si el payload usa {url_imagen} y no hay URL, OpenWA rechaza la petición con un 400
+    # poco claro: mejor avisar el motivo real y no enviar una petición vacía.
+    if custom_listo and not imgbb_url and "{url_imagen}" in (evento.whatsapp_api_payload or ""):
+        logger.error(f"WhatsApp no enviado: la entrada no se pudo subir a ImgBB ({imgbb_error})")
+        return "error", f"no se pudo subir la entrada a ImgBB ({imgbb_error}). Revisa la ImgBB API Key del evento."
 
     num_limpio = "".join(filter(str.isdigit, participante.celular))
     if not num_limpio.startswith("51"):

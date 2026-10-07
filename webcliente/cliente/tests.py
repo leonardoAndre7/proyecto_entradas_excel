@@ -88,6 +88,55 @@ class IngresosPorDiaTestCase(TestCase):
             self.assertEqual([f for f in os.listdir(media) if f.startswith("entrada_")], [])
 
 
+class ReenviarWhatsAppTestCase(TestCase):
+    """El botón Reenviar debe mandar también el WhatsApp y avisar el resultado."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser("admin2", "a2@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=self.user, defaults={"rol": "SUPERADMIN"})
+        self.evento = Evento.objects.create(
+            nombre="WA reenvio", whatsapp_provider="CUSTOM_API",
+            whatsapp_api_url="https://ejemplo.test/send",
+            whatsapp_api_payload='{"chatId": "{celular}@c.us", "caption": "Hola {nombres}"}',
+        )
+        self.part = Participante.objects.create(
+            evento=self.evento, nombres="Ana", dni="77777777", celular="955060412",
+            correo="ana@test.com", cantidad=1, precio=1, pago_confirmado=True,
+        )
+        self.client.login(username="admin2", password="pass12345")
+        self.url = reverse("reenviar_correo", kwargs={"evento_id": self.evento.id, "pk": self.part.pk})
+
+    def _reenviar(self, status_code=201, body=None, correo_ok=False):
+        with mock.patch("cliente.views.enviar_correo_con_smtp_evento", return_value=correo_ok), \
+             mock.patch("cliente.views.requests.post") as post:
+            post.return_value.status_code = status_code
+            post.return_value.text = body or "{}"
+            post.return_value.json.return_value = {} if body is None else __import__("json").loads(body)
+            resp = self.client.post(self.url, follow=True)
+        textos = [str(m) for m in resp.context["messages"]]
+        return post, textos
+
+    def test_reenviar_manda_whatsapp_aunque_falle_el_correo(self):
+        post, textos = self._reenviar()
+        self.assertEqual(post.call_count, 1)
+        self.assertTrue(any("WhatsApp: enviado" in t for t in textos), textos)
+        self.assertTrue(any("Fallo al enviar el correo" in t for t in textos), textos)
+
+    def test_reenviar_avisa_si_la_clave_de_whatsapp_es_invalida(self):
+        post, textos = self._reenviar(status_code=401, body='{"message":"Invalid API key","statusCode":401}')
+        self.assertTrue(any("WhatsApp no enviado" in t and "401" in t for t in textos), textos)
+
+    def test_reenviar_detecta_error_dentro_de_un_200(self):
+        post, textos = self._reenviar(status_code=200, body='{"statusCode":500,"message":"Internal server error"}')
+        self.assertTrue(any("WhatsApp no enviado" in t and "500" in t for t in textos), textos)
+
+    def test_reenviar_sin_celular_lo_dice(self):
+        Participante.objects.filter(pk=self.part.pk).update(celular="")
+        post, textos = self._reenviar()
+        self.assertEqual(post.call_count, 0)
+        self.assertTrue(any("no tiene celular" in t for t in textos), textos)
+
+
 class SystemFlowsTestCase(TestCase):
     def setUp(self):
         # Create Superadmin

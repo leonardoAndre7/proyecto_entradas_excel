@@ -88,6 +88,54 @@ class IngresosPorDiaTestCase(TestCase):
             self.assertEqual([f for f in os.listdir(media) if f.startswith("entrada_")], [])
 
 
+class FondoBoletoPersistenteTestCase(TestCase):
+    """Render borra las imágenes subidas en cada deploy; el fondo debe recuperarse del repo."""
+
+    def test_fondo_perdido_se_recupera_de_la_copia_del_repo_ignorando_el_sufijo(self):
+        from PIL import Image
+        from cliente.views import _resolver_fondo_boleto
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            carpeta = os.path.join(media, "event_backgrounds")
+            os.makedirs(carpeta)
+            Image.new("RGB", (10, 10)).save(os.path.join(carpeta, "entrada_ede_2026.png"))
+            evento = Evento.objects.create(nombre="El Despertar del Emprendedor")
+            evento.imagen_fondo.name = "event_backgrounds/entrada_ede_2026_Ab12Cd3.png"  # ya no existe
+            ruta = _resolver_fondo_boleto(evento)
+            self.assertEqual(os.path.basename(ruta), "entrada_ede_2026.png")
+            self.assertTrue(os.path.exists(ruta))
+
+    def test_migracion_enlaza_solo_eventos_despertar_con_fondo_perdido(self):
+        import importlib
+        from django.apps import apps
+        mig = importlib.import_module("cliente.migrations.0032_enlazar_fondo_entrada_ede")
+        perdido = Evento.objects.create(nombre="El Despertar del Emprendedor")
+        perdido.imagen_fondo.name = "event_backgrounds/fondo_que_ya_no_existe.png"
+        perdido.save()
+        otro = Evento.objects.create(nombre="Círculo 50k")
+        otro.imagen_fondo.name = "event_backgrounds/otro_que_ya_no_existe.png"
+        otro.save()
+        sin_fondo = Evento.objects.create(nombre="El Despertar sin fondo")
+        mig.enlazar_fondo(apps, None)
+        for e in (perdido, otro, sin_fondo):
+            e.refresh_from_db()
+        self.assertEqual(perdido.imagen_fondo.name, "event_backgrounds/entrada_ede_2026.png")
+        self.assertEqual(otro.imagen_fondo.name, "event_backgrounds/otro_que_ya_no_existe.png")
+        self.assertFalse(sin_fondo.imagen_fondo)
+
+    def test_plantilla_ede_incluida_en_el_repo_genera_el_boleto(self):
+        from django.conf import settings
+        from cliente.views import generar_imagen_personalizada
+        import qrcode
+        plantilla = os.path.join(settings.MEDIA_ROOT, "event_backgrounds", "entrada_ede_2026.png")
+        self.assertTrue(os.path.exists(plantilla), "falta media/event_backgrounds/entrada_ede_2026.png en el repo")
+        evento = Evento.objects.create(nombre="El Despertar del Emprendedor")
+        evento.imagen_fondo.name = "event_backgrounds/entrada_ede_2026.png"
+        part = Participante(evento=evento, nombres="Pedro", dni="1", cantidad=1, precio=1)
+        img = generar_imagen_personalizada(part, qrcode.make("https://ejemplo.test/validar/x/").convert("RGB"))
+        self.assertIsNotNone(img)
+        self.assertEqual(img.size, (904, 1280))
+
+
 class ReenviarWhatsAppTestCase(TestCase):
     """El botón Reenviar debe mandar también el WhatsApp y avisar el resultado."""
 

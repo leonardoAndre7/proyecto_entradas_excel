@@ -1,4 +1,5 @@
 import io
+import re
 import os
 import csv
 import json
@@ -1080,14 +1081,45 @@ def enviar_masivo(request, evento_id):
 # ==========================================
 # 📝 MEJORA: COMPONER IMAGEN DINÁMICA
 # ==========================================
+def _resolver_fondo_boleto(evento):
+    """
+    Devuelve la ruta del fondo del boleto del evento. Render borra el disco en cada deploy,
+    así que si el archivo subido desde el panel ya no existe se busca la copia incluida en el
+    repositorio (mismo nombre, ignorando el sufijo aleatorio que Django agrega al subir).
+    """
+    por_defecto = os.path.join(settings.BASE_DIR, 'cliente', 'static', 'img', 'asesor.jpeg')
+    if not (evento and evento.imagen_fondo):
+        return por_defecto
+
+    ruta = evento.imagen_fondo.path
+    if os.path.exists(ruta):
+        return ruta
+
+    carpeta = os.path.dirname(ruta)
+    if os.path.isdir(carpeta):
+        disponibles = {f.lower(): f for f in os.listdir(carpeta)}
+        nombre, ext = os.path.splitext(os.path.basename(ruta))
+        candidatos = [nombre + ext]
+        m = re.match(r"^(.*)_[A-Za-z0-9]{7}$", nombre)
+        if m:
+            candidatos.append(m.group(1) + ext)
+        for c in candidatos:
+            if c.lower() in disponibles:
+                return os.path.join(carpeta, disponibles[c.lower()])
+
+    logger.error(
+        f"Falta la imagen de fondo del boleto del evento '{evento.nombre}': {ruta}. "
+        "Vuelve a subirla en Editar evento (o inclúyela en media/event_backgrounds/ del repositorio)."
+    )
+    return ruta
+
+
 def generar_imagen_personalizada(participante, qr_img):
     evento = participante.evento
     
     # 1. Cargar imagen de fondo
-    base_path = os.path.join(settings.BASE_DIR, 'cliente', 'static', 'img', 'asesor.jpeg')
-    if evento and evento.imagen_fondo:
-        base_path = evento.imagen_fondo.path
-        
+    base_path = _resolver_fondo_boleto(evento)
+
     if not os.path.exists(base_path):
         return None
         
@@ -1693,7 +1725,7 @@ def reenviar_correo(request, evento_id, pk):
     
     imagen_final = generar_imagen_personalizada(participante, qr_img)
     if not imagen_final:
-        messages.error(request, "No se pudo generar la imagen del boleto.")
+        messages.error(request, "No se pudo generar la imagen del boleto: falta la imagen de fondo del evento. Vuelve a subirla en Editar evento.")
         return redirect('participante_lista', evento_id=evento.id)
         
     buffer = BytesIO()

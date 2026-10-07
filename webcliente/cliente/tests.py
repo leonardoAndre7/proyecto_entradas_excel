@@ -1,9 +1,92 @@
-from django.test import TestCase, Client
+import datetime
+import os
+import tempfile
+from unittest import mock
+
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.utils import timezone
 from decimal import Decimal
 from cliente.models import Evento, Tarifa, PerfilUsuario, Participante
 from cliente.views import enviar_entrada_participante
+
+
+class IngresosPorDiaTestCase(TestCase):
+    """Ingreso multi-día configurable por tarifa + arreglos de WhatsApp / media."""
+
+    def setUp(self):
+        self.evento = Evento.objects.create(nombre="Prueba")
+        self.emp = Tarifa.objects.create(evento=self.evento, tipo_entrada="EMPRESARIAL", dias_validos=2)
+        self.vip = Tarifa.objects.create(
+            evento=self.evento, tipo_entrada="VIP", dias_validos=1,
+            hora_desde=datetime.time(14, 0), hora_hasta=datetime.time(23, 0),
+        )
+        tz = timezone.get_current_timezone()
+        self.d1 = timezone.make_aware(datetime.datetime(2026, 10, 10, 10, 0), tz)
+        self.d1_tarde = timezone.make_aware(datetime.datetime(2026, 10, 10, 18, 0), tz)
+        self.d2 = timezone.make_aware(datetime.datetime(2026, 10, 11, 10, 0), tz)
+        self.d3 = timezone.make_aware(datetime.datetime(2026, 10, 12, 10, 0), tz)
+
+    def _part(self, tarifa, dni):
+        return Participante.objects.create(
+            evento=self.evento, tarifa=tarifa, nombres="X", dni=dni, cantidad=1, precio=1
+        )
+
+    def _en(self, momento, participante):
+        with mock.patch("django.utils.timezone.now", return_value=momento):
+            return participante.registrar_ingreso()[0]
+
+    def test_empresarial_dos_dias(self):
+        p = self._part(self.emp, "1")
+        resultados = [self._en(m, p) for m in (self.d1, self.d1_tarde, self.d2, self.d3)]
+        self.assertEqual(resultados, [True, False, True, False])
+
+    def test_vip_respeta_ventana_horaria_y_un_dia(self):
+        p = self._part(self.vip, "2")
+        self.assertFalse(self._en(self.d1, p))          # 10:00, fuera de ventana
+        self.assertTrue(self._en(self.d1_tarde, p))     # 18:00
+        self.assertFalse(self._en(self.d2.replace(hour=18), p))  # ya agotó su único día
+
+    def test_entrada_ya_escaneada_antes_cuenta_como_un_dia(self):
+        p = self._part(self.emp, "3")
+        Participante.objects.filter(pk=p.pk).update(entrada_usada=True)
+        p.refresh_from_db()
+        self.assertTrue(self._en(self.d2, p))
+        self.assertFalse(self._en(self.d3, p))
+        self.assertEqual(p.ingresos.count(), 2)
+
+    def test_lista_muestra_dias_y_boton_marcar_para_el_dia_siguiente(self):
+        user = User.objects.create_superuser("admin", "a@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=user, defaults={"rol": "SUPERADMIN"})
+        p = self._part(self.emp, "4")
+        self._en(self.d1, p)
+        self.client.login(username="admin", password="pass12345")
+        resp = self.client.get(reverse("participante_lista", kwargs={"evento_id": self.evento.id}))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn("1/2", html)
+        self.assertIn("Marcar ingreso de otro día", html)
+
+    def test_whatsapp_custom_api_con_payload_no_falla_y_no_guarda_entrada_en_media(self):
+        evento = Evento.objects.create(
+            nombre="WA", whatsapp_provider="CUSTOM_API",
+            whatsapp_api_url="https://ejemplo.test/send",
+            whatsapp_api_payload='{"chatId": "{celular}@c.us", "caption": "Hola {nombres}"}',
+        )
+        part = Participante.objects.create(
+            evento=evento, nombres="Ana", dni="55555555", celular="955060412",
+            correo="ana@test.com", cantidad=1, precio=1, pago_confirmado=True,
+        )
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            with mock.patch("cliente.views.enviar_correo_con_smtp_evento", return_value=True), \
+                 mock.patch("cliente.views.requests.post") as post:
+                post.return_value.status_code = 201
+                enviar_entrada_participante(part)
+            self.assertEqual(post.call_count, 1)
+            self.assertEqual(post.call_args.kwargs["json"]["chatId"], "51955060412@c.us")
+            self.assertEqual([f for f in os.listdir(media) if f.startswith("entrada_")], [])
+
 
 class SystemFlowsTestCase(TestCase):
     def setUp(self):

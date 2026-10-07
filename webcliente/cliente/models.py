@@ -313,6 +313,19 @@ class Participante(models.Model):
     def ultimo_ingreso(self):
         return next((f for f in reversed(self.fechas_ingreso()) if f), None)
 
+    @property
+    def ingresos_limite(self):
+        tarifa = self._tarifa_efectiva()
+        return max(tarifa.dias_validos, 1) if tarifa else 1
+
+    @property
+    def ingresos_hechos(self):
+        return len(self.fechas_ingreso())
+
+    @property
+    def puede_ingresar_mas(self):
+        return self.ingresos_hechos < self.ingresos_limite
+
     def registrar_ingreso(self):
         """
         Intenta registrar un ingreso ahora. Devuelve (ok, mensaje).

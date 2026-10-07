@@ -545,7 +545,15 @@
                             </td>
                             <td>
                                 {% if p.entrada_usada %}
-                                    <span class="badge bg-success text-white px-2 py-1"><i class="bi bi-check-circle-fill"></i> Ingresó</span>
+                                    <span class="badge bg-success text-white px-2 py-1"><i class="bi bi-check-circle-fill"></i> Ingresó{% if p.ingresos_limite > 1 %} {{ p.ingresos_hechos }}/{{ p.ingresos_limite }}{% endif %}</span>
+                                    {% if p.puede_ingresar_mas %}
+                                    <form method="post" action="{% url 'marcar_ingreso' evento_id=evento.id pk=p.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-glass" title="Marcar ingreso de otro día">
+                                            <i class="bi bi-door-open"></i> Marcar
+                                        </button>
+                                    </form>
+                                    {% endif %}
                                 {% else %}
                                     <form method="post" action="{% url 'marcar_ingreso' evento_id=evento.id pk=p.pk %}" class="d-inline">
                                         {% csrf_token %}

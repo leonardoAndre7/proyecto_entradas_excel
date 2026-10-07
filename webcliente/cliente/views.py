@@ -872,14 +872,12 @@ def enviar_entrada_participante(participante):
     if not imagen_final:
         return False
 
-    # Guardar localmente la entrada
-    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+    # Nota de seguridad: la entrada ya no se guarda en MEDIA_ROOT como entrada_<id>.png.
+    # /media/ es público y los ids son consecutivos, así que cualquiera podía descargar
+    # la entrada (con su QR) de otra persona. Nada leía ese archivo; se envía desde memoria.
     buffer = BytesIO()
     imagen_final.save(buffer, format='PNG')
     buffer.seek(0)
-    
-    ruta_guardado = os.path.join(settings.MEDIA_ROOT, f"entrada_{participante.id}.png")
-    imagen_final.save(ruta_guardado, format="PNG")
 
     # Enviar correo con SMTP dinámico
     asunto = f"🎟️ Tu entrada oficial para {evento.nombre}"
@@ -979,7 +977,12 @@ def enviar_entrada_participante(participante):
                 except ValueError:
                     resp = requests.post(evento.whatsapp_api_url, data=payload_str, headers=headers, timeout=15)
 
-                logger.info(f"📱 WhatsApp Custom API enviado a {evento.whatsapp_api_url} - Status: {resp.status_code}")
+                if resp.status_code >= 400:
+                    logger.error(
+                        f"📱 WhatsApp Custom API RECHAZADO ({resp.status_code}) para {num_limpio}: {resp.text[:500]}"
+                    )
+                else:
+                    logger.info(f"📱 WhatsApp Custom API enviado a {num_limpio} - Status: {resp.status_code}")
             except Exception as e:
                 logger.error(f"Error enviando WhatsApp Custom API: {e}")
 

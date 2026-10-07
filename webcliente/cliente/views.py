@@ -858,6 +858,24 @@ class ParticipanteDeleteView(DeleteView):
 # ==========================================
 # 💵 CONFIRMAR PAGO & HELPER DE ENVÍO DE ENTRADAS
 # ==========================================
+def _resumen_cabeceras(headers):
+    """
+    Describe las cabeceras enviadas sin revelar claves: nombre, primeros 8 y últimos 4
+    caracteres y longitud. Sirve para detectar claves pegadas con texto de más.
+    """
+    partes = []
+    for nombre, valor in headers.items():
+        if nombre.lower() == "content-type":
+            continue
+        v = str(valor)
+        if len(v) > 14:
+            visto = f"{v[:8]}…{v[-4:]}"
+        else:
+            visto = "…" * bool(v)
+        partes.append(f"{nombre}={visto} ({len(v)} caracteres)")
+    return "; ".join(partes) if partes else "ninguna (¿falta la cabecera X-API-Key?)"
+
+
 def enviar_whatsapp_entrada(participante, buffer):
     """
     Sube la entrada a ImgBB (si el evento tiene clave) y la envía por WhatsApp según el
@@ -955,7 +973,10 @@ def enviar_whatsapp_entrada(participante, buffer):
             logger.error(
                 f"📱 WhatsApp Custom API RECHAZADO ({resp.status_code}) para {num_limpio}: {resp.text[:500]}"
             )
-            return "error", f"el servicio de WhatsApp respondió {resp.status_code}: {resp.text[:150]}"
+            detalle = f"el servicio de WhatsApp respondió {resp.status_code}: {resp.text[:150]}"
+            if resp.status_code in (401, 403):
+                detalle += " | Cabeceras enviadas: " + _resumen_cabeceras(headers)
+            return "error", detalle
 
         # Algunos gateways (OpenWA) responden 200 con el error dentro del cuerpo
         try:

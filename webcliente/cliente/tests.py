@@ -174,6 +174,14 @@ class ReenviarWhatsAppTestCase(TestCase):
         post, textos = self._reenviar(status_code=401, body='{"message":"Invalid API key","statusCode":401}')
         self.assertTrue(any("WhatsApp no enviado" in t and "401" in t for t in textos), textos)
 
+    def test_401_muestra_la_cabecera_enviada_sin_revelar_la_clave(self):
+        clave = "owa_k1_" + "ab" * 32 + "ede"          # clave con texto de más pegado al final
+        Evento.objects.filter(pk=self.evento.pk).update(whatsapp_api_headers=f"X-API-Key: {clave}")
+        post, textos = self._reenviar(status_code=401, body='{"message":"Invalid API key","statusCode":401}')
+        aviso = " ".join(textos)
+        self.assertIn("Cabeceras enviadas: X-API-Key=owa_k1_a…bede (74 caracteres)", aviso)
+        self.assertNotIn(clave, aviso)
+
     def test_reenviar_detecta_error_dentro_de_un_200(self):
         post, textos = self._reenviar(status_code=200, body='{"statusCode":500,"message":"Internal server error"}')
         self.assertTrue(any("WhatsApp no enviado" in t and "500" in t for t in textos), textos)

@@ -955,8 +955,9 @@ def enviar_entrada_participante(participante):
                 # 2. Armar y reemplazar variables en el payload
                 payload_str = evento.whatsapp_api_payload or ""
                 if not payload_str:
-                    # Fallback simple
-                    import json
+                    # Fallback simple (json ya está importado a nivel de módulo; un
+                    # "import json" local volvía a `json` una variable local de toda
+                    # la función y rompía json.loads() cuando SÍ había payload)
                     payload_dict = {
                         "to": num_limpio,
                         "message": msg_body

@@ -88,6 +88,105 @@ class IngresosPorDiaTestCase(TestCase):
             self.assertEqual([f for f in os.listdir(media) if f.startswith("entrada_")], [])
 
 
+@override_settings(API_KEY="clave-segura-de-prueba-123")
+class ApiRegistrarParticipanteTestCase(TestCase):
+    """Entrada de ventas desde la hoja de Google (Apps Script) por la API."""
+
+    def setUp(self):
+        import json
+        self.json = json
+        self.evento = Evento.objects.create(nombre="EDE 2026")
+        self.emp = Tarifa.objects.create(evento=self.evento, tipo_entrada="EMPRESARIAL", dias_validos=2,
+                                         preventa_1=Decimal("1999"))
+        Tarifa.objects.create(evento=self.evento, tipo_entrada="EMPRENDEDOR", preventa_1=Decimal("150"))
+        self.url = reverse("api_registrar_participante")
+
+    def _post(self, datos, clave="clave-segura-de-prueba-123"):
+        h = {"HTTP_X_API_KEY": clave} if clave is not None else {}
+        return self.client.post(self.url, self.json.dumps(datos), content_type="application/json", **h)
+
+    def _venta(self, **extra):
+        d = {"evento_id": self.evento.id, "nombres": "  Ana   Pérez ", "dni": "12345678",
+             "celular": "955060412", "correo": "ANA@Test.com ", "tipo_entrada": "empresarial",
+             "precio_final": 1999, "vendedor": "Daniel", "metodo_pago": "Yape",
+             "voucher_url": "https://drive.google.com/open?id=abc", "notas": "Separacion",
+             "referencia": "fila-7", "estricto": True}
+        d.update(extra)
+        return d
+
+    def test_crea_el_participante_con_los_datos_de_la_hoja_y_normaliza_textos(self):
+        r = self._post(self._venta())
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["ok"])
+        p = Participante.objects.get(pk=r.json()["id"])
+        self.assertEqual(p.nombres, "Ana Pérez")                    # espacios sobrantes quitados
+        self.assertEqual(p.correo, "ana@test.com")                  # en minúsculas
+        self.assertEqual(p.tarifa, self.emp)                        # "empresarial" -> EMPRESARIAL (sin importar mayúsculas)
+        self.assertEqual(p.metodo_pago, "Yape")
+        self.assertEqual(p.voucher_url, "https://drive.google.com/open?id=abc")
+        self.assertEqual(p.notas, "Separacion")
+        self.assertFalse(p.pago_confirmado)                         # contabilidad lo valida en el sistema
+
+    def test_reintentar_la_misma_fila_no_crea_otro_participante(self):
+        a = self._post(self._venta()).json()
+        b = self._post(self._venta()).json()
+        self.assertEqual(a["id"], b["id"])
+        self.assertTrue(b["duplicado"])
+        self.assertEqual(Participante.objects.count(), 1)
+
+    def test_dni_repetido_se_rechaza(self):
+        self._post(self._venta())
+        r = self._post(self._venta(referencia="fila-8"))
+        self.assertEqual(r.status_code, 409)
+
+    def test_modo_estricto_rechaza_una_tarifa_inexistente_y_lista_las_validas(self):
+        r = self._post(self._venta(tipo_entrada="Platino"))
+        self.assertEqual(r.status_code, 400)
+        self.assertCountEqual(r.json()["tarifas_disponibles"], ["EMPRESARIAL", "EMPRENDEDOR"])
+        self.assertEqual(Participante.objects.count(), 0)
+
+    def test_sin_modo_estricto_se_mantiene_el_comportamiento_anterior(self):
+        r = self._post(self._venta(tipo_entrada="Platino", estricto=False))
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(Participante.objects.get(pk=r.json()["id"]).tarifa)
+
+    def test_clave_incorrecta_o_ausente_se_rechaza(self):
+        self.assertEqual(self._post(self._venta(), clave="otra").status_code, 403)
+        self.assertEqual(self._post(self._venta(), clave=None).status_code, 403)
+        self.assertEqual(Participante.objects.count(), 0)
+
+    def test_sin_nombre_se_rechaza(self):
+        self.assertEqual(self._post(self._venta(nombres="   ")).status_code, 400)
+
+    @override_settings(API_KEY="cambiar-en-produccion-render")
+    def test_la_clave_por_defecto_del_repositorio_no_abre_la_api(self):
+        r = self._post(self._venta(), clave="cambiar-en-produccion-render")
+        self.assertEqual(r.status_code, 503)
+        self.assertEqual(Participante.objects.count(), 0)
+
+    @override_settings(API_KEY="")
+    def test_sin_clave_configurada_la_api_queda_cerrada(self):
+        self.assertEqual(self._post(self._venta(), clave="").status_code, 503)
+
+    def test_enviar_entrada_solo_si_el_pago_viene_confirmado(self):
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True) as envio:
+            r = self._post(self._venta(enviar_entrada=True))                         # sin pago confirmado
+            self.assertNotIn("entrada_enviada", r.json())
+            self.assertEqual(envio.call_count, 0)
+            r = self._post(self._venta(enviar_entrada=True, pago_confirmado=True, dni="999", referencia="f9"))
+            self.assertTrue(r.json()["entrada_enviada"])
+            self.assertEqual(envio.call_count, 1)
+
+    def test_el_panel_muestra_el_enlace_al_comprobante(self):
+        user = User.objects.create_superuser("adm6", "a6@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm6", password="pass12345")
+        self._post(self._venta())
+        resp = self.client.get(reverse("participante_lista", kwargs={"evento_id": self.evento.id}))
+        self.assertContains(resp, "https://drive.google.com/open?id=abc")
+        self.assertContains(resp, "Asesor: Daniel")
+
+
 class VigenciaYMotivosTestCase(TestCase):
     """Entradas válidas solo el 14 y 15 de noviembre y pantallas que explican el rechazo."""
 

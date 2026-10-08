@@ -263,6 +263,13 @@ class Participante(models.Model):
     validado_contabilidad = models.BooleanField(default=False)
     email_enviado = models.BooleanField(default=False)
 
+    # Datos que llegan desde la hoja de ventas (Google Sheets) por la API
+    metodo_pago = models.CharField(max_length=60, blank=True, null=True, verbose_name="Método de pago")
+    voucher_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="Enlace al comprobante")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas / detalle de la venta")
+    referencia_externa = models.CharField(max_length=100, blank=True, null=True, db_index=True,
+                                          verbose_name="Referencia externa (fila de la hoja)")
+
     def save(self, *args, **kwargs):
         # 🔹 Calcular total
         self.total_pagar = (self.cantidad or 0) * (self.precio or 0)

@@ -26,6 +26,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_time, parse_date
 from django.views.decorators.cache import never_cache
 import hashlib
+import hmac
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.core.cache import cache
@@ -2657,13 +2658,31 @@ def usuario_eliminar(request, pk):
 # POST /api/registrar-participante/
 # Header: X-API-Key: <settings.API_KEY>
 # ==========================================
+API_KEY_PLACEHOLDER = 'cambiar-en-produccion-render'
+
+
+def _limpiar(valor):
+    """Quita espacios sobrantes (inicio, fin y repetidos) de un texto que viene de una hoja."""
+    return " ".join(str(valor or "").split())
+
+
+def _como_bool(valor):
+    if isinstance(valor, str):
+        return valor.strip().lower() in ('true', '1', 'yes', 'si', 'sí', 'on')
+    return bool(valor)
+
+
 @csrf_exempt
 def api_registrar_participante(request):
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
 
-    api_key = request.headers.get('X-API-Key', '')
-    if api_key != settings.API_KEY:
+    # La API solo funciona con una clave propia: la clave por defecto del repositorio es pública.
+    esperada = settings.API_KEY or ""
+    if not esperada or esperada == API_KEY_PLACEHOLDER:
+        return JsonResponse({'ok': False, 'error': 'API no configurada: define la variable API_KEY en el servidor'}, status=503)
+    recibida = request.headers.get('X-API-Key', '')
+    if not hmac.compare_digest(recibida.encode('utf-8'), esperada.encode('utf-8')):
         return JsonResponse({'ok': False, 'error': 'API Key inválida'}, status=403)
 
     try:
@@ -2671,17 +2690,21 @@ def api_registrar_participante(request):
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'ok': False, 'error': 'JSON inválido'}, status=400)
 
-    nombres = str(data.get('nombres') or '').strip()
+    nombres = _limpiar(data.get('nombres'))
     if not nombres:
         return JsonResponse({'ok': False, 'error': 'El campo "nombres" es requerido'}, status=400)
 
-    apellidos    = str(data.get('apellidos') or '').strip()
-    dni          = str(data.get('dni') or '').strip()
-    celular      = str(data.get('celular') or '').strip()
-    correo       = str(data.get('correo') or '').strip()
-    tipo_entrada = str(data.get('tipo_entrada') or '').strip()
-    tipo_tarifa  = str(data.get('tipo_tarifa') or 'pre1').strip().lower()
-    vendedor     = str(data.get('vendedor') or '').strip()
+    apellidos    = _limpiar(data.get('apellidos'))
+    dni          = _limpiar(data.get('dni'))
+    celular      = _limpiar(data.get('celular'))
+    correo       = _limpiar(data.get('correo')).lower()
+    tipo_entrada = _limpiar(data.get('tipo_entrada'))
+    tipo_tarifa  = _limpiar(data.get('tipo_tarifa') or 'pre1').lower()
+    vendedor     = _limpiar(data.get('vendedor'))
+    metodo_pago  = _limpiar(data.get('metodo_pago'))[:60]
+    voucher_url  = _limpiar(data.get('voucher_url'))[:500]
+    notas        = str(data.get('notas') or '').strip()
+    referencia   = _limpiar(data.get('referencia'))[:100]
     evento_id    = data.get('evento_id', 1)
 
     try:
@@ -2691,15 +2714,30 @@ def api_registrar_participante(request):
 
     try:
         evento = Evento.objects.get(pk=evento_id)
-    except Evento.DoesNotExist:
+    except (Evento.DoesNotExist, ValueError, TypeError):
         return JsonResponse({'ok': False, 'error': f'Evento {evento_id} no encontrado'}, status=404)
+
+    # Idempotencia: reintentar la misma fila de la hoja no crea otro participante
+    if referencia:
+        existente = Participante.objects.filter(evento=evento, referencia_externa=referencia).first()
+        if existente:
+            return JsonResponse({'ok': True, 'id': existente.id, 'duplicado': True})
 
     # Verificar duplicado por DNI en este evento
     if dni and Participante.objects.filter(evento=evento, dni=dni).exists():
         return JsonResponse({'ok': False, 'error': f'Ya existe un participante con DNI {dni} en este evento'}, status=409)
 
     # Resolver tarifa
-    tarifa = Tarifa.objects.filter(evento=evento, tipo_entrada__iexact=tipo_entrada).first()
+    tarifa = Tarifa.objects.filter(evento=evento, tipo_entrada__iexact=tipo_entrada).first() if tipo_entrada else None
+
+    # Modo estricto (lo usa la hoja de ventas): sin tarifa válida la entrada no tendría días,
+    # fechas ni horario de ingreso, así que se rechaza y se indican las tarifas disponibles.
+    if _como_bool(data.get('estricto', False)) and not tarifa:
+        return JsonResponse({
+            'ok': False,
+            'error': f'La tarifa "{tipo_entrada}" no existe en el evento',
+            'tarifas_disponibles': list(Tarifa.objects.filter(evento=evento).values_list('tipo_entrada', flat=True)),
+        }, status=400)
 
     # Determinar precio
     precio_final = data.get('precio_final')
@@ -2714,18 +2752,9 @@ def api_registrar_participante(request):
     else:
         precio = Decimal('0.00')
 
-    # Extraer campos booleanos opcionales (default False si no vienen)
-    pago_confirmado = data.get('pago_confirmado', False)
-    if isinstance(pago_confirmado, str):
-        pago_confirmado = pago_confirmado.lower() in ('true', '1', 'yes', 'on')
-
-    validado_admin = data.get('validado_admin', False)
-    if isinstance(validado_admin, str):
-        validado_admin = validado_admin.lower() in ('true', '1', 'yes', 'on')
-
-    validado_contabilidad = data.get('validado_contabilidad', False)
-    if isinstance(validado_contabilidad, str):
-        validado_contabilidad = validado_contabilidad.lower() in ('true', '1', 'yes', 'on')
+    pago_confirmado = _como_bool(data.get('pago_confirmado', False))
+    validado_admin = _como_bool(data.get('validado_admin', False))
+    validado_contabilidad = _como_bool(data.get('validado_contabilidad', False))
 
     try:
         participante = Participante.objects.create(
@@ -2743,8 +2772,21 @@ def api_registrar_participante(request):
             pago_confirmado=pago_confirmado,
             validado_admin=validado_admin,
             validado_contabilidad=validado_contabilidad,
+            metodo_pago=metodo_pago or None,
+            voucher_url=voucher_url or None,
+            notas=notas or None,
+            referencia_externa=referencia or None,
         )
-        return JsonResponse({'ok': True, 'id': participante.id})
     except Exception as e:
         logger.error(f"API registrar_participante error: {e}", exc_info=True)
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+    respuesta = {'ok': True, 'id': participante.id}
+    # Opcional: enviar la entrada al registrar (solo si el pago ya viene confirmado)
+    if _como_bool(data.get('enviar_entrada', False)) and pago_confirmado:
+        try:
+            respuesta['entrada_enviada'] = bool(enviar_entrada_participante(participante))
+        except Exception as e:
+            logger.error(f"API: no se pudo enviar la entrada: {e}", exc_info=True)
+            respuesta['entrada_enviada'] = False
+    return JsonResponse(respuesta)

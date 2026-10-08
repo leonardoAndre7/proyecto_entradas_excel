@@ -508,7 +508,10 @@
                         {% for p in Participante %}
                         <tr>
                             <td class="fw-bold text-secondary text-opacity-75">{{ p.id }}</td>
-                            <td class="text-start fw-semibold">{{ p.nombres }}</td>
+                            <td class="text-start fw-semibold">{{ p.nombres }}
+                                {% if p.voucher_url %}<a href="{{ p.voucher_url }}" target="_blank" rel="noopener noreferrer" class="ms-1 text-info" title="Ver comprobante de pago"><i class="bi bi-receipt"></i></a>{% endif %}
+                                {% if p.notas or p.metodo_pago or p.vendedor %}<span class="ms-1 text-white-50" role="img" aria-label="Detalle de la venta" title="{% if p.vendedor %}Asesor: {{ p.vendedor }}. {% endif %}{% if p.metodo_pago %}Pago: {{ p.metodo_pago }}. {% endif %}{{ p.notas|default:'' }}"><i class="bi bi-info-circle"></i></span>{% endif %}
+                            </td>
                             <td>{{ p.dni }}</td>
                             <td class="text-lowercase text-white-50">{{ p.correo }}</td>
                             <td><span class="badge badge-info-glow px-2.5 py-1.5">{{ p.tipo_entrada }}</span></td>

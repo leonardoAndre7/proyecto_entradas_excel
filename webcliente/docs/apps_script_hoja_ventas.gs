@@ -1,9 +1,10 @@
 /**
- * Hoja de ventas EDE → Sistema de Entradas  (versión con separaciones, descuentos y cortesías)
- * ------------------------------------------------------------------------------------------
- * 1) crearFormularioVentas(): crea el formulario NUEVO de ventas y lo enlaza a esta hoja.
- * 2) Cada respuesta se envía sola al sistema (POST /api/registrar-participante/) y el resultado
- *    queda escrito en la columna SISTEMA de la fila.
+ * Hoja de ventas EDE → Sistema de Entradas  (separaciones, descuentos y cortesías)
+ * --------------------------------------------------------------------------------
+ * 1) modificarFormularioExistente(): AGREGA al formulario que ya usas las preguntas nuevas y lo
+ *    ordena en páginas. No borra ni renombra ninguna pregunta ni toca las respuestas anteriores.
+ * 2) Cada respuesta nueva se envía sola al sistema (POST /api/registrar-participante/) y el
+ *    resultado queda escrito en la columna SISTEMA de la fila.
  *
  * REGLAS QUE APLICA EL SISTEMA
  *  - El DNI identifica la entrada. Si la misma persona se registra otra vez con el mismo DNI, el pago
@@ -17,14 +18,14 @@
  *       API_KEY   = (la clave de la hoja; la misma que está en API_KEYS_EXTRA de Render)
  *       EVENTO_ID = 4
  *  3. Activador (reloj): función alEnviarFormulario · De una hoja de cálculo · Al enviar el formulario.
- *     (Si ya lo tenías, no hay que repetirlo.)
- *  4. Ejecuta una vez la función crearFormularioVentas y acepta los permisos.
+ *  4. Elige la función  revisarFormulario  y ejecútala (solo lee, no cambia nada): confirma que
+ *     encuentra todas las preguntas. Luego ejecuta  modificarFormularioExistente.
  */
 
-var HOJA_ANTIGUA = 'VENTAS';           // respuestas del formulario anterior
+var FORM_ID = '1Co_DVlEM-7uDVq8bptmjXAuXcEPlq9ahbAkSZjfPvng';   // el formulario "EDE 2.0"
+var HOJA = 'VENTAS';                   // pestaña donde llegan sus respuestas
 var COLUMNA_ESTADO = 'SISTEMA';
 var ENVIAR_AL_COMPLETAR = true;        // true: al completar el pago se envía la entrada sola
-var ASESORES_FORM = ['Daniel', 'Irma Ramos', 'Rosa Espinoza', 'Yaneth Taquila'];
 
 // Nombre de la tarifa en el sistema para cada texto del formulario (minúsculas y sin tildes)
 var TIPOS = {
@@ -51,37 +52,43 @@ var REGISTROS = {
 };
 var ETAPAS = {'preventa 1': 'pre1', 'preventa 2': 'pre2', 'preventa 3': 'pre3', 'puerta': 'puerta'};
 
+// Preguntas que YA existen en el formulario (se buscan por su título, sin tildes ni mayúsculas)
+var EXISTENTES = {
+  nombres: 'nombres y apellidos',
+  dni: 'numero de dni',
+  celular: 'numero de celular',
+  correo: 'correo electronico',
+  metodo: 'metodo de pago',
+  tipo: 'tipo de entrada',
+  monto: 'precio de entrada',          // pasa a significar: lo que el cliente paga AHORA
+  asesor: 'asesor',
+  voucher: 'voucher de pago'
+};
+
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Sistema EDE')
     .addItem('Enviar filas pendientes', 'enviarPendientes')
     .addItem('Probar conexión', 'probarConexion')
-    .addItem('Crear formulario nuevo de ventas', 'crearFormularioVentas')
+    .addItem('Revisar formulario (solo lee)', 'revisarFormulario')
+    .addItem('Modificar formulario existente', 'modificarFormularioExistente')
     .addToUi();
 }
 
-/** Activador: se ejecuta solo cuando llega una respuesta nueva de cualquier formulario de esta hoja. */
+/** Activador: se ejecuta solo cuando llega una respuesta nueva del formulario. */
 function alEnviarFormulario(e) {
   var hoja = e.range.getSheet();
-  if (hojasDeVentas_().indexOf(hoja.getName()) === -1) return;
+  if (hoja.getName() !== HOJA) return;
   enviarFila_(hoja, e.range.getRow());
-}
-
-function hojasDeVentas_() {
-  var nueva = PropertiesService.getScriptProperties().getProperty('HOJA_NUEVA');
-  return nueva ? [HOJA_ANTIGUA, nueva] : [HOJA_ANTIGUA];
 }
 
 /** Envía todas las filas que aún no tienen "OK" (útil para reintentar o cargar las anteriores). */
 function enviarPendientes() {
   var contar = {ok: 0, error: 0, omitidas: 0};
-  hojasDeVentas_().forEach(function (nombre) {
-    var hoja = SpreadsheetApp.getActive().getSheetByName(nombre);
-    if (!hoja) return;
-    for (var fila = 2; fila <= hoja.getLastRow(); fila++) {
-      var r = enviarFila_(hoja, fila);
-      if (r === 'ok') contar.ok++; else if (r === 'error') contar.error++; else contar.omitidas++;
-    }
-  });
+  var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA);
+  for (var fila = 2; fila <= hoja.getLastRow(); fila++) {
+    var r = enviarFila_(hoja, fila);
+    if (r === 'ok') contar.ok++; else if (r === 'error') contar.error++; else contar.omitidas++;
+  }
   SpreadsheetApp.getUi().alert('Listo.\nEnviadas: ' + contar.ok + '\nCon error: ' + contar.error +
                                '\nOmitidas (vacías o ya enviadas): ' + contar.omitidas);
 }
@@ -118,11 +125,12 @@ function enviarFila_(hoja, fila) {
     if (!nombres) return 'omitida';
 
     var props = PropertiesService.getScriptProperties();
-    var nuevoFormulario = !!enc['monto pagado ahora (s/)'];
     var tipoOriginal = limpiar_(v('tipo de entrada'));
     var asesor = limpiar_(v('asesor'));
     var dni = limpiar_(v('dni', 'numero de dni'));
     var marca = v('marca temporal');
+    // Cada fila decide su modo: con "Tipo de registro" es del formulario nuevo; sin él, como antes
+    var registro = REGISTROS[sinTildes_(v('tipo de registro'))] || '';
 
     var cuerpo = {
       evento_id: Number(props.getProperty('EVENTO_ID')),
@@ -138,19 +146,20 @@ function enviarFila_(hoja, fila) {
       referencia: referencia_(marca, dni, fila)
     };
 
-    if (nuevoFormulario) {
-      var registro = REGISTROS[sinTildes_(v('tipo de registro'))] || '';
+    var nuevo = !!registro;
+    if (nuevo) {
       cuerpo.tipo_registro = registro;
       cuerpo.tipo_tarifa = ETAPAS[sinTildes_(v('etapa de precio'))] || 'pre1';
-      cuerpo.monto_pagado = registro === 'cortesia' ? 0 : (numero_(v('monto pagado ahora (s/)')) || 0);
+      // "Precio de Entrada" del formulario ahora es lo que el cliente paga en este momento
+      cuerpo.monto_pagado = registro === 'cortesia' ? 0 : (numero_(v('precio de entrada')) || 0);
       var acordado = numero_(v('precio acordado final (s/)'));
       if (acordado !== null && registro === 'descuento') cuerpo.precio_final = acordado;
-      cuerpo.autorizado_por = limpiar_(v('autorizado por'));
-      cuerpo.notas = [limpiar_(v('motivo del descuento o cortesia')), limpiar_(v('observaciones'))]
-                       .filter(String).join(' | ');
+      cuerpo.autorizado_por = limpiar_(v('autorizado por (descuento)', 'autorizado por (cortesia)', 'autorizado por'));
+      cuerpo.notas = [limpiar_(v('motivo del descuento', 'motivo de la cortesia')), limpiar_(v('notas del pago')),
+                      limpiar_(v('observacion'))].filter(String).join(' | ');
       cuerpo.enviar_entrada = ENVIAR_AL_COMPLETAR;    // el sistema solo la envía si el pago queda completo
     } else {
-      // Formulario anterior: se mantiene como antes (todo llega como pago por confirmar)
+      // Filas del formulario anterior: se mantiene como antes (todo llega como pago por confirmar)
       cuerpo.precio_final = numero_(v('precio de entrada'));
       cuerpo.notas = [limpiar_(v('detalle')), limpiar_(v('observacion'))].filter(String).join(' | ');
       cuerpo.pago_confirmado = false;
@@ -167,7 +176,7 @@ function enviarFila_(hoja, fila) {
 
     var celdaEstado = hoja.getRange(fila, colEstado);
     if (codigo === 200 && datos.ok) {
-      if (nuevoFormulario) {
+      if (nuevo) {
         var detalle = datos.completo ? 'COMPLETO' : 'FALTA S/ ' + datos.saldo;
         celdaEstado.setValue((datos.duplicado ? 'YA EXISTE #' : 'OK #') + datos.id + ' (' + datos.cod_cliente + ') · ' +
                              detalle + (datos.entrada_enviada ? ' · entrada enviada' : ''));
@@ -176,7 +185,7 @@ function enviarFila_(hoja, fila) {
       }
       return 'ok';
     }
-    if (codigo === 409 && !nuevoFormulario) {      // formulario anterior: mismo DNI ya registrado
+    if (codigo === 409 && !nuevo) {                // fila antigua: mismo DNI ya registrado
       celdaEstado.setValue('YA EXISTE (DNI repetido)');
       return 'ok';
     }
@@ -188,73 +197,114 @@ function enviarFila_(hoja, fila) {
   }
 }
 
-// =============================== FORMULARIO NUEVO ===============================
+// ============================ MODIFICAR EL FORMULARIO EXISTENTE ============================
+
+/** Solo lee: muestra qué preguntas encontró y qué haría. No cambia nada. */
+function revisarFormulario() {
+  var form = FormApp.openById(FORM_ID);
+  var encontrado = buscarPreguntas_(form);
+  var lineas = ['Formulario: ' + form.getTitle(), ''];
+  Object.keys(EXISTENTES).forEach(function (k) {
+    lineas.push((encontrado.items[k] ? '✔ ' : '✘ FALTA ') + EXISTENTES[k]);
+  });
+  var yaHecho = !!encontrado.todos['tipo de registro'];
+  lineas.push('');
+  lineas.push(yaHecho ? 'AVISO: este formulario YA tiene "Tipo de registro" (ya fue modificado).'
+                      : 'Todo listo para modificar. Ejecuta modificarFormularioExistente.');
+  SpreadsheetApp.getUi().alert(lineas.join('\n'));
+}
+
+function buscarPreguntas_(form) {
+  var todos = {};
+  var items = {};
+  form.getItems().forEach(function (it) { todos[sinTildes_(it.getTitle())] = it; });
+  Object.keys(EXISTENTES).forEach(function (k) { items[k] = todos[EXISTENTES[k]]; });
+  return {todos: todos, items: items};
+}
 
 /**
- * Crea el formulario nuevo de ventas (el anterior queda intacto) y lo enlaza a esta hoja.
- * Apps Script no puede crear la pregunta de "subir archivo": agrégala a mano (ver aviso final).
+ * Agrega al formulario existente las preguntas nuevas y reordena todo en páginas:
+ *   Página 1: datos del cliente, tipo de entrada, etapa de precio, asesor, tipo de registro
+ *   Página "Descuento": precio acordado, quién autoriza, motivo   (solo si elige Descuento)
+ *   Página "Cortesía": quién autoriza, motivo                      (solo si elige Cortesía; termina)
+ *   Página "Pago": método de pago, monto pagado ahora, voucher, notas
+ * Antes de cambiar nada guarda una COPIA de respaldo del formulario en tu Drive.
  */
-function crearFormularioVentas() {
-  var form = FormApp.create('Registro de ventas · El Despertar del Emprendedor 2026');
-  form.setDescription('Registra aquí cada venta. Si el cliente PAGA POR PARTES, vuelve a registrarlo con el MISMO DNI ' +
-                      'y elige "Completar pago de una separación": el sistema suma el pago a su misma entrada. ' +
-                      'Cualquier descuento o cortesía necesita decir quién lo autorizó.');
-  form.setAllowResponseEdits(false);
-  form.setCollectEmail(false);
-  form.setProgressBar(true);
+function modificarFormularioExistente() {
+  var ui = SpreadsheetApp.getUi();
+  var form = FormApp.openById(FORM_ID);
+  var enc = buscarPreguntas_(form);
 
-  // ---------- Página 1: cliente, entrada y tipo de registro ----------
-  form.addSectionHeaderItem().setTitle('1. Datos del cliente');
-  form.addTextItem().setTitle('Nombres y apellidos').setRequired(true);
-  form.addTextItem().setTitle('DNI').setRequired(true)
-      .setHelpText('Solo números (8 a 12). Es el identificador de la entrada: no lo escribas mal.')
-      .setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[0-9]{8,12}$')
-                       .setHelpText('Escribe solo números, sin espacios ni puntos.').build());
-  form.addTextItem().setTitle('Celular').setRequired(true)
-      .setHelpText('9 dígitos. Aquí le llegará su entrada por WhatsApp.')
-      .setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^9[0-9]{8}$')
-                       .setHelpText('Debe tener 9 dígitos y empezar con 9.').build());
-  form.addTextItem().setTitle('Correo electrónico').setRequired(true)
-      .setValidation(FormApp.createTextValidation().requireTextIsEmail().build());
+  var faltan = Object.keys(EXISTENTES).filter(function (k) { return !enc.items[k]; });
+  if (faltan.length) {
+    ui.alert('No se encontraron estas preguntas, no se cambió nada:\n' +
+             faltan.map(function (k) { return '• ' + EXISTENTES[k]; }).join('\n'));
+    return;
+  }
+  if (enc.todos['tipo de registro']) {
+    ui.alert('Este formulario ya fue modificado (ya existe "Tipo de registro"). No se cambió nada.');
+    return;
+  }
 
-  form.addSectionHeaderItem().setTitle('2. Entrada');
-  form.addListItem().setTitle('Tipo de entrada').setRequired(true).setChoiceValues(['Emprendedor', 'Empresarial', 'VIP']);
-  form.addListItem().setTitle('Etapa de precio').setRequired(true)
+  // ---- 1) respaldo ----
+  var copia = DriveApp.getFileById(FORM_ID).makeCopy('COPIA de respaldo - ' + form.getTitle() + ' - ' +
+                                                     Utilities.formatDate(new Date(), 'GMT', 'yyyy-MM-dd HH:mm'));
+
+  // ---- 2) ayudas y validaciones en las preguntas existentes (no cambian sus títulos) ----
+  try {
+    enc.items.dni.asTextItem()
+       .setHelpText('Solo números. Es el identificador de la entrada: no lo escribas mal.')
+       .setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[0-9]{8,12}$')
+                        .setHelpText('Escribe solo números (8 a 12), sin espacios ni puntos.').build());
+  } catch (e) {}
+  try {
+    enc.items.celular.asTextItem()
+       .setHelpText('9 dígitos. Aquí le llegará su entrada por WhatsApp.')
+       .setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^9[0-9]{8}$')
+                        .setHelpText('Debe tener 9 dígitos y empezar con 9.').build());
+  } catch (e) {}
+  try {
+    enc.items.monto.asTextItem()
+       .setHelpText('SOLO lo que el cliente paga en este momento. Si es una separación, escribe el abono. ' +
+                    'Con descuento, lo que paga ahora (el precio acordado va en la página de descuento).')
+       .setValidation(FormApp.createTextValidation().requireNumber().build());
+  } catch (e) {}
+
+  // ---- 3) preguntas y páginas nuevas (se agregan al final y luego se ordenan) ----
+  var etapa = form.addListItem().setTitle('Etapa de precio').setRequired(true)
       .setHelpText('El sistema toma de aquí el precio de lista de la entrada.')
       .setChoiceValues(['Preventa 1', 'Preventa 2', 'Preventa 3', 'Puerta']);
-  form.addListItem().setTitle('Asesor').setRequired(true).setChoiceValues(ASESORES_FORM);
+  var tipoReg = form.addMultipleChoiceItem().setTitle('Tipo de registro').setRequired(true)
+      .setHelpText('Si el cliente paga por partes, vuelve a registrarlo con el MISMO DNI y elige ' +
+                   '"Completar pago de una separación": el sistema suma el pago a su misma entrada.');
 
-  form.addSectionHeaderItem().setTitle('3. ¿Qué vas a registrar?');
-  var tipoReg = form.addMultipleChoiceItem().setTitle('Tipo de registro').setRequired(true);
-
-  // ---------- Página de descuento ----------
   var pDesc = form.addPageBreakItem().setTitle('Descuento autorizado')
       .setHelpText('Un descuento solo se registra si alguien lo autorizó.');
-  form.addTextItem().setTitle('Precio acordado final (S/)').setRequired(true)
+  var dPrecio = form.addTextItem().setTitle('Precio acordado final (S/)').setRequired(true)
       .setHelpText('Lo que cuesta la entrada CON el descuento (no lo que paga ahora).')
       .setValidation(FormApp.createTextValidation().requireNumber().build());
-  form.addTextItem().setTitle('Autorizado por').setRequired(true)
+  var dAutor = form.addTextItem().setTitle('Autorizado por (descuento)').setRequired(true)
       .setHelpText('Nombre de quien autorizó el descuento.');
-  form.addParagraphTextItem().setTitle('Motivo del descuento o cortesia').setRequired(true);
+  var dMotivo = form.addParagraphTextItem().setTitle('Motivo del descuento').setRequired(true);
 
-  // ---------- Página de cortesía ----------
   var pCort = form.addPageBreakItem().setTitle('Cortesía (gratis)')
-      .setHelpText('La entrada se registra sin costo. Se envía sola al registrarse.');
-  form.addTextItem().setTitle('Autorizado por').setRequired(true);
-  form.addParagraphTextItem().setTitle('Motivo del descuento o cortesia').setRequired(true);
+      .setHelpText('La entrada se registra sin costo y se envía sola.');
+  var cAutor = form.addTextItem().setTitle('Autorizado por (cortesia)').setRequired(true);
+  var cMotivo = form.addParagraphTextItem().setTitle('Motivo de la cortesia').setRequired(true);
 
-  // ---------- Página de pago ----------
   var pPago = form.addPageBreakItem().setTitle('Pago');
-  form.addListItem().setTitle('Método de pago').setRequired(true)
-      .setChoiceValues(['Yape', 'Plin', 'Transferencia bancaria', 'Tarjeta de crédito o débito',
-                        'Pagape', 'Efectivo', 'Yape y transferencia']);
-  form.addTextItem().setTitle('Monto pagado ahora (S/)').setRequired(true)
-      .setHelpText('SOLO lo que el cliente paga en este momento. Si es una separación, el abono.')
-      .setValidation(FormApp.createTextValidation().requireNumber().build());
-  form.addParagraphTextItem().setTitle('Observaciones')
+  var notas = form.addParagraphTextItem().setTitle('Notas del pago')
       .setHelpText('Opcional. Ej.: número de operación.');
 
-  // ---------- Navegación según el tipo de registro ----------
+  // ---- 4) orden final de todas las preguntas ----
+  var I = enc.items;
+  var orden = [I.nombres, I.dni, I.celular, I.correo, I.tipo, etapa, I.asesor, tipoReg,
+               pDesc, dPrecio, dAutor, dMotivo,
+               pCort, cAutor, cMotivo,
+               pPago, I.metodo, I.monto, I.voucher, notas];
+  orden.forEach(function (item, i) { form.moveItem(item.getIndex(), i); });
+
+  // ---- 5) navegación según el tipo de registro ----
   pDesc.setGoToPage(pPago);
   pCort.setGoToPage(FormApp.PageNavigationType.SUBMIT);
   tipoReg.setChoices([
@@ -265,28 +315,15 @@ function crearFormularioVentas() {
     tipoReg.createChoice('Cortesía (gratis)', pCort)
   ]);
 
-  // ---------- Enlazar a esta hoja y registrar la pestaña de respuestas ----------
-  var libro = SpreadsheetApp.getActive();
-  form.setDestination(FormApp.DestinationType.SPREADSHEET, libro.getId());
-  SpreadsheetApp.flush();
-  var nombreHoja = '';
-  libro.getSheets().forEach(function (s) {
-    var url = s.getFormUrl();
-    if (url && FormApp.openByUrl(url).getId() === form.getId()) {
-      s.setName('VENTAS 2026');
-      nombreHoja = 'VENTAS 2026';
-    }
-  });
-  if (nombreHoja) PropertiesService.getScriptProperties().setProperty('HOJA_NUEVA', nombreHoja);
+  // ---- 6) la descripción conserva lo que ya tenía ----
+  form.setDescription((form.getDescription() || '') +
+    '\n\nSi el cliente paga por partes (separación), regístralo cada vez con el MISMO DNI y elige ' +
+    '"Completar pago de una separación". Cualquier descuento o cortesía necesita decir quién lo autorizó.');
 
-  SpreadsheetApp.getUi().alert(
-    'Formulario creado ✔\n\n' +
-    'ENLACE PARA EL PERSONAL:\n' + form.getPublishedUrl() + '\n\n' +
-    'EDITARLO:\n' + form.getEditUrl() + '\n\n' +
-    'FALTA UN PASO MANUAL: en el formulario, en la página "Pago", agrega una pregunta de tipo ' +
-    '"Subir archivo" llamada exactamente  Voucher de pago  (Apps Script no puede crearla).\n\n' +
-    (nombreHoja ? 'Las respuestas llegarán a la pestaña "' + nombreHoja + '".' :
-                  'Si la pestaña de respuestas no se renombró sola, créala desde el formulario (Respuestas → Vincular a hojas).'));
+  ui.alert('Formulario modificado ✔\n\n' +
+           'Se guardó una copia de respaldo en tu Drive:\n' + copia.getUrl() + '\n\n' +
+           'Compártelo con tu personal con el mismo enlace de siempre.\n' +
+           'Las respuestas nuevas llegarán a la pestaña "' + HOJA + '" con columnas nuevas a la derecha.');
 }
 
 // =============================== AUXILIARES ===============================
@@ -308,11 +345,13 @@ function columnaEstado_(hoja, enc) {
   return col;
 }
 
-/** Lee la primera columna que exista de la lista de nombres alternativos. */
+/** Lee la primera columna de la lista de nombres alternativos que tenga un valor en esa fila. */
 function leer_(hoja, fila, enc, nombres) {
   for (var i = 0; i < nombres.length; i++) {
     var col = enc[nombres[i]];
-    if (col) return hoja.getRange(fila, col).getValue();
+    if (!col) continue;
+    var valor = hoja.getRange(fila, col).getValue();
+    if (valor !== '' && valor !== null && valor !== undefined) return valor;
   }
   return '';
 }

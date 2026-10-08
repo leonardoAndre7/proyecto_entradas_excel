@@ -510,7 +510,8 @@ def _enviar_via_smtp(destinatarios, asunto, html_mensaje, cuerpo_texto, imagen_f
                 host=host, port=port,
                 username=user, password=password,
                 use_tls=use_tls, use_ssl=use_ssl,
-                fail_silently=False
+                fail_silently=False,
+                timeout=20,
             )
         email_msg = EmailMultiAlternatives(
             subject=asunto,
@@ -921,6 +922,15 @@ def _resumen_cabeceras(headers):
 
 
 def enviar_whatsapp_entrada(participante, buffer):
+    """Envoltorio seguro: un error inesperado se devuelve como aviso, nunca como error 500."""
+    try:
+        return _enviar_whatsapp_entrada(participante, buffer)
+    except Exception as e:
+        logger.exception("Error inesperado enviando WhatsApp")
+        return "error", f"error inesperado: {e}"
+
+
+def _enviar_whatsapp_entrada(participante, buffer):
     """
     Sube la entrada a ImgBB (si el evento tiene clave) y la envía por WhatsApp según el
     proveedor configurado en el evento. Devuelve (estado, detalle) con
@@ -1035,9 +1045,9 @@ def enviar_whatsapp_entrada(participante, buffer):
         # 3. Enviar petición HTTP POST
         try:
             payload_json = json.loads(payload_str)
-            resp = requests.post(evento.whatsapp_api_url, json=payload_json, headers=headers, timeout=15)
+            resp = requests.post(evento.whatsapp_api_url, json=payload_json, headers=headers, timeout=45)
         except ValueError:
-            resp = requests.post(evento.whatsapp_api_url, data=payload_str, headers=headers, timeout=15)
+            resp = requests.post(evento.whatsapp_api_url, data=payload_str, headers=headers, timeout=45)
 
         if resp.status_code >= 400:
             logger.error(
@@ -1184,6 +1194,11 @@ def _resolver_fondo_boleto(evento):
 
     ruta = evento.imagen_fondo.path
     if os.path.exists(ruta):
+        return ruta
+
+    # Copia guardada en la base de datos (Render borra el disco en cada despliegue/reinicio)
+    from . import media_respaldo
+    if media_respaldo.restaurar_archivo(evento.imagen_fondo.name) and os.path.exists(ruta):
         return ruta
 
     carpeta = os.path.dirname(ruta)

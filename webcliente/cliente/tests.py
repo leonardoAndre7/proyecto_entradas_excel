@@ -88,6 +88,62 @@ class IngresosPorDiaTestCase(TestCase):
             self.assertEqual([f for f in os.listdir(media) if f.startswith("entrada_")], [])
 
 
+class RespaldoArchivosTestCase(TestCase):
+    """Los archivos subidos se copian a la base de datos y se restauran si Render borra el disco."""
+
+    def _png(self):
+        import io
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new("RGB", (20, 20), (200, 30, 30)).save(buf, format="PNG")
+        return buf.getvalue()
+
+    def test_subir_logo_lo_respalda_y_se_restaura_si_el_disco_se_borra(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from cliente.models import ArchivoMedia
+        from cliente import media_respaldo
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            ev = Evento.objects.create(nombre="E")
+            ev.logo = SimpleUploadedFile("logo.png", self._png(), content_type="image/png")
+            ev.save()
+            ruta = ev.logo.name
+            self.assertTrue(os.path.exists(os.path.join(media, ruta)))
+            self.assertTrue(ArchivoMedia.objects.filter(ruta=ruta).exists())       # respaldado
+            os.remove(os.path.join(media, ruta))                                   # "Render borra el disco"
+            self.assertEqual(media_respaldo.restaurar_todo(), 1)
+            self.assertEqual(open(os.path.join(media, ruta), "rb").read(), self._png())
+
+    def test_fondo_del_boleto_se_restaura_desde_la_base_de_datos(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from cliente.views import _resolver_fondo_boleto
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            ev = Evento.objects.create(nombre="E2")
+            ev.imagen_fondo = SimpleUploadedFile("fondo.png", self._png(), content_type="image/png")
+            ev.save()
+            ruta = os.path.join(media, ev.imagen_fondo.name)
+            os.remove(ruta)
+            self.assertEqual(os.path.normpath(_resolver_fondo_boleto(ev)), os.path.normpath(ruta))
+            self.assertTrue(os.path.exists(ruta))
+
+    def test_comprobante_de_pago_se_respalda(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from cliente.models import ArchivoMedia, Voucher
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            ev = Evento.objects.create(nombre="E3")
+            p = Participante.objects.create(evento=ev, nombres="A", dni="9", cantidad=1, precio=1)
+            v = Voucher.objects.create(participante=p, imagen=SimpleUploadedFile("v.png", self._png(), content_type="image/png"))
+            self.assertTrue(ArchivoMedia.objects.filter(ruta=v.imagen.name).exists())
+
+    def test_un_fallo_inesperado_de_whatsapp_se_informa_sin_error_500(self):
+        from cliente.views import enviar_whatsapp_entrada
+        ev = Evento.objects.create(nombre="E4", whatsapp_provider="CUSTOM_API", whatsapp_api_url="https://x.test")
+        p = Participante.objects.create(evento=ev, nombres="A", dni="8", celular="955060412", cantidad=1, precio=1)
+        with mock.patch("cliente.views._enviar_whatsapp_entrada", side_effect=RuntimeError("boom")):
+            estado, detalle = enviar_whatsapp_entrada(p, None)
+        self.assertEqual(estado, "error")
+        self.assertIn("boom", detalle)
+
+
 class EventoNoPierdeDatosTestCase(TestCase):
     """Editar el evento no debe borrar datos: caché, dos personas a la vez y campos ausentes."""
 

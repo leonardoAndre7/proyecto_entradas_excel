@@ -1,1 +1,1 @@
-web: gunicorn webcliente.wsgi --log-file -
+web: gunicorn webcliente.wsgi --workers 1 --threads 4 --timeout 120 --log-file -

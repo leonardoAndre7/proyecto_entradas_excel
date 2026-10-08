@@ -439,3 +439,20 @@ class RegistroCorreo(models.Model):
 
     def __str__(self):
         return f"{self.participante.nombres} - {self.enviado}"
+
+
+# ==========================================
+# 💾 RESPALDO EN BASE DE DATOS DE ARCHIVOS SUBIDOS
+# ==========================================
+class ArchivoMedia(models.Model):
+    """
+    Copia en la base de datos de los archivos subidos (fondo/logo/banner del evento y
+    comprobantes de pago). Render borra el disco en cada despliegue o reinicio; con esta copia
+    los archivos se restauran solos (ver media_respaldo.py).
+    """
+    ruta = models.CharField(max_length=500, unique=True)
+    contenido = models.BinaryField()
+    actualizado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.ruta

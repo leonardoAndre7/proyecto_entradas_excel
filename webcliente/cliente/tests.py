@@ -88,6 +88,80 @@ class IngresosPorDiaTestCase(TestCase):
             self.assertEqual([f for f in os.listdir(media) if f.startswith("entrada_")], [])
 
 
+class EventoNoPierdeDatosTestCase(TestCase):
+    """Editar el evento no debe borrar datos: caché, dos personas a la vez y campos ausentes."""
+
+    def setUp(self):
+        import re
+        self.re = re
+        self.user = User.objects.create_superuser("adm3", "a3@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=self.user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm3", password="pass12345")
+        self.evento = Evento.objects.create(nombre="Despertar", aforo_maximo=1000)
+        self.tarifa = Tarifa.objects.create(evento=self.evento, tipo_entrada="FULL ACCESS", puerta=100)
+        self.url = reverse("evento_editar", kwargs={"pk": self.evento.pk})
+
+    def _estado(self):
+        html = self.client.get(self.url).content.decode()
+        return self.re.search(r'name="_estado_evento" value="([0-9a-f]{40})"', html).group(1)
+
+    def _datos(self, estado, **extra):
+        d = {
+            "_estado_evento": estado, "nombre": "Despertar", "descripcion": "", "aforo_maximo": "1000",
+            "limite_entradas_persona": "5", "color_primario": "#7b1fa2",
+            "tariff_id": [str(self.tarifa.pk)], "tariff_name": ["FULL ACCESS"], "tariff_p1": ["0"],
+            "tariff_p2": ["0"], "tariff_p3": ["0"], "tariff_puerta": ["100"], "tariff_dias": ["1"],
+            "tariff_hdesde": [""], "tariff_hhasta": [""],
+        }
+        d.update(extra)
+        return d
+
+    def test_guardar_y_reabrir_conserva_la_configuracion_de_whatsapp(self):
+        cabecera = "X-API-Key: owa_k1_PRUEBA"
+        self.client.post(self.url, self._datos(self._estado(), whatsapp_provider="CUSTOM_API",
+                                               whatsapp_api_headers=cabecera, imgbb_api_key="k"))
+        html = self.client.get(self.url).content.decode()
+        self.assertIn("owa_k1_PRUEBA", html)
+        self.assertRegex(html, r'value="CUSTOM_API"\s+selected')
+        # un segundo guardado sin tocar nada tampoco la pierde
+        self.client.post(self.url, self._datos(self._estado(), whatsapp_provider="CUSTOM_API",
+                                               whatsapp_api_headers=cabecera, imgbb_api_key="k"))
+        self.evento.refresh_from_db()
+        self.assertEqual(self.evento.whatsapp_api_headers, cabecera)
+
+    def test_formulario_viejo_no_pisa_los_cambios_de_otra_persona(self):
+        estado_viejo = self._estado()                       # pestaña/caché con el formulario antiguo
+        Evento.objects.filter(pk=self.evento.pk).update(whatsapp_api_headers="X-API-Key: NUEVA")
+        resp = self.client.post(self.url, self._datos(estado_viejo, whatsapp_api_headers="X-API-Key: VIEJA"),
+                                follow=True)
+        self.evento.refresh_from_db()
+        self.assertEqual(self.evento.whatsapp_api_headers, "X-API-Key: NUEVA")
+        self.assertTrue(any("cambió mientras lo editabas" in str(m) for m in resp.context["messages"]))
+
+    def test_campos_ausentes_no_se_restablecen(self):
+        Evento.objects.filter(pk=self.evento.pk).update(
+            smtp_host="smtp.gmail.com", smtp_user="contacto@hilariogrp.com",
+            default_from_email="Soporte <contacto@hilariogrp.com>")
+        # el formulario no envía smtp_*; antes se restablecían a sendgrid / apikey
+        self.client.post(self.url, self._datos(self._estado()))
+        self.evento.refresh_from_db()
+        self.assertEqual(self.evento.smtp_host, "smtp.gmail.com")
+        self.assertEqual(self.evento.smtp_user, "contacto@hilariogrp.com")
+        self.assertEqual(self.evento.default_from_email, "Soporte <contacto@hilariogrp.com>")
+
+    def test_el_formulario_no_se_guarda_en_cache_del_navegador(self):
+        cc = self.client.get(self.url).headers.get("Cache-Control", "")
+        self.assertIn("no-store", cc)
+        self.assertIn("no-cache", cc)
+
+    def test_el_formulario_muestra_los_mensajes_de_guardado(self):
+        resp = self.client.post(self.url, self._datos(self._estado()), follow=True)
+        self.assertEqual(resp.status_code, 200)
+        # un guardado rechazado vuelve al editor y ahora el aviso se ve en pantalla
+        resp = self.client.post(self.url, self._datos("0" * 40), follow=True)
+        self.assertContains(resp, "cambió mientras lo editabas")
+
+
 class FondoBoletoPersistenteTestCase(TestCase):
     """Render borra las imágenes subidas en cada deploy; el fondo debe recuperarse del repo."""
 

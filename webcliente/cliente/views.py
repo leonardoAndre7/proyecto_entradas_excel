@@ -24,6 +24,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_time
+from django.views.decorators.cache import never_cache
+import hashlib
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.core.cache import cache
@@ -229,6 +231,26 @@ def dashboard_eventos(request):
 # ==========================================
 # ⚙️ CREACIÓN / EDICIÓN DE EVENTOS
 # ==========================================
+def _estado_evento(evento):
+    """
+    Huella de la configuración editable del evento (datos + tarifas). Se envía oculta en el
+    formulario; si al guardar ya no coincide, alguien más (u otra pestaña) cambió el evento y
+    guardar pisaría esos cambios con valores viejos.
+    """
+    campos = [
+        evento.nombre, evento.descripcion, evento.fecha_evento, evento.aforo_maximo,
+        evento.limite_entradas_persona, evento.color_primario,
+        evento.whatsapp_provider, evento.whatsapp_api_url, evento.whatsapp_api_headers,
+        evento.whatsapp_api_payload, evento.twilio_account_sid, evento.twilio_auth_token,
+        evento.twilio_phone_number, evento.twilio_whatsapp_number, evento.imgbb_api_key,
+    ]
+    for t in Tarifa.objects.filter(evento=evento).order_by("pk"):
+        campos += [t.pk, t.tipo_entrada, t.preventa_1, t.preventa_2, t.preventa_3, t.puerta,
+                   t.dias_validos, t.hora_desde, t.hora_hasta]
+    return hashlib.sha1("\x1f".join("" if c is None else str(c) for c in campos).encode("utf-8")).hexdigest()
+
+
+@never_cache
 @login_required(login_url='/participantes/login/')
 @rol_requerido(['SUPERADMIN', 'ORGANIZADOR'])
 def evento_crear_editar(request, pk=None):
@@ -298,29 +320,50 @@ def evento_crear_editar(request, pk=None):
             perfil.eventos.add(evento)
             messages.success(request, f"¡Evento '{evento.nombre}' creado exitosamente!")
         else:
-            evento.nombre = nombre
-            evento.descripcion = descripcion
+            # Protección contra formularios desactualizados (página vieja en caché, otra pestaña
+            # u otra persona editando): si el evento cambió desde que se abrió el formulario,
+            # no se guarda nada para no pisar los datos actuales con valores viejos.
+            estado_form = request.POST.get("_estado_evento")
+            if estado_form and estado_form != _estado_evento(evento):
+                messages.warning(
+                    request,
+                    "⚠️ Este evento cambió mientras lo editabas (otra pestaña u otra persona). "
+                    "No se guardó nada para no borrar esos cambios. Revisa los datos actuales y "
+                    "vuelve a aplicar tus cambios."
+                )
+                return redirect('evento_editar', pk=evento.pk)
+
+            # Solo se actualizan los campos que el formulario realmente envió: un campo ausente
+            # ya no se borra ni se restablece a su valor por defecto.
+            P = request.POST
+            if nombre:
+                evento.nombre = nombre
+            if "descripcion" in P:
+                evento.descripcion = descripcion
             if fecha:
                 evento.fecha_evento = fecha
-            evento.aforo_maximo = aforo_maximo
-            evento.limite_entradas_persona = limite_entradas_persona
-            evento.smtp_host = smtp_host
-            evento.smtp_port = smtp_port or 587
-            evento.smtp_user = smtp_user
+            if "aforo_maximo" in P:
+                evento.aforo_maximo = aforo_maximo
+            if "limite_entradas_persona" in P:
+                evento.limite_entradas_persona = limite_entradas_persona
+            if "smtp_host" in P:
+                evento.smtp_host = smtp_host
+            if "smtp_port" in P:
+                evento.smtp_port = smtp_port or 587
+            if "smtp_user" in P:
+                evento.smtp_user = smtp_user
             if smtp_password:
                 evento.smtp_password = smtp_password
-            evento.default_from_email = default_from_email
-            evento.whatsapp_provider = whatsapp_provider
-            evento.whatsapp_api_url = whatsapp_api_url
-            evento.whatsapp_api_headers = whatsapp_api_headers
-            evento.whatsapp_api_payload = whatsapp_api_payload
-            evento.twilio_account_sid = twilio_account_sid
-            evento.twilio_auth_token = twilio_auth_token
-            evento.twilio_phone_number = twilio_phone_number
-            evento.twilio_whatsapp_number = twilio_whatsapp_number
-            evento.imgbb_api_key = imgbb_api_key
-            evento.color_primario = color_primario
-            
+            if "default_from_email" in P:
+                evento.default_from_email = default_from_email
+            for campo in (
+                "whatsapp_provider", "whatsapp_api_url", "whatsapp_api_headers", "whatsapp_api_payload",
+                "twilio_account_sid", "twilio_auth_token", "twilio_phone_number",
+                "twilio_whatsapp_number", "imgbb_api_key", "color_primario",
+            ):
+                if campo in P:
+                    setattr(evento, campo, P.get(campo, ""))
+
             # Subir imágenes
             if request.FILES.get("imagen_fondo"):
                 evento.imagen_fondo = request.FILES.get("imagen_fondo")
@@ -328,7 +371,7 @@ def evento_crear_editar(request, pk=None):
                 evento.logo = request.FILES.get("logo")
             if request.FILES.get("banner"):
                 evento.banner = request.FILES.get("banner")
-                
+
             evento.save()
             messages.success(request, f"Evento '{evento.nombre}' actualizado.")
 
@@ -407,7 +450,8 @@ def evento_crear_editar(request, pk=None):
 
     return render(request, 'cliente/evento_form.html', {
         'evento': evento,
-        'tarifas': tarifas
+        'tarifas': tarifas,
+        'estado_evento': _estado_evento(evento) if evento else '',
     })
 
 

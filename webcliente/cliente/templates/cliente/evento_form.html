@@ -144,6 +144,13 @@
                 
                 <form method="POST" enctype="multipart/form-data" class="p-4 needs-validation" novalidate>
                     {% csrf_token %}
+                    {% if estado_evento %}<input type="hidden" name="_estado_evento" value="{{ estado_evento }}">{% endif %}
+
+                    {% if messages %}
+                        {% for m in messages %}
+                        <div class="alert alert-{% if m.level_tag == 'error' %}danger{% else %}{{ m.level_tag|default:'info' }}{% endif %} mb-3" role="alert">{{ m }}</div>
+                        {% endfor %}
+                    {% endif %}
                     
                     <!-- Sección 1: Información General -->
                     <h5 class="border-bottom border-light border-opacity-10 pb-2 mb-3 text-info"><i class="bi bi-info-circle-fill"></i> Datos del Evento</h5>

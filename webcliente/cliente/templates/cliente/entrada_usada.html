@@ -298,8 +298,19 @@
         </div>
 
         <!-- Validation Headline -->
+        {% if motivo == 'fuera_de_horario' %}
+        <h2 class="result-title">FUERA DE HORARIO</h2>
+        <div class="result-subtitle">{{ mensaje }}</div>
+        {% elif motivo == 'fuera_de_fecha' %}
+        <h2 class="result-title">FUERA DE FECHA</h2>
+        <div class="result-subtitle">{{ mensaje }}</div>
+        {% elif motivo == 'agotado' %}
+        <h2 class="result-title">ENTRADA AGOTADA</h2>
+        <div class="result-subtitle">{{ mensaje }}</div>
+        {% else %}
         <h2 class="result-title">BOLETO DUPLICADO</h2>
         <div class="result-subtitle">¡Atención! Este boleto ya fue verificado anteriormente. Verifique los datos de seguridad.</div>
+        {% endif %}
 
         <!-- Participant Details Grid -->
         <div class="info-grid">
@@ -321,10 +332,17 @@
                 <span class="info-value" style="color: #ff8a80;">{{ participante.cantidad }} boletos</span>
             </div>
             {% endif %}
+            {% if motivo == 'fuera_de_horario' or motivo == 'fuera_de_fecha' %}
             <div class="info-item">
-                <span class="info-label"><i class="bi bi-exclamation-octagon-fill"></i> Primer Acceso Registrado</span>
+                <span class="info-label"><i class="bi bi-info-circle-fill"></i> Estado</span>
+                <span class="info-value first-ingress">Aún no ha ingresado</span>
+            </div>
+            {% else %}
+            <div class="info-item">
+                <span class="info-label"><i class="bi bi-exclamation-octagon-fill"></i> Último Acceso Registrado</span>
                 <span class="info-value first-ingress">{{ fecha_ingreso|date:"d/m/Y h:i A"|default:"Ya ingresado" }}</span>
             </div>
+            {% endif %}
         </div>
 
         <!-- Navigation Actions -->

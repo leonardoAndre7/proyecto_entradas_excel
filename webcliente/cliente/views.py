@@ -23,7 +23,7 @@ from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.utils.dateparse import parse_time
+from django.utils.dateparse import parse_time, parse_date
 from django.views.decorators.cache import never_cache
 import hashlib
 from django.contrib import messages
@@ -246,7 +246,7 @@ def _estado_evento(evento):
     ]
     for t in Tarifa.objects.filter(evento=evento).order_by("pk"):
         campos += [t.pk, t.tipo_entrada, t.preventa_1, t.preventa_2, t.preventa_3, t.puerta,
-                   t.dias_validos, t.hora_desde, t.hora_hasta]
+                   t.dias_validos, t.hora_desde, t.hora_hasta, t.fecha_desde, t.fecha_hasta]
     return hashlib.sha1("\x1f".join("" if c is None else str(c) for c in campos).encode("utf-8")).hexdigest()
 
 
@@ -385,6 +385,8 @@ def evento_crear_editar(request, pk=None):
         tariff_dias = request.POST.getlist("tariff_dias")
         tariff_hdesdes = request.POST.getlist("tariff_hdesde")
         tariff_hhastas = request.POST.getlist("tariff_hhasta")
+        tariff_fdesdes = request.POST.getlist("tariff_fdesde")
+        tariff_fhastas = request.POST.getlist("tariff_fhasta")
 
         saved_ids = []
 
@@ -406,6 +408,9 @@ def evento_crear_editar(request, pk=None):
             t_hdesde = parse_time(tariff_hdesdes[i]) if i < len(tariff_hdesdes) and tariff_hdesdes[i] else None
             t_hhasta = parse_time(tariff_hhastas[i]) if i < len(tariff_hhastas) and tariff_hhastas[i] else None
             horario_enviado = i < len(tariff_hdesdes) and i < len(tariff_hhastas)
+            t_fdesde = parse_date(tariff_fdesdes[i]) if i < len(tariff_fdesdes) and tariff_fdesdes[i] else None
+            t_fhasta = parse_date(tariff_fhastas[i]) if i < len(tariff_fhastas) and tariff_fhastas[i] else None
+            vigencia_enviada = i < len(tariff_fdesdes) and i < len(tariff_fhastas)
 
             if t_id:
                 t_obj = Tarifa.objects.filter(pk=t_id, evento=evento).first()
@@ -420,6 +425,9 @@ def evento_crear_editar(request, pk=None):
                     if horario_enviado:
                         t_obj.hora_desde = t_hdesde
                         t_obj.hora_hasta = t_hhasta
+                    if vigencia_enviada:
+                        t_obj.fecha_desde = t_fdesde
+                        t_obj.fecha_hasta = t_fhasta
                     t_obj.save()
                     saved_ids.append(t_obj.id)
             else:
@@ -433,6 +441,8 @@ def evento_crear_editar(request, pk=None):
                     dias_validos=t_dias or 1,
                     hora_desde=t_hdesde,
                     hora_hasta=t_hhasta,
+                    fecha_desde=t_fdesde,
+                    fecha_hasta=t_fhasta,
                 )
                 saved_ids.append(t_obj.id)
 
@@ -1674,6 +1684,7 @@ def validar_entrada(request, token):
         'participante': participante,
         'evento': evento,
         'mensaje': mensaje,
+        'motivo': getattr(participante, 'ultimo_motivo', None) or 'duplicado',
         'fecha_ingreso': participante.ultimo_ingreso
     })
 

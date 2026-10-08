@@ -13,6 +13,12 @@ from uuid import uuid4
 # ==========================================
 # 🏢 NUEVO MODELO: EVENTO (SaaS MULTI-TENANT)
 # ==========================================
+def ahora_actual():
+    """Hora actual (aislada para poder simular fechas en pruebas sin afectar sesiones)."""
+    from django.utils import timezone
+    return timezone.now()
+
+
 class Evento(models.Model):
     nombre = models.CharField(max_length=255, verbose_name="Nombre del Evento")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
@@ -107,9 +113,22 @@ class Tarifa(models.Model):
     # 🕒 Ventana horaria opcional (vacío = sin restricción de hora)
     hora_desde = models.TimeField(blank=True, null=True, verbose_name="Ingreso permitido desde")
     hora_hasta = models.TimeField(blank=True, null=True, verbose_name="Ingreso permitido hasta")
+    # 📅 Vigencia por fechas (opcional): la entrada solo sirve entre estas fechas (inclusive)
+    fecha_desde = models.DateField(blank=True, null=True, verbose_name="Válida desde (fecha)")
+    fecha_hasta = models.DateField(blank=True, null=True, verbose_name="Válida hasta (fecha)")
 
     def __str__(self):
         return f"{self.tipo_entrada} (S/ {self.preventa_1} - S/ {self.puerta}) - {self.evento.nombre}"
+
+    @property
+    def vigencia_texto(self):
+        if self.fecha_desde and self.fecha_hasta:
+            return f"{self.fecha_desde:%d/%m/%Y} al {self.fecha_hasta:%d/%m/%Y}"
+        if self.fecha_desde:
+            return f"desde el {self.fecha_desde:%d/%m/%Y}"
+        if self.fecha_hasta:
+            return f"hasta el {self.fecha_hasta:%d/%m/%Y}"
+        return ""
 
     @property
     def ventana_horaria_texto(self):
@@ -337,21 +356,33 @@ class Participante(models.Model):
 
         tarifa = self._tarifa_efectiva()
         limite = max(tarifa.dias_validos, 1) if tarifa else 1
-        ahora = timezone.now()
+        ahora = ahora_actual()
         local = timezone.localtime(ahora)
 
+        self.ultimo_motivo = None   # duplicado | agotado | fuera_de_horario | fuera_de_fecha
         if tarifa:
+            hoy = local.date()
+            if tarifa.fecha_desde and hoy < tarifa.fecha_desde:
+                self.ultimo_motivo = "fuera_de_fecha"
+                return False, f"📅 Esta entrada ({tarifa.tipo_entrada}) todavía no es válida: ingresa desde el {tarifa.fecha_desde:%d/%m/%Y}."
+            if tarifa.fecha_hasta and hoy > tarifa.fecha_hasta:
+                self.ultimo_motivo = "fuera_de_fecha"
+                return False, f"📅 Esta entrada ({tarifa.tipo_entrada}) ya venció: era válida hasta el {tarifa.fecha_hasta:%d/%m/%Y}."
             if tarifa.hora_desde and local.time() < tarifa.hora_desde:
+                self.ultimo_motivo = "fuera_de_horario"
                 return False, f"⏰ Fuera de horario: esta entrada ({tarifa.tipo_entrada}) ingresa {tarifa.ventana_horaria_texto}."
             if tarifa.hora_hasta and local.time() > tarifa.hora_hasta:
+                self.ultimo_motivo = "fuera_de_horario"
                 return False, f"⏰ Fuera de horario: esta entrada ({tarifa.tipo_entrada}) ingresa {tarifa.ventana_horaria_texto}."
 
         fechas = self.fechas_ingreso()
         for f in fechas:
             if f and timezone.localtime(f).date() == local.date():
+                self.ultimo_motivo = "duplicado"
                 return False, f"❌ ¡Boleto ya utilizado hoy! Registrado el {timezone.localtime(f).strftime('%d/%m/%Y %I:%M %p')}"
 
         if len(fechas) >= limite:
+            self.ultimo_motivo = "agotado"
             ultima = next((f for f in reversed(fechas) if f), None)
             detalle = f" Último ingreso: {timezone.localtime(ultima).strftime('%d/%m/%Y %I:%M %p')}" if ultima else ""
             return False, f"❌ ¡Boleto ya utilizado! Agotó sus {limite} día(s) de acceso.{detalle}"

@@ -88,6 +88,95 @@ class IngresosPorDiaTestCase(TestCase):
             self.assertEqual([f for f in os.listdir(media) if f.startswith("entrada_")], [])
 
 
+class VigenciaYMotivosTestCase(TestCase):
+    """Entradas válidas solo el 14 y 15 de noviembre y pantallas que explican el rechazo."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser("adm5", "a5@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=self.user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm5", password="pass12345")
+        self.evento = Evento.objects.create(nombre="EDE 2026")
+        self.emp = Tarifa.objects.create(
+            evento=self.evento, tipo_entrada="EMPRESARIAL", dias_validos=2,
+            fecha_desde=datetime.date(2026, 11, 14), fecha_hasta=datetime.date(2026, 11, 15))
+        self.tz = timezone.get_current_timezone()
+
+    def _en(self, dia, hora=10, minuto=0):
+        return timezone.make_aware(datetime.datetime(2026, 11, dia, hora, minuto), self.tz)
+
+    def _part(self, tarifa=None, dni="1"):
+        return Participante.objects.create(evento=self.evento, tarifa=tarifa or self.emp, nombres="Ana",
+                                           dni=dni, cantidad=1, precio=1)
+
+    def _escanear(self, p, momento):
+        with mock.patch("cliente.models.ahora_actual", return_value=momento):
+            return self.client.get(reverse("validar_entrada", kwargs={"token": p.token}))
+
+    def test_empresarial_vale_el_14_y_el_15_de_noviembre_y_no_otros_dias(self):
+        p = self._part()
+        def intento(m):
+            with mock.patch("cliente.models.ahora_actual", return_value=m):
+                return p.registrar_ingreso(), p.ultimo_motivo
+        (ok, msg), motivo = intento(self._en(13))
+        self.assertFalse(ok); self.assertEqual(motivo, "fuera_de_fecha"); self.assertIn("14/11/2026", msg)
+        self.assertTrue(intento(self._en(14))[0][0])           # día 1
+        (ok, _), motivo = intento(self._en(14, 18))
+        self.assertFalse(ok); self.assertEqual(motivo, "duplicado")
+        self.assertTrue(intento(self._en(15))[0][0])           # día 2
+        (ok, msg), motivo = intento(self._en(16))
+        self.assertFalse(ok); self.assertEqual(motivo, "fuera_de_fecha"); self.assertIn("15/11/2026", msg)
+
+    def test_vip_de_un_dia_elige_cualquiera_de_los_dos_dias_y_luego_se_agota(self):
+        vip = Tarifa.objects.create(evento=self.evento, tipo_entrada="VIP", dias_validos=1,
+                                    fecha_desde=datetime.date(2026, 11, 14), fecha_hasta=datetime.date(2026, 11, 15))
+        p = self._part(vip, "2")
+        with mock.patch("cliente.models.ahora_actual", return_value=self._en(15)):
+            self.assertTrue(p.registrar_ingreso()[0])
+        with mock.patch("cliente.models.ahora_actual", return_value=self._en(14)):   # ya usó su único día
+            ok, _ = p.registrar_ingreso()
+        self.assertFalse(ok); self.assertEqual(p.ultimo_motivo, "agotado")
+
+    def test_pantalla_fuera_de_horario_no_dice_boleto_duplicado(self):
+        Tarifa.objects.filter(pk=self.emp.pk).update(hora_desde=datetime.time(10, 0))
+        p = self._part()
+        resp = self._escanear(p, self._en(14, 8, 30))                   # 8:30, antes de las 10:00
+        self.assertContains(resp, "FUERA DE HORARIO")
+        self.assertContains(resp, "Aún no ha ingresado")
+        self.assertNotContains(resp, "BOLETO DUPLICADO")
+        self.assertFalse(p.ingresos.exists())                           # y no quedó registrado como ingresado
+
+    def test_pantalla_fuera_de_fecha(self):
+        p = self._part()
+        resp = self._escanear(p, self._en(1))
+        self.assertContains(resp, "FUERA DE FECHA")
+        self.assertContains(resp, "14/11/2026")
+
+    def test_pantalla_duplicado_real_sigue_diciendo_boleto_duplicado(self):
+        p = self._part()
+        self._escanear(p, self._en(14, 10))
+        resp = self._escanear(p, self._en(14, 12))
+        self.assertContains(resp, "BOLETO DUPLICADO")
+
+    def test_formulario_guarda_y_muestra_las_fechas_de_vigencia(self):
+        url = reverse("evento_editar", kwargs={"pk": self.evento.pk})
+        html = self.client.get(url).content.decode()
+        import re
+        estado = re.search(r'name="_estado_evento" value="([0-9a-f]{40})"', html).group(1)
+        self.client.post(url, {
+            "_estado_evento": estado, "nombre": "EDE 2026", "descripcion": "", "aforo_maximo": "1000",
+            "limite_entradas_persona": "5", "color_primario": "#7b1fa2",
+            "tariff_id": [str(self.emp.pk)], "tariff_name": ["EMPRESARIAL"], "tariff_p1": ["0"],
+            "tariff_p2": ["0"], "tariff_p3": ["0"], "tariff_puerta": ["0"], "tariff_dias": ["2"],
+            "tariff_hdesde": [""], "tariff_hhasta": [""],
+            "tariff_fdesde": ["2026-11-14"], "tariff_fhasta": ["2026-11-16"],
+        })
+        self.emp.refresh_from_db()
+        self.assertEqual(self.emp.fecha_hasta, datetime.date(2026, 11, 16))
+        html = self.client.get(url).content.decode()
+        self.assertIn('value="2026-11-14"', html)
+        self.assertIn('value="2026-11-16"', html)
+
+
 class EstadoWhatsAppTestCase(TestCase):
     """La luz de WhatsApp del panel avisa a tiempo si OpenWA, la clave o la sesión fallan."""
 

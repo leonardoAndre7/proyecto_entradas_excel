@@ -2677,12 +2677,16 @@ def api_registrar_participante(request):
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
 
-    # La API solo funciona con una clave propia: la clave por defecto del repositorio es pública.
-    esperada = settings.API_KEY or ""
-    if not esperada or esperada == API_KEY_PLACEHOLDER:
+    # La API solo funciona con claves propias: la clave por defecto del repositorio es pública.
+    # Se acepta API_KEY y, además, las de API_KEYS_EXTRA (una por sistema: bot, hoja de ventas...).
+    claves = [settings.API_KEY] + [k.strip() for k in (getattr(settings, 'API_KEYS_EXTRA', '') or '').split(',')]
+    claves = [k for k in claves if k and k != API_KEY_PLACEHOLDER]
+    if not claves:
         return JsonResponse({'ok': False, 'error': 'API no configurada: define la variable API_KEY en el servidor'}, status=503)
-    recibida = request.headers.get('X-API-Key', '')
-    if not hmac.compare_digest(recibida.encode('utf-8'), esperada.encode('utf-8')):
+    recibida = request.headers.get('X-API-Key', '').encode('utf-8')
+    # se comparan todas (sin cortar al primer acierto) para no filtrar información por el tiempo
+    coincidencias = [hmac.compare_digest(recibida, k.encode('utf-8')) for k in claves]
+    if not any(coincidencias):
         return JsonResponse({'ok': False, 'error': 'API Key inválida'}, status=403)
 
     try:

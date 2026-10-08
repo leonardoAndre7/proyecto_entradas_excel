@@ -164,6 +164,20 @@ class ApiRegistrarParticipanteTestCase(TestCase):
         self.assertEqual(r.status_code, 503)
         self.assertEqual(Participante.objects.count(), 0)
 
+    @override_settings(API_KEY="clave-del-bot", API_KEYS_EXTRA="clave-hoja-ventas, otra-clave")
+    def test_acepta_la_clave_principal_y_las_adicionales_sin_romper_al_bot(self):
+        self.assertEqual(self._post(self._venta(dni="1", referencia="a"), clave="clave-del-bot").status_code, 200)
+        self.assertEqual(self._post(self._venta(dni="2", referencia="b"), clave="clave-hoja-ventas").status_code, 200)
+        self.assertEqual(self._post(self._venta(dni="3", referencia="c"), clave="otra-clave").status_code, 200)
+        self.assertEqual(self._post(self._venta(dni="4", referencia="d"), clave="no-es-ninguna").status_code, 403)
+        self.assertEqual(Participante.objects.count(), 3)
+
+    @override_settings(API_KEY="clave-del-bot", API_KEYS_EXTRA=" , cambiar-en-produccion-render,")
+    def test_las_claves_vacias_o_por_defecto_en_las_adicionales_no_abren_la_api(self):
+        for clave in ("", "cambiar-en-produccion-render"):
+            self.assertEqual(self._post(self._venta(), clave=clave).status_code, 403)
+        self.assertEqual(Participante.objects.count(), 0)
+
     @override_settings(API_KEY="")
     def test_sin_clave_configurada_la_api_queda_cerrada(self):
         self.assertEqual(self._post(self._venta(), clave="").status_code, 503)

@@ -895,7 +895,13 @@ def enviar_whatsapp_entrada(participante, buffer):
     # Subir imagen a ImgBB (necesaria para {url_imagen} y para Twilio)
     imgbb_url = None
     imgbb_error = None
-    if evento.imgbb_api_key:
+    payload_cfg = evento.whatsapp_api_payload or ""
+    # ImgBB solo hace falta con Twilio, con {url_imagen} o con el payload por defecto.
+    # Si el payload usa {imagen_base64} la entrada viaja dentro del mensaje, sin ImgBB.
+    usar_imgbb = bool(twilio_listo or "{url_imagen}" in payload_cfg or not payload_cfg)
+    if not usar_imgbb:
+        pass
+    elif evento.imgbb_api_key:
         try:
             encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
             resp = requests.post(
@@ -967,11 +973,20 @@ def enviar_whatsapp_entrada(participante, buffer):
                 payload_dict["media_url"] = imgbb_url
             payload_str = json.dumps(payload_dict)
         else:
-            payload_str = payload_str.replace("{celular}", num_limpio)
-            payload_str = payload_str.replace("{nombres}", participante.nombres or "")
-            payload_str = payload_str.replace("{evento}", evento.nombre)
-            payload_str = payload_str.replace("{entradas}", str(participante.cantidad))
-            payload_str = payload_str.replace("{url_imagen}", imgbb_url or "")
+            def _esc(valor):
+                # Escapa comillas y saltos de línea para no romper el JSON del payload
+                return json.dumps(str(valor), ensure_ascii=False)[1:-1]
+
+            payload_str = payload_str.replace("{celular}", _esc(num_limpio))
+            payload_str = payload_str.replace("{nombres}", _esc(participante.nombres or ""))
+            payload_str = payload_str.replace("{evento}", _esc(evento.nombre))
+            payload_str = payload_str.replace("{entradas}", _esc(participante.cantidad))
+            payload_str = payload_str.replace("{url_imagen}", _esc(imgbb_url or ""))
+            if "{imagen_base64}" in payload_str:
+                # La entrada completa dentro del mensaje (OpenWA acepta base64 + mimetype)
+                payload_str = payload_str.replace(
+                    "{imagen_base64}", base64.b64encode(buffer.getvalue()).decode("ascii")
+                )
 
         # 3. Enviar petición HTTP POST
         try:

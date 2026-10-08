@@ -181,6 +181,35 @@ class ReenviarWhatsAppTestCase(TestCase):
         self.assertEqual(post.call_count, 0)
         self.assertTrue(any("ImgBB" in t and "WhatsApp no enviado" in t for t in textos), textos)
 
+    def test_imagen_base64_viaja_en_el_mensaje_sin_imgbb_y_el_nombre_no_rompe_el_json(self):
+        Evento.objects.filter(pk=self.evento.pk).update(
+            whatsapp_api_payload=('{"chatId": "{celular}@c.us", "base64": "{imagen_base64}", '
+                                  '"mimetype": "image/png", "caption": "Hola {nombres}"}'),
+            imgbb_api_key="")
+        Participante.objects.filter(pk=self.part.pk).update(nombres='Ana "la jefa"\nPérez')
+        enviados = []
+
+        def fake_post(url, *a, **kw):
+            enviados.append((url, kw.get("json")))
+            r = mock.Mock()
+            r.status_code = 201
+            r.text = "{}"
+            r.json.return_value = {}
+            return r
+
+        with mock.patch("cliente.views.enviar_correo_con_smtp_evento", return_value=True), \
+             mock.patch("cliente.views.requests.post", side_effect=fake_post):
+            resp = self.client.post(self.url, follow=True)
+        self.assertEqual(len(enviados), 1)                      # no se llamó a ImgBB
+        self.assertNotIn("imgbb", enviados[0][0])
+        cuerpo = enviados[0][1]
+        self.assertEqual(cuerpo["chatId"], "51955060412@c.us")
+        self.assertEqual(cuerpo["mimetype"], "image/png")
+        import base64 as b64
+        self.assertTrue(b64.b64decode(cuerpo["base64"])[:8] == b"\x89PNG\r\n\x1a\n")
+        self.assertEqual(cuerpo["caption"], 'Hola Ana "la jefa"\nPérez')
+        self.assertTrue(any("WhatsApp: enviado" in str(m) for m in resp.context["messages"]))
+
     def test_imgbb_ok_envia_la_url_en_el_payload(self):
         Evento.objects.filter(pk=self.evento.pk).update(
             whatsapp_api_payload='{"chatId": "{celular}@c.us", "url": "{url_imagen}"}', imgbb_api_key="clave-de-prueba")

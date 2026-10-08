@@ -10,6 +10,7 @@ def _tras_migrar(sender, **kwargs):
     from . import media_respaldo
     media_respaldo.respaldar_todo()
     media_respaldo.restaurar_todo()
+    media_respaldo.enlazar_plantillas_faltantes()
 
 
 def _al_guardar(sender, instance, **kwargs):
@@ -22,6 +23,7 @@ def _restaurar_en_segundo_plano():
     from . import media_respaldo
     try:
         media_respaldo.restaurar_todo()
+        media_respaldo.enlazar_plantillas_faltantes()
     finally:
         connection.close()
 

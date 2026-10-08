@@ -1201,6 +1201,14 @@ def _resolver_fondo_boleto(evento):
     if media_respaldo.restaurar_archivo(evento.imagen_fondo.name) and os.path.exists(ruta):
         return ruta
 
+    # Sin copia: usar la plantilla incluida en el repositorio y dejarla enlazada al evento
+    plantilla = media_respaldo.plantilla_incluida(evento)
+    if plantilla:
+        evento.imagen_fondo.name = plantilla
+        evento.save(update_fields=["imagen_fondo"])
+        logger.warning(f"Fondo del evento '{evento.nombre}' perdido: se enlazó la plantilla incluida {plantilla}")
+        return evento.imagen_fondo.path
+
     carpeta = os.path.dirname(ruta)
     if os.path.isdir(carpeta):
         disponibles = {f.lower(): f for f in os.listdir(carpeta)}

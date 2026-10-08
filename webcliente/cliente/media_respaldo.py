@@ -99,3 +99,46 @@ def respaldar_todo():
                 respaldar_instancia(obj)
         except Exception as e:
             logger.warning(f"No se pudo respaldar {modelo.__name__}: {e}")
+
+
+# Plantillas de boleto que viajan en el repositorio (media/event_backgrounds/). Si el fondo que
+# el evento tenía subido desaparece y no hay copia en la base de datos, se usa la del repo.
+# clave: texto que debe aparecer en el nombre del evento (en minúsculas) -> ruta relativa en MEDIA_ROOT
+PLANTILLAS_INCLUIDAS = {
+    "despertar": "event_backgrounds/entrada_ede_2026.png",
+}
+
+
+def plantilla_incluida(evento):
+    """Ruta relativa de la plantilla del repo que corresponde al evento, si existe en disco."""
+    nombre = (evento.nombre or "").lower()
+    for clave, ruta in PLANTILLAS_INCLUIDAS.items():
+        if clave in nombre and os.path.exists(os.path.join(settings.MEDIA_ROOT, ruta)):
+            return ruta
+    return None
+
+
+def enlazar_plantillas_faltantes():
+    """
+    Para cada evento cuyo fondo apunta a un archivo inexistente y sin copia en la base de datos,
+    lo enlaza a la plantilla incluida en el repositorio. Devuelve cuántos eventos corrigió.
+    """
+    from .models import Evento
+
+    corregidos = 0
+    try:
+        for ev in Evento.objects.exclude(imagen_fondo=""):
+            if not ev.imagen_fondo:
+                continue
+            if os.path.exists(os.path.join(settings.MEDIA_ROOT, ev.imagen_fondo.name)):
+                continue
+            if restaurar_archivo(ev.imagen_fondo.name):
+                continue
+            ruta = plantilla_incluida(ev)
+            if ruta:
+                ev.imagen_fondo.name = ruta
+                ev.save(update_fields=["imagen_fondo"])
+                corregidos += 1
+    except Exception as e:
+        logger.warning(f"No se pudieron enlazar las plantillas incluidas: {e}")
+    return corregidos

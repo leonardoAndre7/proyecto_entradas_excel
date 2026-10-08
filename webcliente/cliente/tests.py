@@ -125,6 +125,33 @@ class RespaldoArchivosTestCase(TestCase):
             self.assertEqual(os.path.normpath(_resolver_fondo_boleto(ev)), os.path.normpath(ruta))
             self.assertTrue(os.path.exists(ruta))
 
+    def test_fondo_perdido_sin_copia_usa_la_plantilla_del_repo_y_se_enlaza(self):
+        """Caso real: el fondo subido desde el panel se borró y no hay copia en la base de datos."""
+        from cliente.views import _resolver_fondo_boleto, generar_imagen_personalizada
+        import qrcode
+        ev = Evento.objects.create(nombre="El Despertar del Emprendedor")
+        ev.imagen_fondo.name = "event_backgrounds/subido_desde_el_panel_Ab12Cd3.png"   # ya no existe
+        ev.save()
+        ruta = _resolver_fondo_boleto(ev)
+        self.assertTrue(ruta.replace("\\", "/").endswith("event_backgrounds/entrada_ede_2026.png"))
+        ev.refresh_from_db()
+        self.assertEqual(ev.imagen_fondo.name, "event_backgrounds/entrada_ede_2026.png")   # quedó enlazada
+        part = Participante(evento=ev, nombres="Pedro", dni="1", cantidad=1, precio=1)
+        self.assertIsNotNone(generar_imagen_personalizada(part, qrcode.make("x").convert("RGB")))
+
+    def test_enlazar_plantillas_faltantes_solo_toca_eventos_con_plantilla(self):
+        from cliente import media_respaldo
+        a = Evento.objects.create(nombre="El Despertar del Emprendedor")
+        a.imagen_fondo.name = "event_backgrounds/perdido.png"
+        a.save()
+        b = Evento.objects.create(nombre="Círculo 50k")
+        b.imagen_fondo.name = "event_backgrounds/otro_perdido.png"
+        b.save()
+        self.assertEqual(media_respaldo.enlazar_plantillas_faltantes(), 1)
+        a.refresh_from_db(); b.refresh_from_db()
+        self.assertEqual(a.imagen_fondo.name, "event_backgrounds/entrada_ede_2026.png")
+        self.assertEqual(b.imagen_fondo.name, "event_backgrounds/otro_perdido.png")
+
     def test_comprobante_de_pago_se_respalda(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
         from cliente.models import ArchivoMedia, Voucher

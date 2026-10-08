@@ -23,6 +23,10 @@
  */
 
 var FORM_ID = '1Co_DVlEM-7uDVq8bptmjXAuXcEPlq9ahbAkSZjfPvng';   // el formulario "EDE 2.0"
+// ---- CONFIGURACIÓN (se edita aquí mismo; ya no hace falta "Propiedades de la secuencia") ----
+var API_URL = 'https://ede-evento.com/api/registrar-participante/';
+var API_KEY = 'PEGA_AQUI_LA_CLAVE';    // la misma que está en API_KEYS_EXTRA de Render
+var EVENTO_ID = 4;
 var HOJA = 'VENTAS';                   // pestaña donde llegan sus respuestas
 var COLUMNA_ESTADO = 'SISTEMA';
 var ENVIAR_AL_COMPLETAR = true;        // true: al completar el pago se envía la entrada sola
@@ -94,11 +98,10 @@ function enviarPendientes() {
 }
 
 function probarConexion() {
-  var p = PropertiesService.getScriptProperties();
-  var resp = UrlFetchApp.fetch(p.getProperty('API_URL'), {
+  var resp = UrlFetchApp.fetch(API_URL, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-    headers: {'X-API-Key': p.getProperty('API_KEY') || ''},
-    payload: JSON.stringify({evento_id: Number(p.getProperty('EVENTO_ID')), nombres: ''})
+    headers: {'X-API-Key': API_KEY},
+    payload: JSON.stringify({evento_id: EVENTO_ID, nombres: ''})
   });
   var codigo = resp.getResponseCode();
   // Sin nombre el sistema responde 400: eso confirma que la clave y la dirección son correctas
@@ -124,7 +127,6 @@ function enviarFila_(hoja, fila) {
     var nombres = limpiar_(v('nombres y apellidos'));
     if (!nombres) return 'omitida';
 
-    var props = PropertiesService.getScriptProperties();
     var tipoOriginal = limpiar_(v('tipo de entrada'));
     var asesor = limpiar_(v('asesor'));
     var dni = limpiar_(v('dni', 'numero de dni'));
@@ -133,7 +135,7 @@ function enviarFila_(hoja, fila) {
     var registro = REGISTROS[sinTildes_(v('tipo de registro'))] || '';
 
     var cuerpo = {
-      evento_id: Number(props.getProperty('EVENTO_ID')),
+      evento_id: EVENTO_ID,
       estricto: true,                          // si la tarifa no existe en el sistema, avisa y no crea
       nombres: nombres,
       dni: dni,
@@ -165,9 +167,9 @@ function enviarFila_(hoja, fila) {
       cuerpo.pago_confirmado = false;
     }
 
-    var resp = UrlFetchApp.fetch(props.getProperty('API_URL'), {
+    var resp = UrlFetchApp.fetch(API_URL, {
       method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-      headers: {'X-API-Key': props.getProperty('API_KEY') || ''},
+      headers: {'X-API-Key': API_KEY},
       payload: JSON.stringify(cuerpo)
     });
     var codigo = resp.getResponseCode();

@@ -36,6 +36,7 @@ urlpatterns = [
     path('eventos/<int:evento_id>/confirmar-pago/<int:pk>/', views.confirmar_pago, name='confirmar_pago'),
     path('eventos/<int:evento_id>/marcar-ingreso/<int:pk>/', views.marcar_ingreso, name='marcar_ingreso'),
     path('eventos/<int:evento_id>/reenviar/<int:pk>/', views.reenviar_correo, name='reenviar_correo'),
+    path('eventos/<int:evento_id>/whatsapp/estado/', views.estado_whatsapp, name='estado_whatsapp'),
     path('eventos/<int:evento_id>/limpiar-historial/', views.limpiar_historial, name='limpiar_historial'),
     
     # Previa del despertar

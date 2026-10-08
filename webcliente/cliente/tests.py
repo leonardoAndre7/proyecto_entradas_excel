@@ -88,6 +88,75 @@ class IngresosPorDiaTestCase(TestCase):
             self.assertEqual([f for f in os.listdir(media) if f.startswith("entrada_")], [])
 
 
+class EstadoWhatsAppTestCase(TestCase):
+    """La luz de WhatsApp del panel avisa a tiempo si OpenWA, la clave o la sesión fallan."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser("adm4", "a4@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=self.user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm4", password="pass12345")
+        self.evento = Evento.objects.create(
+            nombre="WA estado", whatsapp_provider="CUSTOM_API",
+            whatsapp_api_url="https://ejemplo.test/api/sessions/abc-123/messages/send-image",
+            whatsapp_api_headers="X-API-Key: owa_k1_PRUEBA",
+        )
+        self.url = reverse("estado_whatsapp", kwargs={"evento_id": self.evento.id})
+
+    def _consultar(self, status=200, cuerpo=None, error=None):
+        with mock.patch("cliente.views.requests.get") as get:
+            if error:
+                get.side_effect = error
+            else:
+                get.return_value.status_code = status
+                get.return_value.json.return_value = cuerpo or {}
+            resp = self.client.get(self.url)
+        return resp.json(), get
+
+    def test_sesion_ready_es_conectado_y_usa_la_url_y_clave_del_evento(self):
+        d, get = self._consultar(cuerpo={"status": "ready"})
+        self.assertTrue(d["ok"])
+        args, kwargs = get.call_args
+        self.assertEqual(args[0], "https://ejemplo.test/api/sessions/abc-123")
+        self.assertEqual(kwargs["headers"]["X-API-Key"], "owa_k1_PRUEBA")
+
+    def test_sesion_desconectada(self):
+        d, _ = self._consultar(cuerpo={"status": "disconnected"})
+        self.assertFalse(d["ok"])
+        self.assertIn("disconnected", d["detalle"])
+
+    def test_clave_invalida(self):
+        d, _ = self._consultar(status=401)
+        self.assertEqual(d["estado"], "clave_invalida")
+
+    def test_sesion_inexistente(self):
+        d, _ = self._consultar(status=404)
+        self.assertEqual(d["estado"], "sesion_inexistente")
+
+    def test_openwa_apagado(self):
+        d, _ = self._consultar(error=ConnectionError("sin red"))
+        self.assertEqual(d["estado"], "sin_respuesta")
+        self.assertFalse(d["ok"])
+
+    def test_evento_sin_whatsapp_configurado(self):
+        Evento.objects.filter(pk=self.evento.pk).update(whatsapp_provider="INACTIVE")
+        d, get = self._consultar()
+        self.assertIsNone(d["ok"])
+        self.assertEqual(get.call_count, 0)
+
+    def test_el_panel_muestra_la_luz_de_estado(self):
+        resp = self.client.get(reverse("participante_lista", kwargs={"evento_id": self.evento.id}))
+        self.assertContains(resp, 'id="wa-estado"')
+        self.assertContains(resp, self.url)
+
+    def test_organizador_de_otro_evento_no_puede_consultarlo(self):
+        otro = User.objects.create_user("org9", "o9@test.com", "pass12345")
+        PerfilUsuario.objects.create(user=otro, rol="ORGANIZADOR")
+        self.client.logout()
+        self.client.login(username="org9", password="pass12345")
+        resp = self.client.get(self.url)
+        self.assertIn(resp.status_code, (302, 403))
+
+
 class RespaldoArchivosTestCase(TestCase):
     """Los archivos subidos se copian a la base de datos y se restauran si Render borra el disco."""
 

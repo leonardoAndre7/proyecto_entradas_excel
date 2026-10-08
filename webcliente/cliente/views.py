@@ -1827,6 +1827,54 @@ def marcar_ingreso_previa(request, evento_id, pk):
 
 
 @login_required(login_url='/participantes/login/')
+def estado_whatsapp(request, evento_id):
+    """
+    Estado del WhatsApp del evento (solo lectura). Alimenta la luz del panel de participantes:
+    avisa a tiempo si OpenWA, la clave o la sesión de WhatsApp fallan, sin enviar nada.
+    """
+    evento = get_object_or_404(Evento, pk=evento_id)
+    if not verificar_permiso_evento(request.user, evento):
+        return JsonResponse({"estado": "sin_permiso", "ok": False}, status=403)
+
+    if getattr(evento, "whatsapp_provider", "INACTIVE") != "CUSTOM_API" or not evento.whatsapp_api_url:
+        return JsonResponse({"estado": "no_configurado", "ok": None,
+                             "detalle": "WhatsApp no está configurado en el evento"})
+
+    m = re.match(r"^(https?://[^/]+)/api/sessions/([^/]+)/", evento.whatsapp_api_url)
+    if not m:
+        return JsonResponse({"estado": "url_invalida", "ok": False,
+                             "detalle": "La URL de WhatsApp no tiene el formato .../api/sessions/<id>/..."})
+
+    headers = {"ngrok-skip-browser-warning": "1"}
+    for line in (evento.whatsapp_api_headers or "").splitlines():
+        if ":" in line:
+            k, v = line.split(":", 1)
+            headers[k.strip()] = v.strip()
+
+    try:
+        resp = requests.get(f"{m.group(1)}/api/sessions/{m.group(2)}", headers=headers, timeout=8)
+    except Exception:
+        return JsonResponse({"estado": "sin_respuesta", "ok": False,
+                             "detalle": "OpenWA no responde: revisa que el QNAP, OpenWA y ngrok estén encendidos"})
+
+    if resp.status_code in (401, 403):
+        return JsonResponse({"estado": "clave_invalida", "ok": False,
+                             "detalle": "OpenWA rechazó la clave: revisa la cabecera X-API-Key del evento"})
+    if resp.status_code == 404:
+        return JsonResponse({"estado": "sesion_inexistente", "ok": False,
+                             "detalle": "La sesión de la URL ya no existe en OpenWA: actualiza el ID en la URL del evento"})
+    if resp.status_code >= 400:
+        return JsonResponse({"estado": "error", "ok": False, "detalle": f"OpenWA respondió {resp.status_code}"})
+
+    try:
+        estado = (resp.json() or {}).get("status", "desconocido")
+    except ValueError:
+        estado = "desconocido"
+    return JsonResponse({"estado": estado, "ok": estado == "ready",
+                         "detalle": "Conectado" if estado == "ready" else f"La sesión de WhatsApp está en estado '{estado}'"})
+
+
+@login_required(login_url='/participantes/login/')
 def reenviar_correo(request, evento_id, pk):
     if request.method != 'POST':
         return redirect('participante_lista', evento_id=evento_id)

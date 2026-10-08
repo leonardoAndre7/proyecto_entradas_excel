@@ -201,7 +201,8 @@ function enviarFila_(hoja, fila) {
 
 /** Solo lee: muestra qué preguntas encontró y qué haría. No cambia nada. */
 function revisarFormulario() {
-  var form = FormApp.openById(FORM_ID);
+  var form = abrirFormularioOAvisar_();
+  if (!form) return;
   var encontrado = buscarPreguntas_(form);
   var lineas = ['Formulario: ' + form.getTitle(), ''];
   Object.keys(EXISTENTES).forEach(function (k) {
@@ -212,6 +213,35 @@ function revisarFormulario() {
   lineas.push(yaHecho ? 'AVISO: este formulario YA tiene "Tipo de registro" (ya fue modificado).'
                       : 'Todo listo para modificar. Ejecuta modificarFormularioExistente.');
   SpreadsheetApp.getUi().alert(lineas.join('\n'));
+}
+
+/**
+ * Abre el formulario: primero el que está vinculado a la pestaña de respuestas (el que de verdad
+ * envía datos a esta hoja) y, si falla, el ID escrito arriba. Si ninguno se puede abrir, avisa con
+ * qué cuenta está corriendo el script, que es la causa más común (la cuenta no puede editarlo).
+ */
+function abrirFormularioOAvisar_() {
+  var fallos = [];
+  try {
+    var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA);
+    var url = hoja ? hoja.getFormUrl() : null;
+    if (url) return FormApp.openByUrl(url);
+    fallos.push('La pestaña "' + HOJA + '" no tiene un formulario vinculado.');
+  } catch (e) { fallos.push('Formulario vinculado: ' + e.message); }
+  try {
+    return FormApp.openById(FORM_ID);
+  } catch (e) { fallos.push('Por ID: ' + e.message); }
+
+  var cuenta = '';
+  try { cuenta = Session.getEffectiveUser().getEmail(); } catch (e) {}
+  SpreadsheetApp.getUi().alert(
+    'No se pudo abrir el formulario, no se cambió nada.' + '\n\n' +
+    'Cuenta con la que corre este script: ' + (cuenta || '(no disponible)') + '\n\n' +
+    'Esa cuenta debe poder EDITAR el formulario. Abre el formulario con esa misma cuenta: si solo te deja ' +
+    'responderlo o no lo encuentra, pide a su dueño que te comparta como "Editor" o ejecuta el script con ' +
+    'la cuenta dueña del formulario.' + '\n\n' +
+    'Detalle técnico:' + '\n- ' + fallos.join('\n- '));
+  return null;
 }
 
 function buscarPreguntas_(form) {
@@ -232,7 +262,8 @@ function buscarPreguntas_(form) {
  */
 function modificarFormularioExistente() {
   var ui = SpreadsheetApp.getUi();
-  var form = FormApp.openById(FORM_ID);
+  var form = abrirFormularioOAvisar_();
+  if (!form) return;
   var enc = buscarPreguntas_(form);
 
   var faltan = Object.keys(EXISTENTES).filter(function (k) { return !enc.items[k]; });
@@ -247,7 +278,7 @@ function modificarFormularioExistente() {
   }
 
   // ---- 1) respaldo ----
-  var copia = DriveApp.getFileById(FORM_ID).makeCopy('COPIA de respaldo - ' + form.getTitle() + ' - ' +
+  var copia = DriveApp.getFileById(form.getId()).makeCopy('COPIA de respaldo - ' + form.getTitle() + ' - ' +
                                                      Utilities.formatDate(new Date(), 'GMT', 'yyyy-MM-dd HH:mm'));
 
   // ---- 2) ayudas y validaciones en las preguntas existentes (no cambian sus títulos) ----

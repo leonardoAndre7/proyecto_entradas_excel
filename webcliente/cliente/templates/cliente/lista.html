@@ -509,6 +509,7 @@
                         <tr>
                             <td class="fw-bold text-secondary text-opacity-75">{{ p.id }}</td>
                             <td class="text-start fw-semibold">{{ p.nombres }}
+                                {% if p.saldo_pendiente > 0 and not p.pago_confirmado %}<span class="badge bg-warning text-dark ms-1" title="Pagado S/ {{ p.monto_pagado }} de S/ {{ p.total_pagar }}">Saldo S/ {{ p.saldo_pendiente }}</span>{% endif %}
                                 {% if p.voucher_url %}<a href="{{ p.voucher_url }}" target="_blank" rel="noopener noreferrer" class="ms-1 text-info" title="Ver comprobante de pago"><i class="bi bi-receipt"></i></a>{% endif %}
                                 {% if p.notas or p.metodo_pago or p.vendedor %}<span class="ms-1 text-white-50" role="img" aria-label="Detalle de la venta" title="{% if p.vendedor %}Asesor: {{ p.vendedor }}. {% endif %}{% if p.metodo_pago %}Pago: {{ p.metodo_pago }}. {% endif %}{{ p.notas|default:'' }}"><i class="bi bi-info-circle"></i></span>{% endif %}
                             </td>
@@ -539,7 +540,7 @@
                             <td>
                                 {% if not p.pago_confirmado %}
                                     <form method="post" action="{% url 'confirmar_pago' evento_id=evento.id pk=p.pk %}" class="d-inline"
-                                          onsubmit="return confirm('¿Confirmar pago de {{ p.nombres }}? Se generará y enviará su boleto.')">
+                                          onsubmit="return confirm('¿Confirmar pago de {{ p.nombres }}?{% if p.saldo_pendiente > 0 %} OJO: tiene un saldo pendiente de S/ {{ p.saldo_pendiente }}; al confirmar se da por pagada.{% endif %} Se generará y enviará su boleto.')">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-success-glow" title="Confirmar Pago">
                                             <i class="bi bi-cash-stack"></i> Aprob

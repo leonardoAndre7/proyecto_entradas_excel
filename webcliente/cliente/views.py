@@ -44,7 +44,7 @@ from django.core.paginator import Paginator
 from openpyxl.styles import Font, PatternFill
 
 # Import models & forms
-from .models import Evento, Tarifa, PerfilUsuario, Participante, Voucher, RegistroCorreo, Previaparticipantes
+from .models import Evento, Tarifa, PerfilUsuario, Participante, Voucher, RegistroCorreo, Previaparticipantes, PagoParticipante
 from .forms import ParticipanteForm
 
 logger = logging.getLogger(__name__)
@@ -1139,6 +1139,9 @@ def confirmar_pago(request, evento_id, pk):
     evento = get_object_or_404(Evento, pk=evento_id)
     participante = get_object_or_404(Participante, pk=pk, evento=evento)
     participante.pago_confirmado = True
+    if participante.pagos.exists():
+        # Contabilidad la da por pagada: el saldo de la separación queda saldado
+        participante.monto_pagado = participante.total_pagar
     participante.save()
 
     enviar_entrada_participante(participante)
@@ -2672,6 +2675,140 @@ def _como_bool(valor):
     return bool(valor)
 
 
+def _decimal(valor, defecto=None):
+    try:
+        return Decimal(str(valor).replace(",", ".").strip())
+    except Exception:
+        return defecto
+
+
+def _registrar_con_pagos(evento, c):
+    """
+    Venta con pagos en partes (separaciones). El DNI identifica la entrada: si la misma persona
+    vuelve a registrarse con el mismo DNI, el pago se suma a su entrada (mismo ID); al completar el
+    total se confirma el pago y se envía la entrada. Se activa cuando la petición trae 'monto_pagado'.
+    """
+    from django.db import transaction
+
+    monto = _decimal(c['monto_pagado'])
+    if monto is None or monto < 0:
+        return JsonResponse({'ok': False, 'error': 'monto_pagado inválido'}, status=400)
+    tipo_registro = c['tipo_registro']
+    dni = c['dni']
+    referencia = c['referencia']
+
+    def resumen(p, **extra):
+        total = p.total_pagar or Decimal('0')
+        saldo = max(total - (p.monto_pagado or Decimal('0')), Decimal('0'))
+        d = {'ok': True, 'id': p.id, 'cod_cliente': p.cod_cliente, 'precio_total': str(total),
+             'monto_pagado': str(p.monto_pagado), 'saldo': str(saldo), 'completo': saldo <= 0}
+        d.update(extra)
+        return d
+
+    with transaction.atomic():
+        existente = (Participante.objects.select_for_update().filter(evento=evento, dni=dni).first()
+                     if dni else None)
+
+        if existente:
+            # ---- otro pago de una entrada que ya existe (mismo DNI) ----
+            if referencia and existente.pagos.filter(referencia_externa=referencia).exists():
+                return JsonResponse(resumen(existente, duplicado=True,
+                                            mensaje='Este pago ya estaba registrado.'))
+            if not existente.pagos.exists():
+                return JsonResponse({'ok': False, 'error':
+                    f'El DNI {dni} ya tiene una entrada registrada sin pagos en partes (ID {existente.cod_cliente}). '
+                    'Revísala en el sistema.'}, status=409)
+            if existente.pago_confirmado and existente.saldo_pendiente <= 0:
+                return JsonResponse({'ok': False, 'error':
+                    f'La entrada del DNI {dni} (ID {existente.cod_cliente}) ya está pagada por completo.'}, status=409)
+            tipo_ya = (existente.tipo_entrada or '').lower()
+            if c['tipo_entrada'] and tipo_ya and c['tipo_entrada'].lower() != tipo_ya:
+                return JsonResponse({'ok': False, 'error':
+                    f'El DNI {dni} ya tiene una entrada {existente.tipo_entrada} (ID {existente.cod_cliente}); '
+                    f'no coincide con {c["tipo_entrada"]}.'}, status=409)
+            if monto <= 0:
+                return JsonResponse({'ok': False, 'error': 'El monto del pago debe ser mayor a 0'}, status=400)
+            saldo_antes = existente.saldo_pendiente
+            if monto > saldo_antes:
+                return JsonResponse({'ok': False, 'error':
+                    f'El monto (S/ {monto}) es mayor al saldo pendiente (S/ {saldo_antes}) de la entrada '
+                    f'{existente.cod_cliente}.', 'saldo': str(saldo_antes)}, status=422)
+            participante = existente
+            participante.monto_pagado = (participante.monto_pagado or Decimal('0')) + monto
+            es_abono = True
+        else:
+            # ---- entrada nueva ----
+            tarifa = (Tarifa.objects.filter(evento=evento, tipo_entrada__iexact=c['tipo_entrada']).first()
+                      if c['tipo_entrada'] else None)
+            if not tarifa:
+                return JsonResponse({
+                    'ok': False,
+                    'error': f'La tarifa "{c["tipo_entrada"]}" no existe en el evento',
+                    'tarifas_disponibles': list(Tarifa.objects.filter(evento=evento).values_list('tipo_entrada', flat=True)),
+                }, status=400)
+            campo_map = {'pre1': 'preventa_1', 'pre2': 'preventa_2', 'pre3': 'preventa_3', 'puerta': 'puerta'}
+            lista = getattr(tarifa, campo_map.get(c['tipo_tarifa'], 'preventa_1'), Decimal('0.00')) or Decimal('0.00')
+
+            acordado = _decimal(c['precio_final'], None)
+            precio = lista if acordado is None else acordado
+            autorizado_por = c['autorizado_por']
+            if tipo_registro == 'cortesia':
+                precio = Decimal('0.00')
+                monto = Decimal('0.00')
+            if (precio < lista or tipo_registro == 'cortesia') and not autorizado_por:
+                return JsonResponse({'ok': False, 'precio_lista': str(lista), 'error':
+                    'Descuento o cortesía sin autorización: indica quién lo autorizó (campo "autorizado_por").'},
+                    status=422)
+            total = precio * c['cantidad']
+            if monto > total:
+                return JsonResponse({'ok': False, 'precio_total': str(total), 'error':
+                    f'El monto pagado (S/ {monto}) es mayor al precio de la entrada (S/ {total}).'}, status=422)
+            if monto <= 0 and total > 0:
+                return JsonResponse({'ok': False, 'error': 'El monto pagado debe ser mayor a 0'}, status=400)
+
+            notas = c['notas']
+            if precio < lista and tipo_registro != 'cortesia':
+                notas = (notas + ' | ' if notas else '') + f'Descuento: lista S/ {lista}, acordado S/ {precio}'
+            participante = Participante.objects.create(
+                evento=evento, tarifa=tarifa, nombres=c['nombres'], apellidos=c['apellidos'], dni=dni,
+                celular=c['celular'], correo=c['correo'], vendedor=c['vendedor'],
+                tipo_entrada=tarifa.tipo_entrada, cantidad=c['cantidad'], precio=precio,
+                pago_confirmado=False, metodo_pago=c['metodo_pago'] or None,
+                voucher_url=c['voucher_url'] or None, notas=notas or None,
+                referencia_externa=referencia or None, monto_pagado=monto,
+                autorizado_por=autorizado_por or None,
+            )
+            es_abono = False
+
+        PagoParticipante.objects.create(
+            participante=participante, monto=monto, metodo_pago=c['metodo_pago'] or None,
+            voucher_url=c['voucher_url'] or None, notas=c['notas'] or None,
+            registrado_por=c['vendedor'] or None, referencia_externa=referencia or None)
+        participante.save()
+
+        total = participante.total_pagar or Decimal('0')
+        completo = (participante.monto_pagado or Decimal('0')) >= total
+        if completo and not participante.pago_confirmado:
+            participante.pago_confirmado = True
+            participante.save()
+
+    entrada_enviada = None
+    if completo and c['enviar_entrada'] and not participante.email_enviado:
+        try:
+            entrada_enviada = bool(enviar_entrada_participante(participante))
+        except Exception as e:
+            logger.error(f"API: no se pudo enviar la entrada: {e}", exc_info=True)
+            entrada_enviada = False
+
+    if completo:
+        msg = 'Pago completo.' + (' Entrada enviada.' if entrada_enviada else ' Entrada NO enviada (revisa el sistema).' if entrada_enviada is False else '')
+    else:
+        msg = 'Pago registrado: falta completar el total. La entrada NO se envía hasta completar.'
+    if es_abono:
+        msg = f'Pago sumado a la entrada existente del DNI {dni} (ID {participante.cod_cliente}). ' + msg
+    return JsonResponse(resumen(participante, abono=es_abono, entrada_enviada=entrada_enviada, mensaje=msg))
+
+
 @csrf_exempt
 def api_registrar_participante(request):
     if request.method != 'POST':
@@ -2709,6 +2846,8 @@ def api_registrar_participante(request):
     voucher_url  = _limpiar(data.get('voucher_url'))[:500]
     notas        = str(data.get('notas') or '').strip()
     referencia   = _limpiar(data.get('referencia'))[:100]
+    tipo_registro = _limpiar(data.get('tipo_registro')).lower()
+    autorizado_por = _limpiar(data.get('autorizado_por'))[:120]
     evento_id    = data.get('evento_id', 1)
 
     try:
@@ -2726,6 +2865,18 @@ def api_registrar_participante(request):
         existente = Participante.objects.filter(evento=evento, referencia_externa=referencia).first()
         if existente:
             return JsonResponse({'ok': True, 'id': existente.id, 'duplicado': True})
+
+    # Separaciones / pagos en partes: se activa cuando la petición trae "monto_pagado"
+    if 'monto_pagado' in data:
+        return _registrar_con_pagos(evento, {
+            'monto_pagado': data.get('monto_pagado'), 'tipo_registro': tipo_registro, 'dni': dni,
+            'referencia': referencia, 'tipo_entrada': tipo_entrada, 'tipo_tarifa': tipo_tarifa,
+            'precio_final': data.get('precio_final'), 'autorizado_por': autorizado_por,
+            'nombres': nombres, 'apellidos': apellidos, 'celular': celular, 'correo': correo,
+            'vendedor': vendedor, 'cantidad': max(cantidad, 1), 'metodo_pago': metodo_pago,
+            'voucher_url': voucher_url, 'notas': notas,
+            'enviar_entrada': _como_bool(data.get('enviar_entrada', False)),
+        })
 
     # Verificar duplicado por DNI en este evento
     if dni and Participante.objects.filter(evento=evento, dni=dni).exists():

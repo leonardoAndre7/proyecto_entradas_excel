@@ -9,6 +9,7 @@ import os
 from PIL import Image
 from django.urls import reverse
 from uuid import uuid4
+from decimal import Decimal
 
 # ==========================================
 # 🏢 NUEVO MODELO: EVENTO (SaaS MULTI-TENANT)
@@ -270,6 +271,12 @@ class Participante(models.Model):
     referencia_externa = models.CharField(max_length=100, blank=True, null=True, db_index=True,
                                           verbose_name="Referencia externa (fila de la hoja)")
 
+    # Separaciones y pagos en partes: cada pago queda en PagoParticipante; aquí va el acumulado
+    monto_pagado = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"),
+                                       verbose_name="Monto pagado acumulado")
+    autorizado_por = models.CharField(max_length=120, blank=True, null=True,
+                                      verbose_name="Descuento / cortesía autorizado por")
+
     def save(self, *args, **kwargs):
         # 🔹 Calcular total
         self.total_pagar = (self.cantidad or 0) * (self.precio or 0)
@@ -320,6 +327,18 @@ class Participante(models.Model):
     # ------------------------------------------------------------------
     # 📅 Control de ingresos por día (multi-día, configurable por tarifa)
     # ------------------------------------------------------------------
+    @property
+    def saldo_pendiente(self):
+        """Lo que falta pagar. Solo aplica a ventas con pagos registrados (separaciones)."""
+        if not self.pk or not self.pagos.exists():
+            return Decimal("0.00")
+        return max((self.total_pagar or Decimal("0")) - (self.monto_pagado or Decimal("0")), Decimal("0.00"))
+
+    @property
+    def en_separacion(self):
+        """Tiene un saldo por pagar y contabilidad aún no la dio por pagada."""
+        return (not self.pago_confirmado) and self.saldo_pendiente > 0
+
     def _tarifa_efectiva(self):
         if self.tarifa_id:
             return self.tarifa
@@ -366,7 +385,11 @@ class Participante(models.Model):
         ahora = ahora_actual()
         local = timezone.localtime(ahora)
 
-        self.ultimo_motivo = None   # duplicado | agotado | fuera_de_horario | fuera_de_fecha
+        self.ultimo_motivo = None   # duplicado | agotado | fuera_de_horario | fuera_de_fecha | saldo_pendiente
+        if self.en_separacion:
+            self.ultimo_motivo = "saldo_pendiente"
+            return False, (f"💰 Pago incompleto: tiene un saldo pendiente de S/ {self.saldo_pendiente:,.2f}. "
+                           "Debe completar el pago antes de ingresar.")
         if tarifa:
             hoy = local.date()
             if tarifa.fecha_desde and hoy < tarifa.fecha_desde:
@@ -417,6 +440,26 @@ class IngresoParticipante(models.Model):
 
     def __str__(self):
         return f"{self.participante_id} - {self.fecha_hora:%d/%m/%Y %H:%M}"
+
+
+# ==========================================
+# 💵 PAGOS DE UNA ENTRADA (separaciones / pagos en partes)
+# ==========================================
+class PagoParticipante(models.Model):
+    participante = models.ForeignKey(Participante, on_delete=models.CASCADE, related_name="pagos")
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    fecha = models.DateTimeField(auto_now_add=True)
+    metodo_pago = models.CharField(max_length=60, blank=True, null=True)
+    voucher_url = models.URLField(max_length=500, blank=True, null=True)
+    notas = models.TextField(blank=True, null=True)
+    registrado_por = models.CharField(max_length=255, blank=True, null=True)
+    referencia_externa = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+
+    class Meta:
+        ordering = ["fecha", "id"]
+
+    def __str__(self):
+        return f"{self.participante_id} - S/ {self.monto}"
 
 
 # ==========================================

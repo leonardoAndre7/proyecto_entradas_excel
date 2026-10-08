@@ -201,6 +201,164 @@ class ApiRegistrarParticipanteTestCase(TestCase):
         self.assertContains(resp, "Asesor: Daniel")
 
 
+@override_settings(API_KEY="clave-segura-de-prueba-123")
+class SeparacionesPorDniTestCase(TestCase):
+    """El DNI identifica la entrada: los pagos en partes se suman al mismo ID y al completar se envía."""
+
+    def setUp(self):
+        import json
+        self.json = json
+        self.evento = Evento.objects.create(nombre="EDE 2026")
+        self.emp = Tarifa.objects.create(evento=self.evento, tipo_entrada="EMPRESARIAL", dias_validos=2,
+                                         preventa_1=Decimal("1999"), preventa_2=Decimal("2500"))
+        self.url = reverse("api_registrar_participante")
+
+    def _post(self, **extra):
+        d = {"evento_id": self.evento.id, "nombres": "Ana Pérez", "dni": "12345678", "celular": "955060412",
+             "correo": "ana@test.com", "tipo_entrada": "Empresarial", "tipo_tarifa": "pre1",
+             "vendedor": "Daniel", "monto_pagado": 500, "enviar_entrada": True}
+        d.update(extra)
+        return self.client.post(self.url, self.json.dumps(d), content_type="application/json",
+                                HTTP_X_API_KEY="clave-segura-de-prueba-123")
+
+    def test_separacion_no_envia_la_entrada_y_deja_el_saldo(self):
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True) as envio:
+            r = self._post(monto_pagado=500, referencia="r1").json()
+        self.assertTrue(r["ok"]); self.assertFalse(r["completo"])
+        self.assertEqual(r["precio_total"], "1999.00"); self.assertEqual(r["saldo"], "1499.00")
+        self.assertEqual(envio.call_count, 0)
+        p = Participante.objects.get(pk=r["id"])
+        self.assertFalse(p.pago_confirmado)
+        self.assertEqual(p.pagos.count(), 1)
+        self.assertTrue(p.en_separacion)
+
+    def test_mismo_dni_suma_al_mismo_id_y_al_completar_envia_la_entrada(self):
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True) as envio:
+            a = self._post(monto_pagado=500, referencia="r1").json()
+            b = self._post(monto_pagado=700, tipo_registro="completar", referencia="r2").json()   # aún falta
+            self.assertEqual(envio.call_count, 0)
+            c = self._post(monto_pagado=799, tipo_registro="completar", referencia="r3").json()   # completa
+        self.assertEqual(a["id"], b["id"]); self.assertEqual(b["id"], c["id"])           # mismo ID siempre
+        self.assertEqual(a["cod_cliente"], c["cod_cliente"])
+        self.assertTrue(b["abono"]); self.assertFalse(b["completo"]); self.assertEqual(b["saldo"], "799.00")
+        self.assertTrue(c["completo"]); self.assertTrue(c["entrada_enviada"])
+        self.assertEqual(envio.call_count, 1)
+        p = Participante.objects.get(pk=a["id"])
+        self.assertTrue(p.pago_confirmado)
+        self.assertEqual(p.monto_pagado, Decimal("1999"))
+        self.assertEqual(p.pagos.count(), 3)
+        self.assertEqual(Participante.objects.filter(dni="12345678").count(), 1)          # no se duplicó
+
+    def test_reintentar_el_mismo_pago_no_lo_suma_dos_veces(self):
+        a = self._post(monto_pagado=500, referencia="r1").json()
+        b = self._post(monto_pagado=700, referencia="r2").json()
+        c = self._post(monto_pagado=700, referencia="r2").json()                           # reintento de la fila
+        self.assertTrue(c["duplicado"])
+        self.assertEqual(Participante.objects.get(pk=a["id"]).monto_pagado, Decimal("1200"))
+
+    def test_pagar_de_mas_se_rechaza(self):
+        self._post(monto_pagado=500, referencia="r1")
+        r = self._post(monto_pagado=5000, referencia="r2")
+        self.assertEqual(r.status_code, 422)
+        self.assertEqual(Participante.objects.get(dni="12345678").monto_pagado, Decimal("500"))
+
+    def test_pago_completo_de_una_vez_envia_la_entrada(self):
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True) as envio:
+            r = self._post(monto_pagado=1999, tipo_registro="completo", referencia="r1").json()
+        self.assertTrue(r["completo"]); self.assertTrue(r["entrada_enviada"]); self.assertEqual(envio.call_count, 1)
+
+    def test_entrada_ya_pagada_por_completo_no_acepta_otro_pago(self):
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True):
+            self._post(monto_pagado=1999, referencia="r1")
+            r = self._post(monto_pagado=100, referencia="r2")
+        self.assertEqual(r.status_code, 409)
+
+    def test_mismo_dni_con_otra_entrada_se_rechaza(self):
+        Tarifa.objects.create(evento=self.evento, tipo_entrada="VIP", preventa_1=Decimal("300"))
+        self._post(monto_pagado=500, referencia="r1")
+        r = self._post(tipo_entrada="VIP", monto_pagado=100, referencia="r2")
+        self.assertEqual(r.status_code, 409)
+        self.assertIn("EMPRESARIAL", r.json()["error"])
+
+    def test_descuento_sin_autorizacion_se_rechaza_y_con_autorizacion_se_registra(self):
+        r = self._post(precio_final=1500, monto_pagado=1500, tipo_registro="descuento", referencia="r1")
+        self.assertEqual(r.status_code, 422)
+        self.assertEqual(r.json()["precio_lista"], "1999.00")
+        self.assertEqual(Participante.objects.count(), 0)
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True):
+            r = self._post(precio_final=1500, monto_pagado=1500, tipo_registro="descuento",
+                           autorizado_por="Vitmer", referencia="r2").json()
+        p = Participante.objects.get(pk=r["id"])
+        self.assertEqual(p.precio, Decimal("1500"))
+        self.assertEqual(p.autorizado_por, "Vitmer")
+        self.assertIn("Descuento", p.notas)
+        self.assertTrue(r["completo"])
+
+    def test_cortesia_exige_autorizacion_y_queda_gratis(self):
+        self.assertEqual(self._post(tipo_registro="cortesia", monto_pagado=0, referencia="r1").status_code, 422)
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True) as envio:
+            r = self._post(tipo_registro="cortesia", monto_pagado=0, autorizado_por="Vitmer", referencia="r2").json()
+        p = Participante.objects.get(pk=r["id"])
+        self.assertEqual(p.precio, Decimal("0")); self.assertEqual(p.total_pagar, Decimal("0"))
+        self.assertTrue(r["completo"]); self.assertTrue(p.pago_confirmado); self.assertEqual(envio.call_count, 1)
+
+    def test_el_precio_de_lista_depende_de_la_etapa(self):
+        r = self._post(tipo_tarifa="pre2", monto_pagado=100, referencia="r1").json()
+        self.assertEqual(r["precio_total"], "2500.00")
+
+    def test_tarifa_inexistente_se_rechaza_con_la_lista_de_tarifas(self):
+        r = self._post(tipo_entrada="Platino")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["tarifas_disponibles"], ["EMPRESARIAL"])
+
+    def test_dni_de_una_entrada_antigua_sin_pagos_no_se_toca(self):
+        Participante.objects.create(evento=self.evento, nombres="Luis", dni="12345678", cantidad=1, precio=1)
+        r = self._post(monto_pagado=500, referencia="r1")
+        self.assertEqual(r.status_code, 409)
+
+    def test_sin_monto_pagado_se_conserva_el_comportamiento_anterior(self):
+        d = {"evento_id": self.evento.id, "nombres": "Ana", "dni": "777", "tipo_entrada": "EMPRESARIAL",
+             "precio_final": 100}
+        h = {"HTTP_X_API_KEY": "clave-segura-de-prueba-123"}
+        self.assertEqual(self.client.post(self.url, self.json.dumps(d), content_type="application/json", **h).status_code, 200)
+        self.assertEqual(self.client.post(self.url, self.json.dumps(d), content_type="application/json", **h).status_code, 409)
+
+    def test_en_la_puerta_una_separacion_con_saldo_no_entra_y_al_completar_si(self):
+        user = User.objects.create_superuser("adm7", "a7@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm7", password="pass12345")
+        r = self._post(monto_pagado=500, referencia="r1").json()
+        p = Participante.objects.get(pk=r["id"])
+        resp = self.client.get(reverse("validar_entrada", kwargs={"token": p.token}))
+        self.assertContains(resp, "SALDO PENDIENTE")
+        self.assertContains(resp, "1,499.00")
+        self.assertFalse(p.ingresos.exists())
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True):
+            self._post(monto_pagado=1499, referencia="r2")
+        resp = self.client.get(reverse("validar_entrada", kwargs={"token": p.token}))
+        self.assertNotContains(resp, "SALDO PENDIENTE")
+        self.assertTrue(p.ingresos.exists())
+
+    def test_el_panel_muestra_el_saldo_pendiente(self):
+        user = User.objects.create_superuser("adm8", "a8@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm8", password="pass12345")
+        self._post(monto_pagado=500, referencia="r1")
+        resp = self.client.get(reverse("participante_lista", kwargs={"evento_id": self.evento.id}))
+        self.assertRegex(resp.content.decode(), r"Saldo S/ 1[.,]?499[,.]00")
+
+    def test_confirmar_pago_manual_da_por_saldada_la_separacion(self):
+        user = User.objects.create_superuser("adm9", "a9@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm9", password="pass12345")
+        r = self._post(monto_pagado=500, referencia="r1").json()
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True):
+            self.client.post(reverse("confirmar_pago", kwargs={"evento_id": self.evento.id, "pk": r["id"]}))
+        p = Participante.objects.get(pk=r["id"])
+        self.assertTrue(p.pago_confirmado)
+        self.assertEqual(p.saldo_pendiente, Decimal("0"))
+
+
 class VigenciaYMotivosTestCase(TestCase):
     """Entradas válidas solo el 14 y 15 de noviembre y pantallas que explican el rechazo."""
 

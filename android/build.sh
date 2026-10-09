@@ -11,6 +11,15 @@ export JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"; export PATH="$JB
 OUT="${1:-../../apk}"; mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
 KS="$OUT/ede-puerta.keystore"
 W="$(mktemp -d)"
+# BASE_URL=http://localhost:8765/puerta/ genera una version de PRUEBA (permite http; usar con 'adb reverse').
+if [ -n "${BASE_URL:-}" ]; then
+  mkdir -p "$W/src_copy" && cp -r res AndroidManifest.xml src "$W/src_copy/" && cd "$W/src_copy"
+  sed -i "s|https://ede-evento.com/puerta/|$BASE_URL|" res/values/strings.xml
+  sed -i 's|usesCleartextTraffic="false"|usesCleartextTraffic="true"|' AndroidManifest.xml
+  SALIDA=EDE-Puerta-prueba.apk
+else
+  SALIDA=EDE-Puerta.apk
+fi
 if [ ! -f "$KS" ]; then
   PASS="$(head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20)"
   "$JBR/keytool.exe" -genkeypair -keystore "$KS" -alias ede -keyalg RSA -keysize 2048 -validity 10000 \
@@ -27,6 +36,6 @@ mkdir -p "$W/classes"
 "$BT/d8.bat" --release --min-api 24 --lib "$JAR" --output "$W" $(find "$W/classes" -name '*.class')
 ( cd "$W" && "$JBR/jar.exe" -uf base.apk classes.dex )
 "$BT/zipalign.exe" -f -p 4 "$W/base.apk" "$W/aligned.apk"
-"$BT/apksigner.bat" sign --ks "$KS" --ks-pass "pass:$PASS" --out "$OUT/EDE-Puerta.apk" "$W/aligned.apk"
-"$BT/apksigner.bat" verify --verbose "$OUT/EDE-Puerta.apk" | head -5
-ls -l "$OUT/EDE-Puerta.apk"
+"$BT/apksigner.bat" sign --ks "$KS" --ks-pass "pass:$PASS" --out "$OUT/$SALIDA" "$W/aligned.apk"
+"$BT/apksigner.bat" verify --verbose "$OUT/$SALIDA" | head -5
+ls -l "$OUT/$SALIDA"

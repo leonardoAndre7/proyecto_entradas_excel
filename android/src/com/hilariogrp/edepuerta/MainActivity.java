@@ -82,6 +82,11 @@ public class MainActivity extends Activity {
             }
         });
 
+        // Pide la camara apenas se abre la app (no esperar a que la web la solicite)
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_CAMARA);
+        }
+
         if (b == null) web.loadUrl(baseUrl); else web.restoreState(b);
     }
 
@@ -95,7 +100,12 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
-        if (code != REQ_CAMARA || pendiente == null) return;
+        if (code != REQ_CAMARA) return;
+        if (pendiente == null) {
+            // Permiso pedido al abrir: si la web ya intento abrir la camara, se reinicia para que la tome
+            if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) web.reload();
+            return;
+        }
         if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) {
             pendiente.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
         } else {

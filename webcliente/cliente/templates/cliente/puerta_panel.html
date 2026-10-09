@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Códigos de puerta</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#f1f5f9;color:#0f172a;margin:0;padding:20px}
+  .wrap{max-width:900px;margin:0 auto}
+  h1{margin:0 0 4px} p.sub{color:#475569;margin-top:0}
+  .card{background:#fff;border-radius:14px;padding:18px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  label{display:block;font-weight:600;margin:10px 0 4px}
+  input,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}
+  button{padding:10px 16px;border:0;border-radius:8px;font:inherit;font-weight:700;cursor:pointer;background:#2563eb;color:#fff;margin-top:12px}
+  button.rojo{background:#dc2626;margin:0} button.gris{background:#475569;margin:0}
+  table{width:100%;border-collapse:collapse} th,td{text-align:left;padding:8px;border-bottom:1px solid #e2e8f0;font-size:14px}
+  .tag{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+  .ok{background:#dcfce7;color:#166534}.no{background:#fee2e2;color:#991b1b}.ven{background:#fef3c7;color:#92400e}
+  .nuevo{background:#ecfdf5;border:2px solid #16a34a;text-align:center}
+  .nuevo .cod{font-size:44px;font-weight:800;letter-spacing:6px;font-family:ui-monospace,Consolas,monospace}
+  .err{color:#b91c1c;font-weight:600}
+  .scroll{overflow-x:auto}
+</style>
+</head>
+<body><div class="wrap">
+  <h1>🚪 Códigos de puerta</h1>
+  <p class="sub">Cada dispositivo de puerta usa un código para abrir la app en <b>/puerta/</b>. Solo permite validar entradas del evento elegido.</p>
+
+  {% if nuevo %}
+  <div class="card nuevo">
+    <div>Código para <b>{{ nuevo.obj.nombre }}</b> ({{ nuevo.obj.evento.nombre }})</div>
+    <div class="cod">{{ nuevo.codigo }}</div>
+    <div><b>Anótalo ahora:</b> por seguridad no se vuelve a mostrar. Vence el {{ nuevo.obj.vence_en|date:"d/m/Y H:i" }}.</div>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h3 style="margin-top:0">Crear código</h3>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="accion" value="crear">
+      <label>Evento</label>
+      <select name="evento" required>{% for e in eventos %}<option value="{{ e.id }}">{{ e.nombre }}</option>{% endfor %}</select>
+      <label>Dispositivo o persona</label>
+      <input name="nombre" maxlength="80" placeholder="Ej. Puerta 1 - Carlos" required>
+      <label>Vence (opcional)</label>
+      <input type="datetime-local" name="vence">
+      <small>Si lo dejas en blanco, vence 6 horas después de terminar el último día del evento.</small><br>
+      <button type="submit">Generar código</button>
+    </form>
+  </div>
+
+  <div class="card scroll">
+    <h3 style="margin-top:0">Códigos creados</h3>
+    <table>
+      <tr><th>Dispositivo</th><th>Evento</th><th>Estado</th><th>Vence</th><th>Último uso</th><th>Escaneos</th><th></th></tr>
+      {% for c in codigos %}
+      <tr>
+        <td>{{ c.nombre }}</td><td>{{ c.evento.nombre }}</td>
+        <td>{% if not c.activo %}<span class="tag no">Revocado</span>{% elif c.vence_en <= ahora %}<span class="tag ven">Vencido</span>{% else %}<span class="tag ok">Activo</span>{% endif %}</td>
+        <td>{{ c.vence_en|date:"d/m/Y H:i" }}</td>
+        <td>{{ c.ultimo_uso|date:"d/m H:i"|default:"—" }}</td>
+        <td>{{ c.escaneos }}</td>
+        <td><form method="post" style="margin:0">{% csrf_token %}<input type="hidden" name="id" value="{{ c.id }}">
+          {% if c.activo %}<input type="hidden" name="accion" value="revocar"><button class="rojo" onclick="return confirm('¿Revocar este código? El dispositivo quedará sin acceso.')">Revocar</button>
+          {% else %}<input type="hidden" name="accion" value="reactivar"><button class="gris">Reactivar</button>{% endif %}
+        </form></td>
+      </tr>
+      {% empty %}<tr><td colspan="7">Aún no hay códigos.</td></tr>{% endfor %}
+    </table>
+  </div>
+</div></body></html>

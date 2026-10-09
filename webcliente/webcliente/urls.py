@@ -19,7 +19,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path, re_path
 from django.views.static import serve
-from cliente import views
+from cliente import views, puerta
 from lotes import views as lotes_views
 
 urlpatterns = [
@@ -32,6 +32,15 @@ urlpatterns = [
     # Atajos raíz para fácil acceso
     path('plano/', lotes_views.ver_plano,         name="plano"),        # admin
     path('mapa/',  lotes_views.ver_mapa_publico,  name="mapa_publico"), # clientes
+
+    # 🚪 App de puerta (PWA de escaneo sin login de usuario)
+    path('puerta/', puerta.puerta_app, name='puerta_app'),
+    path('puerta/manifest.webmanifest', puerta.puerta_manifest, name='puerta_manifest'),
+    path('puerta/sw.js', puerta.puerta_sw, name='puerta_sw'),
+    path('puerta/admin/', puerta.puerta_panel, name='puerta_panel'),
+    path('puerta/api/acceso/', puerta.puerta_acceso, name='puerta_acceso'),
+    path('puerta/api/estado/', puerta.puerta_estado, name='puerta_estado'),
+    path('puerta/api/validar/', puerta.puerta_validar, name='puerta_validar'),
 
     # 🔌 API REST — sin autenticación de sesión, protegida por X-API-Key
     path('api/registrar-participante/', views.api_registrar_participante, name='api_registrar_participante'),

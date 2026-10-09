@@ -373,6 +373,19 @@ class Participante(models.Model):
 
     def registrar_ingreso(self):
         """
+        Registra un ingreso con la fila bloqueada: así dos puertas (o la puerta y el escaneo
+        con login) no pueden registrar a la vez la misma entrada. Ver _registrar_ingreso.
+        """
+        from django.db import transaction
+        if not self.pk:
+            return self._registrar_ingreso()
+        with transaction.atomic():
+            Participante.objects.select_for_update(of=("self",)).filter(pk=self.pk).first()
+            self.refresh_from_db(fields=['entrada_usada'])
+            return self._registrar_ingreso()
+
+    def _registrar_ingreso(self):
+        """
         Intenta registrar un ingreso ahora. Devuelve (ok, mensaje).
         Reglas: máximo `tarifa.dias_validos` ingresos, uno por día calendario,
         y dentro de la ventana horaria de la tarifa si está definida.
@@ -537,3 +550,61 @@ class ArchivoMedia(models.Model):
 
     def __str__(self):
         return self.ruta
+
+
+# ==========================================
+# 🚪 CÓDIGOS DE PUERTA (app de escaneo sin login)
+# ==========================================
+class CodigoPuerta(models.Model):
+    """
+    Acceso de un dispositivo de puerta. Solo permite validar entradas del evento asignado.
+    El código se guarda como hash (HMAC): el valor en claro solo se muestra al crearlo.
+    """
+    evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name="codigos_puerta")
+    nombre = models.CharField(max_length=80, verbose_name="Dispositivo / persona")
+    codigo_hash = models.CharField(max_length=64, unique=True, editable=False)
+    activo = models.BooleanField(default=True)
+    vence_en = models.DateTimeField(verbose_name="Vence")
+    creado = models.DateTimeField(auto_now_add=True)
+    ultimo_uso = models.DateTimeField(null=True, blank=True)
+    escaneos = models.PositiveIntegerField(default=0)
+
+    ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # sin 0/O/1/I para evitar confusiones
+
+    class Meta:
+        ordering = ['-creado']
+
+    def __str__(self):
+        return f"{self.nombre} - {self.evento.nombre}"
+
+    @staticmethod
+    def hash_codigo(codigo):
+        import hashlib, hmac
+        limpio = (codigo or "").strip().upper().replace("-", "").replace(" ", "")
+        return hmac.new(settings.SECRET_KEY.encode(), limpio.encode(), hashlib.sha256).hexdigest()
+
+    @classmethod
+    def generar(cls, evento, nombre, vence_en):
+        """Crea el código y devuelve (objeto, codigo_en_claro)."""
+        import secrets
+        codigo = "".join(secrets.choice(cls.ALFABETO) for _ in range(8))
+        obj = cls.objects.create(evento=evento, nombre=nombre, vence_en=vence_en,
+                                 codigo_hash=cls.hash_codigo(codigo))
+        return obj, f"{codigo[:4]}-{codigo[4:]}"
+
+    @property
+    def vigente(self):
+        return self.activo and ahora_actual() < self.vence_en
+
+    @staticmethod
+    def vencimiento_por_defecto(evento, horas_extra=6):
+        """Fin del último día del evento + horas_extra (si el evento no tiene fecha: 3 días)."""
+        import datetime
+        from django.utils import timezone
+        fechas = [f for f in [evento.fecha_evento, *evento.tarifas.values_list('fecha_hasta', flat=True)] if f]
+        if fechas:   # último día del evento (considera las fechas de las tarifas: eventos de 2 días)
+            fin = datetime.datetime.combine(max(fechas) + datetime.timedelta(days=1), datetime.time(0, 0))
+            fin = timezone.make_aware(fin, timezone.get_current_timezone())
+        else:
+            fin = ahora_actual() + datetime.timedelta(days=3)
+        return fin + datetime.timedelta(hours=horas_extra)

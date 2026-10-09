@@ -1,0 +1,260 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>EDE Puerta</title>
+<meta name="theme-color" content="#0f172a">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="{% url 'puerta_manifest' %}">
+<link rel="icon" href="{% static 'puerta/icon-192.png' %}">
+<link rel="apple-touch-icon" href="{% static 'puerta/apple-touch-icon.png' %}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EDE Puerta">
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--tx:#f8fafc;--mut:#94a3b8;--ok:#16a34a;--bad:#dc2626;--warn:#d97706}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden;overscroll-behavior:none;user-select:none}
+  .pantalla{position:fixed;inset:0;display:none;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  .pantalla.on{display:flex}
+  /* Acceso */
+  #acceso{align-items:center;justify-content:center;padding:24px;text-align:center;gap:14px}
+  #acceso img{width:84px;height:84px;border-radius:20px}
+  #acceso h1{margin:0;font-size:26px}
+  #acceso p{margin:0;color:var(--mut);max-width:320px}
+  #codigo{width:100%;max-width:320px;font-size:30px;letter-spacing:6px;text-align:center;text-transform:uppercase;padding:14px;border-radius:14px;border:2px solid #334155;background:var(--card);color:var(--tx);user-select:text}
+  button{font:inherit;border:0;border-radius:14px;padding:14px 22px;font-weight:700;background:#2563eb;color:#fff;cursor:pointer}
+  button:active{transform:scale(.97)}
+  #btnEntrar{width:100%;max-width:320px;font-size:18px}
+  .err{color:#fca5a5;min-height:22px;font-weight:600}
+  /* Escáner */
+  header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;gap:8px}
+  header .ev{font-weight:700;line-height:1.15}
+  header .ev small{display:block;color:var(--mut);font-weight:500}
+  .chip{background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;white-space:nowrap}
+  .chip.off{background:var(--bad)}
+  #visor{position:relative;flex:1;min-height:0;background:#000;margin:0 10px;border-radius:18px;overflow:hidden}
+  #lector{width:100%;height:100%}
+  #lector video{width:100%!important;height:100%!important;object-fit:cover}
+  #lector img[alt="Camera based scan"]{display:none}
+  .marco{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+  .marco i{width:62%;aspect-ratio:1;border:4px solid rgba(255,255,255,.9);border-radius:22px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+  #msgCam{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--mut)}
+  footer{display:flex;gap:10px;padding:12px 14px;align-items:center;justify-content:space-between}
+  footer button{background:var(--card);padding:12px 16px}
+  .cont{font-size:13px;color:var(--mut);text-align:center;flex:1}
+  .cont b{color:var(--tx);font-size:20px;display:block}
+  /* Resultado a pantalla completa */
+  #res{z-index:10;align-items:center;justify-content:center;text-align:center;padding:28px;gap:10px}
+  #res.valido{background:var(--ok)} #res.rechazo{background:var(--bad)} #res.aviso{background:var(--warn)}
+  #res .ico{font-size:96px;line-height:1}
+  #res h2{margin:0;font-size:40px;letter-spacing:1px}
+  #res .nom{font-size:30px;font-weight:800}
+  #res .tipo{font-size:20px;font-weight:700;background:rgba(0,0,0,.25);padding:6px 16px;border-radius:999px}
+  #res .msg{font-size:18px;max-width:420px}
+  #res .toca{margin-top:18px;opacity:.85;font-size:14px}
+  #cargando{position:absolute;inset:0;background:rgba(15,23,42,.6);display:none;align-items:center;justify-content:center;font-size:22px;font-weight:700}
+</style>
+</head>
+<body>
+
+<section id="acceso" class="pantalla">
+  <img src="{% static 'puerta/icon-192.png' %}" alt="">
+  <h1>EDE Puerta</h1>
+  <p>Escribe el código de puerta que te dieron. Solo hace falta una vez en este celular.</p>
+  <input id="codigo" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX" inputmode="text">
+  <button id="btnEntrar">Entrar</button>
+  <div class="err" id="errAcceso"></div>
+</section>
+
+<section id="escaner" class="pantalla">
+  <header>
+    <div class="ev"><span id="evNombre">Evento</span><small id="devNombre"></small></div>
+    <span class="chip" id="red">En línea</span>
+  </header>
+  <div id="visor">
+    <div id="lector"></div>
+    <div class="marco"><i></i></div>
+    <div id="msgCam">Iniciando cámara…</div>
+    <div id="cargando">Validando…</div>
+  </div>
+  <footer>
+    <button id="btnLinterna" hidden>🔦 Linterna</button>
+    <div class="cont"><b id="nOk">0</b>ingresos aprobados</div>
+    <button id="btnSalir">Salir</button>
+  </footer>
+</section>
+
+<section id="res" class="pantalla" role="alert" aria-live="assertive">
+  <div class="ico" id="resIco"></div>
+  <h2 id="resTitulo"></h2>
+  <div class="nom" id="resNombre"></div>
+  <div class="tipo" id="resTipo"></div>
+  <div class="msg" id="resMsg"></div>
+  <div class="toca">Toca para escanear el siguiente</div>
+</section>
+
+<script src="{% static 'puerta/html5-qrcode.min.js' %}"></script>
+<script>
+(function(){
+  'use strict';
+  var KEY = 'ede_puerta_token';
+  var $ = function(id){ return document.getElementById(id); };
+  var token = null, lector = null, ocupado = false, ultimo = {qr:'', t:0}, okCount = 0, resTimer = null, wake = null;
+
+  function guardar(v){ try{ v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); }catch(e){} }
+  function leer(){ try{ return localStorage.getItem(KEY); }catch(e){ return null; } }
+  function ver(id){ $("acceso").classList.toggle("on", id==="acceso"); $("escaner").classList.toggle("on", id==="escaner"); $("res").className="pantalla"; }
+
+  // --- sonido y vibración ---
+  var ac = null;
+  function pitido(freqs){
+    try{
+      ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+      var t = ac.currentTime;
+      freqs.forEach(function(f,i){
+        var o = ac.createOscillator(), g = ac.createGain();
+        o.frequency.value = f; o.type = 'sine'; o.connect(g); g.connect(ac.destination);
+        g.gain.setValueAtTime(.25, t+i*.16); g.gain.exponentialRampToValueAtTime(.001, t+i*.16+.14);
+        o.start(t+i*.16); o.stop(t+i*.16+.15);
+      });
+    }catch(e){}
+  }
+  function vibrar(p){ try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} }
+
+  async function api(ruta, opciones){
+    opciones = opciones || {};
+    opciones.headers = Object.assign({'Content-Type':'application/json'}, token ? {'X-Puerta-Token': token} : {}, opciones.headers||{});
+    var ctl = new AbortController(), to = setTimeout(function(){ ctl.abort(); }, 12000);
+    try{ var r = await fetch(ruta, Object.assign({signal: ctl.signal, cache:'no-store'}, opciones)); return {status:r.status, data: await r.json().catch(function(){return {};})}; }
+    finally{ clearTimeout(to); }
+  }
+
+  // --- acceso ---
+  $('codigo').addEventListener('input', function(e){
+    var v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+    e.target.value = v.length>4 ? v.slice(0,4)+'-'+v.slice(4) : v;
+  });
+  $('codigo').addEventListener('keydown', function(e){ if(e.key==='Enter') entrar(); });
+  $('btnEntrar').addEventListener('click', entrar);
+  async function entrar(){
+    $('errAcceso').textContent = '';
+    var c = $('codigo').value.trim();
+    if(c.replace('-','').length < 8){ $('errAcceso').textContent = 'El código tiene 8 caracteres.'; return; }
+    $('btnEntrar').disabled = true;
+    try{
+      var r = await api('/puerta/api/acceso/', {method:'POST', body: JSON.stringify({codigo:c})});
+      if(r.data.ok){ token = r.data.token; guardar(token); $('codigo').value=''; abrirEscaner(r.data.evento, r.data.dispositivo); }
+      else $('errAcceso').textContent = r.data.error || 'No se pudo entrar.';
+    }catch(e){ $('errAcceso').textContent = 'Sin conexión. Revisa tu internet e intenta de nuevo.'; }
+    $('btnEntrar').disabled = false;
+  }
+
+  // --- escáner ---
+  async function abrirEscaner(evento, dispositivo){
+    $('evNombre').textContent = evento; $('devNombre').textContent = dispositivo;
+    ver('escaner');
+    pedirPantallaEncendida();
+    arrancarCamara();
+  }
+  async function arrancarCamara(){
+    $('msgCam').style.display = 'flex'; $('msgCam').textContent = 'Iniciando cámara…';
+    try{
+      if(!lector) lector = new Html5Qrcode('lector', {verbose:false, formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE], useBarCodeDetectorIfSupported:true});
+      await lector.start({facingMode:'environment'}, {fps:12, qrbox:function(w,h){ var s=Math.floor(Math.min(w,h)*.62); return {width:s,height:s}; }, aspectRatio: undefined}, alLeer, function(){});
+      $('msgCam').style.display = 'none';
+      try{ var caps = lector.getRunningTrackCapabilities(); if(caps && caps.torch) $('btnLinterna').hidden = false; }catch(e){}
+    }catch(e){
+      $('msgCam').innerHTML = 'No se pudo abrir la cámara.<br>Da permiso de cámara a esta app y vuelve a intentar.<br><br><button id="btnReint">Reintentar</button>';
+      var b = $('btnReint'); if(b) b.onclick = arrancarCamara;
+    }
+  }
+  var linterna = false;
+  $('btnLinterna').addEventListener('click', async function(){
+    try{ linterna = !linterna; await lector.applyVideoConstraints({advanced:[{torch:linterna}]}); }catch(e){ linterna = false; }
+  });
+
+  async function alLeer(texto){
+    var ahora = Date.now();
+    if(ocupado) return;
+    if(texto === ultimo.qr && ahora - ultimo.t < 4000) return;   // mismo QR leído varias veces seguidas
+    ultimo = {qr:texto, t:ahora}; ocupado = true;
+    $('cargando').style.display = 'flex';
+    try{
+      var r = await api('/puerta/api/validar/', {method:'POST', body: JSON.stringify({qr:texto})});
+      if(r.status === 401){ sesionCaida(r.data.error); return; }
+      if(r.status >= 400 || r.data.ok === undefined){
+        ultimo = {qr:'', t:0};
+        mostrar({valido:false, motivo:'sin_red', mensaje: r.status === 429 ? 'Demasiadas solicitudes. Espera un momento.' : 'El servidor no respondió bien. No se validó: intenta de nuevo.'});
+      } else mostrar(r.data);
+    }catch(e){
+      mostrar({valido:false, motivo:'sin_red', mensaje:'Sin conexión con el servidor. No se pudo validar: intenta de nuevo.'});
+      ultimo = {qr:'', t:0};   // permite reintentar de inmediato el mismo QR
+    }
+    $('cargando').style.display = 'none';
+  }
+
+  var TITULOS = {
+    ok:['✅','VÁLIDO','valido'], duplicado:['⛔','YA USADO HOY','rechazo'], agotado:['⛔','ENTRADA AGOTADA','rechazo'],
+    saldo_pendiente:['💰','SALDO PENDIENTE','aviso'], fuera_de_horario:['⏰','FUERA DE HORARIO','aviso'],
+    fuera_de_fecha:['📅','FUERA DE FECHA','aviso'], otro_evento:['⛔','OTRO EVENTO','rechazo'],
+    no_encontrado:['❓','QR NO RECONOCIDO','rechazo'], sin_red:['📡','SIN CONEXIÓN','aviso']
+  };
+  function mostrar(d){
+    var t = TITULOS[d.motivo] || (d.valido ? TITULOS.ok : ['⛔','RECHAZADO','rechazo']);
+    var el = $('res'); el.className = 'pantalla on ' + t[2];
+    $('resIco').textContent = t[0]; $('resTitulo').textContent = t[1];
+    $('resNombre').textContent = d.nombre || ''; $('resTipo').textContent = d.tipo ? (d.tipo + (d.cantidad>1 ? ' · x'+d.cantidad : '')) : '';
+    $('resTipo').style.display = d.tipo ? '' : 'none';
+    $('resMsg').textContent = d.mensaje || '';
+    if(d.valido){ okCount++; $('nOk').textContent = okCount; pitido([880,1320]); vibrar(120); }
+    else { pitido([300,220]); vibrar([200,100,200]); }
+    clearTimeout(resTimer);
+    resTimer = setTimeout(cerrarRes, d.valido ? 2200 : 6000);
+  }
+  function cerrarRes(){ clearTimeout(resTimer); $('res').className = 'pantalla'; ocupado = false; }
+  $('res').addEventListener('click', cerrarRes);
+
+  function sesionCaida(msg){
+    token = null; guardar(null); ocupado = false; $('cargando').style.display = 'none';
+    detener(); ver('acceso'); $('errAcceso').textContent = msg || 'Vuelve a ingresar el código.';
+  }
+  async function detener(){ try{ if(lector && lector.isScanning) await lector.stop(); }catch(e){} $('btnLinterna').hidden = true; }
+  $('btnSalir').addEventListener('click', function(){
+    if(!confirm('¿Salir? Tendrás que escribir el código de nuevo.')) return;
+    sesionCaida(''); $('errAcceso').textContent = '';
+  });
+
+  // --- red y pantalla encendida ---
+  function actualizarRed(){ var on = navigator.onLine; $('red').textContent = on ? 'En línea' : 'Sin conexión'; $('red').classList.toggle('off', !on); }
+  window.addEventListener('online', actualizarRed); window.addEventListener('offline', actualizarRed); actualizarRed();
+  async function pedirPantallaEncendida(){ try{ if('wakeLock' in navigator) wake = await navigator.wakeLock.request('screen'); }catch(e){} }
+  document.addEventListener('visibilitychange', async function(){
+    if(document.visibilityState!=='visible' || !token || !$('escaner').classList.contains('on')) return;
+    pedirPantallaEncendida();
+    // iOS/Android cortan la cámara al bloquear la pantalla: reiniciarla si quedó detenida
+    var v = document.querySelector('#lector video');
+    if(!lector || !lector.isScanning || !v || v.paused || v.readyState < 2){ await detener(); arrancarCamara(); }
+  });
+
+  // --- inicio ---
+  (async function(){
+    if('serviceWorker' in navigator) navigator.serviceWorker.register('/puerta/sw.js', {scope:'/puerta/'}).catch(function(){});
+    token = leer();
+    if(!token){ ver('acceso'); return; }
+    try{
+      var r = await api('/puerta/api/estado/');
+      if(r.data.ok) abrirEscaner(r.data.evento, r.data.dispositivo);
+      else if(r.status === 401) sesionCaida(r.data.error);
+      else abrirEscaner('Evento', 'Servidor no disponible');   // 5xx: no borrar la sesión
+    }catch(e){
+      // Sin señal al abrir: se abre el escáner igual; cada validación exige conexión.
+      abrirEscaner('Evento', 'Sin conexión');
+    }
+  })();
+})();
+</script>
+</body>
+</html>

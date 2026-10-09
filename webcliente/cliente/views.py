@@ -2926,7 +2926,7 @@ def api_registrar_participante(request):
         return JsonResponse({'ok': False, 'error': 'El campo "nombres" es requerido'}, status=400)
 
     apellidos    = _limpiar(data.get('apellidos'))
-    dni          = _limpiar(data.get('dni'))
+    dni          = "".join(str(data.get('dni') or '').split())      # sin espacios: '72 891 601' = '72891601'
     celular_original = _limpiar(data.get('celular'))
     celular      = normalizar_celular(celular_original)
     correo       = _correo_limpio(data.get('correo'))

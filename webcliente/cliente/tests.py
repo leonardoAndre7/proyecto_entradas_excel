@@ -1063,3 +1063,20 @@ class CorreoEnSeparacionTestCase(SeparacionesPorDniTestCase):
             self._post(monto_pagado=100, tipo_registro="completar", correo="", referencia="d2")
             p = Participante.objects.get(pk=a["id"])
             self.assertEqual(p.correo, "uno@test.com")
+
+
+class ConfirmarPagosMasivoTestCase(SeparacionesPorDniTestCase):
+    def test_confirma_pendientes_y_respeta_separaciones(self):
+        user = User.objects.create_superuser("adm10", "a10@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm10", password="pass12345")
+        suelto = Participante.objects.create(evento=self.evento, tarifa=self.emp, nombres="Luis", dni="1",
+                                             tipo_entrada="EMPRESARIAL", precio=Decimal("1999"), pago_confirmado=False)
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True) as envio:
+            sep = Participante.objects.get(pk=self._post(monto_pagado=500, dni="2", referencia="m1").json()["id"])
+            r = self.client.post(reverse("confirmar_pagos_masivo", kwargs={"evento_id": self.evento.id}))
+        self.assertEqual(r.status_code, 302)
+        suelto.refresh_from_db(); sep.refresh_from_db()
+        self.assertTrue(suelto.pago_confirmado)
+        self.assertFalse(sep.pago_confirmado)
+        self.assertEqual(envio.call_count, 0)

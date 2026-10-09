@@ -1161,6 +1161,29 @@ def confirmar_pago(request, evento_id, pk):
     return redirect('participante_lista', evento_id=evento.id)
 
 
+@login_required(login_url='/participantes/login/')
+def confirmar_pagos_masivo(request, evento_id):
+    """Confirma de una vez los pagos pendientes. NO toca las separaciones con saldo ni envía nada
+    (el envío se hace con "Enviar tickets pendientes")."""
+    if request.method != 'POST':
+        return redirect('participante_lista', evento_id=evento_id)
+    evento = get_object_or_404(Evento, pk=evento_id)
+    pendientes = Participante.objects.filter(evento=evento, pago_confirmado=False)
+    confirmados = omitidos = 0
+    for p in pendientes:
+        if p.pagos.exists() and p.saldo_pendiente > 0:
+            omitidos += 1
+            continue
+        p.pago_confirmado = True
+        p.save(update_fields=['pago_confirmado'])
+        confirmados += 1
+    texto = f"✅ {confirmados} pago(s) confirmado(s)."
+    if omitidos:
+        texto += f" {omitidos} separación(es) con saldo pendiente se dejaron sin confirmar."
+    messages.success(request, texto)
+    return redirect('participante_lista', evento_id=evento.id)
+
+
 # ==========================================
 # 📧 ENVIAR MASIVO A TODOS LOS CONFIRMADOS
 # ==========================================

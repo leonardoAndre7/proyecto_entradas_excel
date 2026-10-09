@@ -31,6 +31,7 @@ urlpatterns = [
     path('eventos/<int:evento_id>/enviar-masivo/', views.enviar_masivo, name='enviar_masivo'),
     path('eventos/<int:evento_id>/enviar-siguiente/', views.enviar_siguiente_pendiente, name='enviar_siguiente_pendiente'),
     
+    path('eventos/<int:evento_id>/confirmar-pagos-masivo/', views.confirmar_pagos_masivo, name='confirmar_pagos_masivo'),
     path('eventos/<int:evento_id>/check-admin-masivo/', views.check_admin_masivo, name='check_admin_masivo'),
     path('eventos/<int:evento_id>/check-contabilidad-masivo/', views.check_contabilidad_masivo, name='check_contabilidad_masivo'),
     path('eventos/<int:evento_id>/confirmar-pago/<int:pk>/', views.confirmar_pago, name='confirmar_pago'),

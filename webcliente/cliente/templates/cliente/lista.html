@@ -466,6 +466,12 @@
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
+                    <form method="post" action="{% url 'confirmar_pagos_masivo' evento_id=evento.id %}" class="d-inline" onsubmit="return confirm('¿Confirmar los pagos pendientes? Las separaciones con saldo NO se confirman y no se envía ninguna entrada.');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success-glow btn-sm">
+                            <i class="bi bi-cash-coin"></i> Confirmar pagos pendientes
+                        </button>
+                    </form>
                     <form method="post" action="{% url 'check_admin_masivo' evento_id=evento.id %}" class="d-inline" onsubmit="return confirm('¿Estás seguro de marcar Administración como validado para TODOS los participantes?');">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-success-glow btn-sm">

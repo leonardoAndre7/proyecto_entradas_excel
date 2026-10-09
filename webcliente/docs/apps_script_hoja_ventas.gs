@@ -54,6 +54,9 @@ var REGISTROS = {
   'descuento autorizado': 'descuento',
   'cortesia (gratis)': 'cortesia'
 };
+// Etapa que se usa cuando el formulario NO tiene la pregunta "Etapa de precio" (venta única):
+// 'pre1' = Preventa 1, 'pre2', 'pre3' o 'puerta'
+var ETAPA_UNICA = 'pre1';
 var ETAPAS = {'preventa 1': 'pre1', 'preventa 2': 'pre2', 'preventa 3': 'pre3', 'puerta': 'puerta'};
 
 // Preguntas que YA existen en el formulario (se buscan por su título, sin tildes ni mayúsculas)
@@ -151,7 +154,7 @@ function enviarFila_(hoja, fila) {
     var nuevo = !!registro;
     if (nuevo) {
       cuerpo.tipo_registro = registro;
-      cuerpo.tipo_tarifa = ETAPAS[sinTildes_(v('etapa de precio'))] || 'pre1';
+      cuerpo.tipo_tarifa = ETAPAS[sinTildes_(v('etapa de precio'))] || ETAPA_UNICA;
       // "Precio de Entrada" del formulario ahora es lo que el cliente paga en este momento
       cuerpo.monto_pagado = registro === 'cortesia' ? 0 : (numero_(v('precio de entrada')) || 0);
       var acordado = numero_(v('precio acordado final (s/)'));

@@ -133,7 +133,7 @@ function enviarFila_(hoja, fila) {
 
     var tipoOriginal = limpiar_(v('tipo de entrada'));
     var asesor = limpiar_(v('asesor'));
-    var dni = limpiar_(v('dni', 'numero de dni')).replace(/s+/g, '');
+    var dni = limpiar_(v('dni', 'numero de dni')).replace(/\s+/g, '');
     var marca = v('marca temporal');
     // Sin "Tipo de registro" (filas del formulario anterior) se trata como pago normal: el sistema compara
     // lo pagado con el precio de la tarifa. Si cubre el precio, confirma el pago y envía la entrada solo;

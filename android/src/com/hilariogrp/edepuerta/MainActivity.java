@@ -55,6 +55,12 @@ public class MainActivity extends Activity {
             public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
                 if (r.isForMainFrame()) mostrarSinConexion();
             }
+
+            @Override
+            public void onReceivedHttpError(WebView v, WebResourceRequest r, android.webkit.WebResourceResponse e) {
+                // 404/5xx al abrir la app (p. ej. servidor arrancando o aun sin desplegar)
+                if (r.isForMainFrame()) mostrarSinConexion();
+            }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -82,7 +88,7 @@ public class MainActivity extends Activity {
     private void mostrarSinConexion() {
         String html = "<body style=\"background:#0f172a;color:#f8fafc;font-family:sans-serif;text-align:center;padding:30% 24px 0\">"
                 + "<div style=\"font-size:64px\">&#128225;</div><h2>Sin conexi&oacute;n</h2>"
-                + "<p style=\"color:#94a3b8\">No se pudo abrir EDE Puerta. Revisa tu internet.</p>"
+                + "<p style=\"color:#94a3b8\">No se pudo abrir EDE Puerta. Revisa tu internet o intenta en un minuto.</p>"
                 + "<button onclick=\"location.href='" + baseUrl + "'\" style=\"font-size:18px;padding:14px 28px;border:0;border-radius:14px;background:#2563eb;color:#fff;font-weight:700\">Reintentar</button></body>";
         web.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
     }

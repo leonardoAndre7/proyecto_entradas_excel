@@ -68,7 +68,7 @@
     <div class="cod" id="cod">{{ nuevo.codigo }}</div>
     <div class="acciones">
       <button class="btn gris" type="button" onclick="copiar()" id="bcopiar">📋 Copiar código</button>
-      <a class="btn verde" href="{{ nuevo.wa }}" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a>
+      <a class="btn verde" href="{{ nuevo.wa }}" target="_blank" rel="noopener">💬 {% if nuevo.directo %}Enviar a su WhatsApp{% else %}Enviar por WhatsApp{% endif %}</a>
     </div>
     <div class="aviso">⚠️ Anótalo o envíalo ahora: por seguridad no se vuelve a mostrar. Vence el {{ nuevo.obj.vence_en|date:"d/m/Y H:i" }}.</div>
   </div>
@@ -83,6 +83,8 @@
         <div class="full"><label>Evento</label>
           <select name="evento" required>{% for e in eventos %}<option value="{{ e.id }}">{{ e.nombre }}</option>{% endfor %}</select></div>
         <div><label>Persona o puerta</label><input name="nombre" maxlength="80" placeholder="Ej. Puerta 1 - Carlos" required></div>
+        <div><label>Celular para enviarle el código (opcional)</label><input name="celular" type="tel" inputmode="tel" maxlength="20" placeholder="Ej. 987654321">
+          <div class="hint">Si lo pones, WhatsApp abre directo su chat. No se guarda.</div></div>
         <div><label>Vence (opcional)</label><input type="datetime-local" name="vence">
           <div class="hint">En blanco: vence 6 horas después de terminar el último día del evento.</div></div>
       </div>

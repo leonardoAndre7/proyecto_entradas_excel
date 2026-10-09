@@ -272,3 +272,27 @@ class RobustezTests(PuertaBase):
         p = self.part()
         d = self.escanear(f"https://ede-evento.com/participantes/validar/{p.token.upper()}/?x=1#f", _t(14)).json()
         self.assertTrue(d["valido"])
+
+
+class WhatsAppPanelTests(PuertaBase):
+    def _crear(self, **extra):
+        u = User.objects.create_user("sa3", password="x")
+        PerfilUsuario.objects.create(user=u, rol="SUPERADMIN")
+        self.c.login(username="sa3", password="x")
+        return self.c.post(reverse("puerta_panel"),
+                           {"accion": "crear", "evento": self.evento.id, "nombre": "Puerta 3", **extra})
+
+    def test_celular_peruano_abre_chat_directo_y_no_se_guarda(self):
+        r = self._crear(celular="987 654 321")
+        self.assertContains(r, "https://wa.me/51987654321?text=")
+        self.assertContains(r, "Enviar a su WhatsApp")
+        self.assertFalse(any("987654321" in str(v) for c in CodigoPuerta.objects.all()
+                             for v in (c.nombre, c.codigo_hash)))
+
+    def test_sin_celular_deja_elegir_contacto(self):
+        r = self._crear()
+        self.assertContains(r, "https://wa.me/?text=")
+
+    def test_celular_invalido_se_ignora(self):
+        r = self._crear(celular="12")
+        self.assertContains(r, "https://wa.me/?text=")

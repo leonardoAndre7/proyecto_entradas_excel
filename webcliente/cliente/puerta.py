@@ -246,7 +246,13 @@ def puerta_panel(request):
                          f"*{claro}*\n\n"
                          "1) Instala la app EDE Puerta.\n2) Ábrela, escribe el código y acepta el permiso de cámara.\n"
                          f"El código vence el {timezone.localtime(vence):%d/%m/%Y %H:%M}. No lo compartas.")
-                nuevo = {"obj": obj, "codigo": claro, "wa": "https://wa.me/?text=" + quote(texto)}
+                # El celular solo arma el enlace de WhatsApp: no se guarda en la base de datos.
+                numero = "".join(ch for ch in request.POST.get("celular", "") if ch.isdigit())
+                if len(numero) == 9:          # celular peruano sin prefijo
+                    numero = "51" + numero
+                destino = numero if 8 <= len(numero) <= 15 else ""
+                nuevo = {"obj": obj, "codigo": claro, "wa": f"https://wa.me/{destino}?text=" + quote(texto),
+                         "directo": bool(destino)}
         elif accion in ("revocar", "reactivar"):
             CodigoPuerta.objects.filter(pk=request.POST.get("id")).update(activo=(accion == "reactivar"))
             return redirect("puerta_panel")

@@ -1073,7 +1073,7 @@ class ConfirmarPagosMasivoTestCase(SeparacionesPorDniTestCase):
         suelto = Participante.objects.create(evento=self.evento, tarifa=self.emp, nombres="Luis", dni="1",
                                              tipo_entrada="EMPRESARIAL", precio=Decimal("1999"), pago_confirmado=False)
         with mock.patch("cliente.views.enviar_entrada_participante", return_value=True) as envio:
-            sep = Participante.objects.get(pk=self._post(monto_pagado=500, dni="2", referencia="m1").json()["id"])
+            sep = Participante.objects.get(pk=self._post(monto_pagado=500, dni="87654321", referencia="m1").json()["id"])
             r = self.client.post(reverse("confirmar_pagos_masivo", kwargs={"evento_id": self.evento.id}))
         self.assertEqual(r.status_code, 302)
         suelto.refresh_from_db(); sep.refresh_from_db()
@@ -1149,3 +1149,47 @@ class EnvioMasivoRobustoTestCase(TestCase):
         p = Participante.objects.get(pk=r["id"])
         self.assertEqual(p.celular, "")
         self.assertIn("999999999", (p.notas or "").replace(" ", ""))
+
+
+class ApiEndurecidaTestCase(SeparacionesPorDniTestCase):
+    """Entradas raras que antes daban 500 o se aceptaban en silencio."""
+
+    def test_montos_raros_se_rechazan_con_400(self):
+        for raro in ["NaN", "Infinity", "-5", "abc", "1e999", "99999999999"]:
+            r = self._post(monto_pagado=raro, referencia=f"x{raro}")
+            self.assertEqual(r.status_code, 400, raro)
+
+    def test_dni_obligatorio_y_real_con_pagos_en_partes(self):
+        for dni in ["", "0", "00000000", "11111111", "12/34"]:
+            self.assertEqual(self._post(dni=dni, referencia=f"d{dni}").status_code, 400, dni)
+
+    def test_dni_se_normaliza_y_une_los_pagos(self):
+        a = self._post(dni="ab 123 456", monto_pagado=500, referencia="n1").json()
+        b = self._post(dni="AB123456", monto_pagado=100, tipo_registro="completar", referencia="n2").json()
+        self.assertEqual(a["id"], b["id"])
+
+    def test_json_no_objeto_y_cantidad_y_etapa_invalidas(self):
+        r = self.client.post(self.url, "[]", content_type="application/json", HTTP_X_API_KEY="clave-segura-de-prueba-123")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self._post(cantidad="abc", referencia="q1").status_code, 400)
+        self.assertEqual(self._post(cantidad=500, referencia="q2").status_code, 400)
+        self.assertEqual(self._post(tipo_tarifa="pre-2", referencia="q3").status_code, 400)
+
+    def test_precio_final_ilegible_se_rechaza_y_tarifa_sin_precio_no_regala(self):
+        self.assertEqual(self._post(precio_final="abc", referencia="p1").status_code, 400)
+        Tarifa.objects.create(evento=self.evento, tipo_entrada="SINPRECIO", dias_validos=1)
+        r = self._post(tipo_entrada="SINPRECIO", monto_pagado=0, referencia="p2")
+        self.assertIn(r.status_code, (400, 422))
+
+    def test_cortesia_con_tilde_cuenta_como_cortesia(self):
+        r = self._post(tipo_registro="Cortesía", monto_pagado=0, referencia="c1")
+        self.assertEqual(r.status_code, 422)          # sin autorizado_por
+        r = self._post(tipo_registro="Cortesía", monto_pagado=0, autorizado_por="Gerencia", referencia="c2")
+        self.assertEqual(r.status_code, 200)
+
+    def test_monto_pagado_es_la_suma_de_los_pagos(self):
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True):
+            a = self._post(monto_pagado="100.005", referencia="s1").json()
+            self._post(monto_pagado=200, tipo_registro="completar", referencia="s2")
+        p = Participante.objects.get(pk=a["id"])
+        self.assertEqual(p.monto_pagado, sum(x.monto for x in p.pagos.all()))

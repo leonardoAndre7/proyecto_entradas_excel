@@ -3,6 +3,7 @@ import re
 import os
 import csv
 import json
+import unicodedata
 import time
 import logging
 import base64
@@ -2760,10 +2761,15 @@ def _como_bool(valor):
 
 
 def _decimal(valor, defecto=None):
+    """Decimal con 2 decimales. Rechaza NaN, Infinity, textos raros y montos absurdos (devuelve `defecto`)."""
+    from decimal import ROUND_HALF_UP
     try:
-        return Decimal(str(valor).replace(",", ".").strip())
+        d = Decimal(str(valor).replace(",", ".").strip())
     except Exception:
         return defecto
+    if not d.is_finite() or abs(d) > Decimal('99999999.99'):
+        return defecto
+    return d.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 
 def _registrar_con_pagos(evento, c):
@@ -2790,7 +2796,10 @@ def _registrar_con_pagos(evento, c):
         return d
 
     with transaction.atomic():
-        existente = (Participante.objects.select_for_update().filter(evento=evento, dni=dni).first()
+        # Se bloquea el evento: dos filas simultáneas con el mismo DNI nuevo se procesan una tras otra
+        # (el bloqueo de la fila del participante no sirve mientras ese participante aún no existe).
+        Evento.objects.select_for_update().get(pk=evento.pk)
+        existente = (Participante.objects.select_for_update().filter(evento=evento, dni=dni).order_by('id').first()
                      if dni else None)
 
         if existente:
@@ -2840,6 +2849,12 @@ def _registrar_con_pagos(evento, c):
             lista = getattr(tarifa, campo_map.get(c['tipo_tarifa'], 'preventa_1'), Decimal('0.00')) or Decimal('0.00')
 
             acordado = _decimal(c['precio_final'], None)
+            if c['precio_final'] not in (None, '') and acordado is None:
+                return JsonResponse({'ok': False, 'error': f'precio_final inválido: {c["precio_final"]!r}'}, status=400)
+            if lista <= 0 and tipo_registro != 'cortesia' and acordado is None:
+                return JsonResponse({'ok': False, 'error':
+                    f'La tarifa "{tarifa.tipo_entrada}" no tiene precio configurado para esta etapa. '
+                    'Ponle el precio en el editor del evento antes de registrar ventas.'}, status=422)
             precio = lista if acordado is None else acordado
             autorizado_por = c['autorizado_por']
             if tipo_registro == 'cortesia':
@@ -2874,6 +2889,8 @@ def _registrar_con_pagos(evento, c):
             participante=participante, monto=monto, metodo_pago=c['metodo_pago'] or None,
             voucher_url=c['voucher_url'] or None, notas=c['notas'] or None,
             registrado_por=c['vendedor'] or None, referencia_externa=referencia or None)
+        # El total pagado sale siempre de la suma de los pagos (no de una resta en memoria)
+        participante.monto_pagado = participante.pagos.aggregate(t=Sum('monto'))['t'] or Decimal('0')
         participante.save()
 
         total = participante.total_pagar or Decimal('0')
@@ -2920,37 +2937,44 @@ def api_registrar_participante(request):
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'ok': False, 'error': 'JSON inválido'}, status=400)
+    if not isinstance(data, dict):
+        return JsonResponse({'ok': False, 'error': 'El cuerpo debe ser un objeto JSON'}, status=400)
 
-    nombres = _limpiar(data.get('nombres'))
+    nombres = _limpiar(data.get('nombres'))[:100]
     if not nombres:
         return JsonResponse({'ok': False, 'error': 'El campo "nombres" es requerido'}, status=400)
 
-    apellidos    = _limpiar(data.get('apellidos'))
-    dni          = "".join(str(data.get('dni') or '').split())      # sin espacios: '72 891 601' = '72891601'
+    apellidos    = _limpiar(data.get('apellidos'))[:100]
+    # DNI sin espacios ni sufijo ".0" de las hojas, en mayúsculas: '72 891 601' = '72891601'
+    dni          = re.sub(r'\.0$', '', "".join(str(data.get('dni') or '').split())).upper()[:20]
     celular_original = _limpiar(data.get('celular'))
     celular      = normalizar_celular(celular_original)
-    correo       = _correo_limpio(data.get('correo'))
+    correo       = _correo_limpio(data.get('correo'))[:100]
     tipo_entrada = _limpiar(data.get('tipo_entrada'))
     tipo_tarifa  = _limpiar(data.get('tipo_tarifa') or 'pre1').lower()
-    vendedor     = _limpiar(data.get('vendedor'))
+    vendedor     = _limpiar(data.get('vendedor'))[:255]
     metodo_pago  = _limpiar(data.get('metodo_pago'))[:60]
     voucher_url  = _limpiar(data.get('voucher_url'))[:500]
     notas        = str(data.get('notas') or '').strip()
     if celular_original and not celular:
         notas = (notas + ' | ' if notas else '') + f'Celular no válido en la hoja: {celular_original}'
     referencia   = _limpiar(data.get('referencia'))[:100]
-    tipo_registro = _limpiar(data.get('tipo_registro')).lower()
+    tipo_registro = unicodedata.normalize('NFD', _limpiar(data.get('tipo_registro')).lower()).encode('ascii', 'ignore').decode()
     autorizado_por = _limpiar(data.get('autorizado_por'))[:120]
     evento_id    = data.get('evento_id', 1)
 
     try:
         cantidad = int(data.get('cantidad') or 1)
     except (ValueError, TypeError):
-        cantidad = 1
+        return JsonResponse({'ok': False, 'error': 'cantidad inválida'}, status=400)
+    if not 1 <= cantidad <= 100:
+        return JsonResponse({'ok': False, 'error': 'cantidad debe estar entre 1 y 100'}, status=400)
+    if tipo_tarifa not in ('pre1', 'pre2', 'pre3', 'puerta'):
+        return JsonResponse({'ok': False, 'error': f'tipo_tarifa desconocido: {tipo_tarifa!r} (usa pre1, pre2, pre3 o puerta)'}, status=400)
 
     try:
         evento = Evento.objects.get(pk=evento_id)
-    except (Evento.DoesNotExist, ValueError, TypeError):
+    except (Evento.DoesNotExist, ValueError, TypeError, OverflowError):
         return JsonResponse({'ok': False, 'error': f'Evento {evento_id} no encontrado'}, status=404)
 
     # Idempotencia: reintentar la misma fila de la hoja no crea otro participante
@@ -2961,6 +2985,10 @@ def api_registrar_participante(request):
 
     # Separaciones / pagos en partes: se activa cuando la petición trae "monto_pagado"
     if 'monto_pagado' in data:
+        if not re.fullmatch(r'[A-Z0-9]{6,20}', dni) or len(set(dni)) == 1:
+            return JsonResponse({'ok': False, 'error':
+                'Con pagos en partes el DNI es obligatorio y debe ser real (6 a 20 letras o números, no repetidos): '
+                'es lo que une los pagos de una misma entrada.'}, status=400)
         return _registrar_con_pagos(evento, {
             'monto_pagado': data.get('monto_pagado'), 'tipo_registro': tipo_registro, 'dni': dni,
             'referencia': referencia, 'tipo_entrada': tipo_entrada, 'tipo_tarifa': tipo_tarifa,

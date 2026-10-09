@@ -90,15 +90,24 @@ function alEnviarFormulario(e) {
 
 /** Envía todas las filas que aún no tienen "OK" (útil para reintentar o cargar las anteriores). */
 function enviarPendientes() {
+  var inicio = Date.now();
   var contar = {ok: 0, error: 0, ya: 0, vacia: 0};
   var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA);
-  for (var fila = 2; fila <= hoja.getLastRow(); fila++) {
+  if (!hoja) {
+    SpreadsheetApp.getUi().alert('No existe la pestaña "' + HOJA + '".');
+    return;
+  }
+  var ultima = hoja.getLastRow();
+  var corte = 0;
+  for (var fila = 2; fila <= ultima; fila++) {
+    if (Date.now() - inicio > 270000) { corte = ultima - fila + 1; break; }   // Apps Script corta a los 6 min
     var r = enviarFila_(hoja, fila);
     if (contar[r] !== undefined) contar[r]++;
   }
   SpreadsheetApp.getUi().alert('Listo.\nEnviadas: ' + contar.ok + '\nCon error: ' + contar.error +
                                '\nYa estaban enviadas (SISTEMA dice OK o YA EXISTE): ' + contar.ya +
-                               '\nFilas sin nombre (vacías): ' + contar.vacia);
+                               '\nFilas sin nombre (vacías): ' + contar.vacia +
+                               (corte ? '\n\nQuedaron ' + corte + ' filas sin revisar por el límite de tiempo: vuelve a ejecutar.' : ''));
 }
 
 function probarConexion() {
@@ -118,91 +127,118 @@ function probarConexion() {
 
 // =============================== ENVÍO DE UNA FILA ===============================
 
+/**
+ * Procesa una fila y devuelve 'ok' | 'error' | 'ya' (ya enviada) | 'vacia' (sin nombre).
+ * Pasos: leer y validar → armar el cuerpo → enviar al sistema → escribir el resultado en SISTEMA.
+ */
 function enviarFila_(hoja, fila) {
   var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  try {
+    lock.waitLock(30000);
+  } catch (e) {
+    return 'error';          // otra ejecución está enviando: la fila queda sin estado y se reintenta
+  }
   try {
     var enc = encabezados_(hoja);
     var colEstado = columnaEstado_(hoja, enc);
-    var estado = String(hoja.getRange(fila, colEstado).getValue() || '');
-    if (/^(OK|YA EXISTE)/.test(estado)) return 'ya';
+    var celdaEstado = hoja.getRange(fila, colEstado);
+    if (/^(OK|YA EXISTE)/.test(String(celdaEstado.getValue() || ''))) return 'ya';
 
     var v = function () { return leer_(hoja, fila, enc, Array.prototype.slice.call(arguments)); };
-    var nombres = limpiar_(v('nombres y apellidos'));
-    if (!nombres) return 'vacia';
+    if (!limpiar_(v('nombres y apellidos'))) return 'vacia';
 
-    var tipoOriginal = limpiar_(v('tipo de entrada'));
-    var asesor = limpiar_(v('asesor'));
-    var dni = limpiar_(v('dni', 'numero de dni')).replace(/\s+/g, '');
-    var marca = v('marca temporal');
-    // Sin "Tipo de registro" (filas del formulario anterior) se trata como pago normal: el sistema compara
-    // lo pagado con el precio de la tarifa. Si cubre el precio, confirma el pago y envía la entrada solo;
-    // si es menos, queda como separación (con saldo) y NO se envía hasta completarse.
-    var registro = REGISTROS[sinTildes_(v('tipo de registro'))] || 'completo';
-
-    var cuerpo = {
-      evento_id: EVENTO_ID,
-      estricto: true,                          // si la tarifa no existe en el sistema, avisa y no crea
-      nombres: nombres,
-      dni: dni,
-      celular: String(v('celular', 'numero de celular') || '').replace(/\D/g, ''),
-      correo: correo_(v('correo electronico')),
-      tipo_entrada: TIPOS[sinTildes_(tipoOriginal)] || tipoOriginal,
-      vendedor: ASESORES[sinTildes_(asesor)] || asesor,
-      metodo_pago: limpiar_(v('metodo de pago')),
-      voucher_url: primerEnlace_(v('voucher de pago')),
-      referencia: referencia_(marca, dni, fila)
-    };
-
-    var nuevo = !!registro;
-    if (nuevo) {
-      cuerpo.tipo_registro = registro;
-      cuerpo.tipo_tarifa = ETAPAS[sinTildes_(v('etapa de precio'))] || ETAPA_UNICA;
-      // "Precio de Entrada" del formulario ahora es lo que el cliente paga en este momento
-      cuerpo.monto_pagado = registro === 'cortesia' ? 0 : (numero_(v('precio de entrada')) || 0);
-      var acordado = numero_(v('precio acordado final (s/)'));
-      if (acordado !== null && registro === 'descuento') cuerpo.precio_final = acordado;
-      cuerpo.autorizado_por = limpiar_(v('autorizado por (descuento)', 'autorizado por (cortesia)', 'autorizado por'));
-      cuerpo.notas = [limpiar_(v('motivo del descuento', 'motivo de la cortesia')), limpiar_(v('notas del pago')), limpiar_(v('detalle')),
-                      limpiar_(v('observacion'))].filter(String).join(' | ');
-      cuerpo.enviar_entrada = ENVIAR_AL_COMPLETAR;    // el sistema solo la envía si el pago queda completo
-    } else {
-      // Filas del formulario anterior: se mantiene como antes (todo llega como pago por confirmar)
-      cuerpo.precio_final = numero_(v('precio de entrada'));
-      cuerpo.notas = [limpiar_(v('detalle')), limpiar_(v('observacion'))].filter(String).join(' | ');
-      cuerpo.pago_confirmado = false;
+    var armado = armarCuerpo_(v, fila);
+    if (armado.error) {
+      celdaEstado.setValue('ERROR: ' + armado.error);
+      return 'error';
     }
+    var r = enviarAlSistema_(armado.cuerpo);
+    celdaEstado.setValue(textoEstado_(r));
+    return r.ok ? 'ok' : 'error';
+  } finally {
+    lock.releaseLock();
+  }
+}
 
-    var resp = UrlFetchApp.fetch(API_URL, {
+/** Lee la fila y arma el JSON para la API. Devuelve {cuerpo} o {error} (sin enviar nada si algo no cuadra). */
+function armarCuerpo_(v, fila) {
+  var tipoRegistroTexto = limpiar_(v('tipo de registro'));
+  var registro = tipoRegistroTexto ? REGISTROS[sinTildes_(tipoRegistroTexto)] : 'completo';
+  if (!registro) return {error: 'tipo de registro desconocido: "' + tipoRegistroTexto + '"'};
+
+  var montoTexto = v('precio de entrada');
+  var monto = numero_(montoTexto);
+  var hayMonto = !(montoTexto === '' || montoTexto === null || montoTexto === undefined);
+  if (registro !== 'cortesia' && (!hayMonto || monto === null || monto < 0)) {
+    return {error: 'monto ilegible o vacío en "Precio de Entrada": "' + montoTexto + '"'};
+  }
+
+  var tipoOriginal = limpiar_(v('tipo de entrada'));
+  var asesor = limpiar_(v('asesor'));
+  var dni = dni_(v('dni', 'numero de dni'));
+  var cuerpo = {
+    evento_id: EVENTO_ID,
+    estricto: true,                          // si la tarifa no existe en el sistema, avisa y no crea
+    nombres: limpiar_(v('nombres y apellidos')),
+    dni: dni,
+    celular: celular_(v('celular', 'numero de celular')),
+    correo: correo_(v('correo electronico')),
+    tipo_entrada: TIPOS[sinTildes_(tipoOriginal)] || tipoOriginal,
+    vendedor: ASESORES[sinTildes_(asesor)] || asesor,
+    metodo_pago: limpiar_(v('metodo de pago')),
+    voucher_url: primerEnlace_(v('voucher de pago')),
+    referencia: referencia_(v('marca temporal'), dni, fila, monto),
+    tipo_registro: registro,
+    tipo_tarifa: ETAPAS[sinTildes_(v('etapa de precio'))] || ETAPA_UNICA,
+    // "Precio de Entrada" es lo que el cliente paga en este momento
+    monto_pagado: registro === 'cortesia' ? 0 : monto,
+    autorizado_por: limpiar_(v('autorizado por (descuento)', 'autorizado por (cortesia)', 'autorizado por')),
+    notas: [limpiar_(v('motivo del descuento', 'motivo de la cortesia')), limpiar_(v('notas del pago')),
+            limpiar_(v('detalle')), limpiar_(v('observacion'))].filter(String).join(' | '),
+    enviar_entrada: ENVIAR_AL_COMPLETAR      // el sistema solo la envía si el pago queda completo
+  };
+
+  var acordadoTexto = v('precio acordado final (s/)');
+  var acordado = numero_(acordadoTexto);
+  if (registro === 'descuento') {
+    if (acordado === null || acordado < 0) return {error: 'descuento sin "Precio acordado final" legible: "' + acordadoTexto + '"'};
+    cuerpo.precio_final = acordado;
+  }
+  return {cuerpo: cuerpo};
+}
+
+/** POST a la API. Nunca lanza: devuelve {ok, codigo, datos, error}. */
+function enviarAlSistema_(cuerpo) {
+  var resp;
+  try {
+    resp = UrlFetchApp.fetch(API_URL, {
       method: 'post', contentType: 'application/json', muteHttpExceptions: true,
       headers: {'X-API-Key': API_KEY},
       payload: JSON.stringify(cuerpo)
     });
-    var codigo = resp.getResponseCode();
-    var datos = {};
-    try { datos = JSON.parse(resp.getContentText()); } catch (err) {}
-
-    var celdaEstado = hoja.getRange(fila, colEstado);
-    if (codigo === 200 && datos.ok) {
-      if (nuevo) {
-        var detalle = datos.completo ? 'COMPLETO' : 'FALTA S/ ' + datos.saldo;
-        celdaEstado.setValue((datos.duplicado ? 'YA EXISTE #' : 'OK #') + datos.id + ' (' + datos.cod_cliente + ') · ' +
-                             detalle + (datos.entrada_enviada ? ' · entrada enviada' : ''));
-      } else {
-        celdaEstado.setValue((datos.duplicado ? 'YA EXISTE #' : 'OK #') + datos.id);
-      }
-      return 'ok';
-    }
-    if (codigo === 409 && !nuevo) {                // fila antigua: mismo DNI ya registrado
-      celdaEstado.setValue('YA EXISTE (DNI repetido)');
-      return 'ok';
-    }
-    var extra = datos.tarifas_disponibles ? ' Tarifas: ' + datos.tarifas_disponibles.join(', ') : '';
-    celdaEstado.setValue('ERROR ' + codigo + ': ' + (datos.error || resp.getContentText().slice(0, 150)) + extra);
-    return 'error';
-  } finally {
-    lock.releaseLock();
+  } catch (e) {
+    return {ok: false, codigo: 0, datos: {}, error: 'sin conexión con el sistema (' + String(e.message || e).slice(0, 100) + '). Se reintenta.'};
   }
+  var codigo = resp.getResponseCode();
+  var datos = null;
+  try { datos = JSON.parse(resp.getContentText()); } catch (err) {}
+  datos = (datos && typeof datos === 'object') ? datos : {};
+  var ok = codigo >= 200 && codigo < 300 && datos.ok === true;
+  return {ok: ok, codigo: codigo, datos: datos, error: datos.error || resp.getContentText().slice(0, 150),
+          tarifas: datos.tarifas_disponibles};
+}
+
+/** Texto que se escribe en la columna SISTEMA. */
+function textoEstado_(r) {
+  var d = r.datos;
+  if (r.ok) {
+    var detalle = d.completo ? 'COMPLETO' : 'FALTA S/ ' + d.saldo;
+    return (d.duplicado ? 'YA EXISTE #' : 'OK #') + d.id + ' (' + d.cod_cliente + ') · ' + detalle +
+           (d.entrada_enviada ? ' · entrada enviada' : '');
+  }
+  var extra = r.tarifas ? ' Tarifas: ' + r.tarifas.join(', ') : '';
+  var prefijo = (r.codigo >= 400 && r.codigo < 500) ? 'REVISAR ' : 'ERROR ';   // 4xx: hay que corregir la fila
+  return prefijo + (r.codigo || '') + ': ' + r.error + extra;
 }
 
 // ============================ MODIFICAR EL FORMULARIO EXISTENTE ============================
@@ -409,10 +445,39 @@ function sinTildes_(t) {
   return limpiar_(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
+/** Convierte "S/ 1,250.00", "S/.150", "1.250,50" o 150 en número. Devuelve null si no se entiende. */
 function numero_(t) {
   if (t === '' || t === null || t === undefined) return null;
-  var n = parseFloat(String(t).replace(/[^\d.,-]/g, '').replace(/,(?=\d{3}(\D|$))/g, '').replace(',', '.'));
-  return isNaN(n) ? null : n;
+  if (typeof t === 'number') return isFinite(t) ? t : null;
+  var x = String(t).replace(/^[^\d-]+/, '').replace(/[^\d.,-]/g, '');
+  if (!/\d/.test(x)) return null;
+  var punto = x.lastIndexOf('.'), coma = x.lastIndexOf(',');
+  if (punto >= 0 && coma >= 0) {
+    // el último separador es el decimal; el otro separa miles
+    x = punto > coma ? x.replace(/,/g, '') : x.replace(/\./g, '').replace(',', '.');
+  } else if (coma >= 0) {
+    x = /,\d{3}$/.test(x) ? x.replace(/,/g, '') : x.replace(',', '.');
+  } else if (punto >= 0 && /^-?\d{1,3}(\.\d{3})+$/.test(x)) {
+    x = x.replace(/\./g, '');
+  }
+  var n = parseFloat(x);
+  return isFinite(n) ? n : null;
+}
+
+/** DNI sin espacios; Sheets pierde el cero inicial de los DNI que lo tienen (7 dígitos → se repone). */
+function dni_(t) {
+  var d = String(t === null || t === undefined ? '' : t).replace(/\s+/g, '');
+  if (/^\d+\.0$/.test(d)) d = d.slice(0, -2);
+  return /^\d{7}$/.test(d) ? '0' + d : d;
+}
+
+/** Celular de 9 dígitos: quita espacios, +51 y toma solo el primer número si escribieron dos. */
+function celular_(t) {
+  var texto = String(t === null || t === undefined ? '' : t);
+  var primero = texto.split(/[\/,;-]/)[0];
+  var d = primero.replace(/\D/g, '');
+  if (/^51\d{9}$/.test(d)) d = d.slice(2);
+  return d;
 }
 
 function primerEnlace_(t) {
@@ -421,8 +486,8 @@ function primerEnlace_(t) {
 }
 
 /** Identificador estable de la fila: reintentar el envío no suma el mismo pago dos veces. */
-function referencia_(marca, dni, fila) {
+function referencia_(marca, dni, fila, monto) {
   var sello = (marca instanceof Date)
       ? Utilities.formatDate(marca, 'GMT', 'yyyyMMddHHmmss') : 'fila' + fila;
-  return sello + '-' + (dni || 'sin-dni');
+  return sello + '-' + (dni || 'sin-dni') + '-' + (monto === null || monto === undefined ? 'x' : monto);
 }

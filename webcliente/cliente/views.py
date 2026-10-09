@@ -2681,6 +2681,20 @@ def _limpiar(valor):
     return " ".join(str(valor or "").split())
 
 
+def _correo_limpio(valor):
+    """Devuelve un correo usable o '' (vacío). Descarta basura de la hoja: '00', '00@gmail.com',
+    'Solo Whatsap', un teléfono, y quita comillas y tabuladores."""
+    import re
+    texto = str(valor or "").replace('"', ' ').replace("'", ' ')
+    m = re.search(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}', texto)
+    if not m:
+        return ''
+    correo = m.group(0).lower()
+    if re.fullmatch(r'0+', correo.split('@')[0]):
+        return ''
+    return correo
+
+
 def _como_bool(valor):
     if isinstance(valor, str):
         return valor.strip().lower() in ('true', '1', 'yes', 'si', 'sí', 'on')
@@ -2747,6 +2761,12 @@ def _registrar_con_pagos(evento, c):
                     f'{existente.cod_cliente}.', 'saldo': str(saldo_antes)}, status=422)
             participante = existente
             participante.monto_pagado = (participante.monto_pagado or Decimal('0')) + monto
+            # Un correo válido en el nuevo registro reemplaza al anterior (los de la hoja a veces eran "00");
+            # el celular solo se completa si estaba vacío.
+            if c['correo']:
+                participante.correo = c['correo']
+            if c['celular'] and not (participante.celular or '').strip():
+                participante.celular = c['celular']
             es_abono = True
         else:
             # ---- entrada nueva ----
@@ -2850,7 +2870,7 @@ def api_registrar_participante(request):
     apellidos    = _limpiar(data.get('apellidos'))
     dni          = _limpiar(data.get('dni'))
     celular      = _limpiar(data.get('celular'))
-    correo       = _limpiar(data.get('correo')).lower()
+    correo       = _correo_limpio(data.get('correo'))
     tipo_entrada = _limpiar(data.get('tipo_entrada'))
     tipo_tarifa  = _limpiar(data.get('tipo_tarifa') or 'pre1').lower()
     vendedor     = _limpiar(data.get('vendedor'))

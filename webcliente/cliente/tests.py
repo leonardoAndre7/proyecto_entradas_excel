@@ -1034,3 +1034,32 @@ class PreciosEditorLocalizadosTestCase(TestCase):
         self.tarifa.refresh_from_db()
         self.assertEqual(float(self.tarifa.preventa_1), 150.5)
         self.assertEqual(float(self.tarifa.puerta), 350.5)
+
+
+class CorreoValidoTestCase(TestCase):
+    def test_limpia_la_basura_de_la_hoja(self):
+        from cliente.views import _correo_limpio as f
+        for basura in ['00', '00@gmail.com', 'Solo Whatsap', '932252416', '', None]:
+            self.assertEqual(f(basura), '')
+        self.assertEqual(f('"mguillen@gmail.com \t"'), 'mguillen@gmail.com')
+        self.assertEqual(f('  Elmer.J@Gmail.com  '), 'elmer.j@gmail.com')
+
+
+class CorreoEnSeparacionTestCase(SeparacionesPorDniTestCase):
+    def test_correo_basura_no_se_guarda_y_el_nuevo_lo_reemplaza(self):
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True):
+            a = self._post(monto_pagado=500, correo="00@gmail.com", celular="", referencia="c1").json()
+            p = Participante.objects.get(pk=a["id"])
+            self.assertEqual(p.correo, "")
+            self._post(monto_pagado=100, tipo_registro="completar", correo="Nuevo@Test.com",
+                       celular="955060412", referencia="c2")
+        p.refresh_from_db()
+        self.assertEqual(p.correo, "nuevo@test.com")
+        self.assertEqual(p.celular, "955060412")
+
+    def test_correo_valido_anterior_se_reemplaza_pero_sin_correo_nuevo_se_conserva(self):
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True):
+            a = self._post(monto_pagado=500, correo="uno@test.com", referencia="d1").json()
+            self._post(monto_pagado=100, tipo_registro="completar", correo="", referencia="d2")
+            p = Participante.objects.get(pk=a["id"])
+            self.assertEqual(p.correo, "uno@test.com")

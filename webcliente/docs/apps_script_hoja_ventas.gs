@@ -90,14 +90,15 @@ function alEnviarFormulario(e) {
 
 /** Envía todas las filas que aún no tienen "OK" (útil para reintentar o cargar las anteriores). */
 function enviarPendientes() {
-  var contar = {ok: 0, error: 0, omitidas: 0};
+  var contar = {ok: 0, error: 0, ya: 0, vacia: 0};
   var hoja = SpreadsheetApp.getActive().getSheetByName(HOJA);
   for (var fila = 2; fila <= hoja.getLastRow(); fila++) {
     var r = enviarFila_(hoja, fila);
-    if (r === 'ok') contar.ok++; else if (r === 'error') contar.error++; else contar.omitidas++;
+    if (contar[r] !== undefined) contar[r]++;
   }
   SpreadsheetApp.getUi().alert('Listo.\nEnviadas: ' + contar.ok + '\nCon error: ' + contar.error +
-                               '\nOmitidas (vacías o ya enviadas): ' + contar.omitidas);
+                               '\nYa estaban enviadas (SISTEMA dice OK o YA EXISTE): ' + contar.ya +
+                               '\nFilas sin nombre (vacías): ' + contar.vacia);
 }
 
 function probarConexion() {
@@ -124,18 +125,20 @@ function enviarFila_(hoja, fila) {
     var enc = encabezados_(hoja);
     var colEstado = columnaEstado_(hoja, enc);
     var estado = String(hoja.getRange(fila, colEstado).getValue() || '');
-    if (/^(OK|YA EXISTE)/.test(estado)) return 'omitida';
+    if (/^(OK|YA EXISTE)/.test(estado)) return 'ya';
 
     var v = function () { return leer_(hoja, fila, enc, Array.prototype.slice.call(arguments)); };
     var nombres = limpiar_(v('nombres y apellidos'));
-    if (!nombres) return 'omitida';
+    if (!nombres) return 'vacia';
 
     var tipoOriginal = limpiar_(v('tipo de entrada'));
     var asesor = limpiar_(v('asesor'));
     var dni = limpiar_(v('dni', 'numero de dni'));
     var marca = v('marca temporal');
-    // Cada fila decide su modo: con "Tipo de registro" es del formulario nuevo; sin él, como antes
-    var registro = REGISTROS[sinTildes_(v('tipo de registro'))] || '';
+    // Sin "Tipo de registro" (filas del formulario anterior) se trata como pago normal: el sistema compara
+    // lo pagado con el precio de la tarifa. Si cubre el precio, confirma el pago y envía la entrada solo;
+    // si es menos, queda como separación (con saldo) y NO se envía hasta completarse.
+    var registro = REGISTROS[sinTildes_(v('tipo de registro'))] || 'completo';
 
     var cuerpo = {
       evento_id: EVENTO_ID,
@@ -143,7 +146,7 @@ function enviarFila_(hoja, fila) {
       nombres: nombres,
       dni: dni,
       celular: String(v('celular', 'numero de celular') || '').replace(/\D/g, ''),
-      correo: limpiar_(v('correo electronico')),
+      correo: correo_(v('correo electronico')),
       tipo_entrada: TIPOS[sinTildes_(tipoOriginal)] || tipoOriginal,
       vendedor: ASESORES[sinTildes_(asesor)] || asesor,
       metodo_pago: limpiar_(v('metodo de pago')),
@@ -160,7 +163,7 @@ function enviarFila_(hoja, fila) {
       var acordado = numero_(v('precio acordado final (s/)'));
       if (acordado !== null && registro === 'descuento') cuerpo.precio_final = acordado;
       cuerpo.autorizado_por = limpiar_(v('autorizado por (descuento)', 'autorizado por (cortesia)', 'autorizado por'));
-      cuerpo.notas = [limpiar_(v('motivo del descuento', 'motivo de la cortesia')), limpiar_(v('notas del pago')),
+      cuerpo.notas = [limpiar_(v('motivo del descuento', 'motivo de la cortesia')), limpiar_(v('notas del pago')), limpiar_(v('detalle')),
                       limpiar_(v('observacion'))].filter(String).join(' | ');
       cuerpo.enviar_entrada = ENVIAR_AL_COMPLETAR;    // el sistema solo la envía si el pago queda completo
     } else {
@@ -390,6 +393,14 @@ function leer_(hoja, fila, enc, nombres) {
     if (valor !== '' && valor !== null && valor !== undefined) return valor;
   }
   return '';
+}
+
+/** Devuelve un correo usable o '' (descarta '00', '00@gmail.com', 'Solo Whatsapp', teléfonos, comillas). */
+function correo_(t) {
+  var m = String(t || '').replace(/["']/g, ' ').match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}/);
+  if (!m) return '';
+  var c = m[0].toLowerCase();
+  return /^0+$/.test(c.split('@')[0]) ? '' : c;
 }
 
 function limpiar_(t) { return String(t === null || t === undefined ? '' : t).replace(/\s+/g, ' ').trim(); }

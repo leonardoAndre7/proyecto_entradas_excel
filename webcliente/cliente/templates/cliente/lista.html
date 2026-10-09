@@ -427,7 +427,7 @@
                 <div class="col-md-3">
                     <div class="p-3 rounded-4 text-center d-flex flex-column align-items-center justify-content-center" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); min-height: 120px;">
                         <div class="text-white-50 small mb-2"><i class="bi bi-qr-code-scan text-warning"></i> Check-in Puerta (En Vivo)</div>
-                        <div style="width: 80px; height: 80px; position: relative;">
+                        <div style="width: 110px; height: 110px; position: relative;">
                             <canvas id="checkinChart"></canvas>
                         </div>
                         <div class="text-white-50 small mt-1 font-monospace">{{ total_ingresados }} de {{ total_vendidos }} ingresados</div>
@@ -437,9 +437,10 @@
                 <div class="col-md-3">
                     <div class="p-3 rounded-4 text-center d-flex flex-column align-items-center justify-content-center" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); min-height: 120px;">
                         <div class="text-white-50 small mb-2"><i class="bi bi-bar-chart-fill text-primary"></i> Categorías de Entrada</div>
-                        <div style="width: 140px; height: 80px; position: relative;">
+                        <div style="width: 100%; height: 110px; position: relative;">
                             <canvas id="salesChart"></canvas>
                         </div>
+                        <div class="text-white-50 small mt-1">{% if total_vendidos %}{{ total_vendidos }} entrada{{ total_vendidos|pluralize }} con pago confirmado{% else %}Aún no hay pagos confirmados{% endif %}</div>
                     </div>
                 </div>
             </div>
@@ -730,7 +731,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
     <script>
         // Modal Confirm Text Check
@@ -758,7 +759,7 @@
                     data: {
                         labels: ['Ingresados', 'Restantes'],
                         datasets: [{
-                            data: [{{ total_ingresados }}, {{ total_no_ingresados }}],
+                            data: {% if total_vendidos %}[{{ total_ingresados }}, {{ total_no_ingresados }}]{% else %}[0, 1]{% endif %},
                             backgroundColor: ['#00e676', 'rgba(255, 255, 255, 0.15)'],
                             borderWidth: 0,
                             hoverOffset: 4
@@ -769,7 +770,7 @@
                         maintainAspectRatio: false,
                         plugins: {
                             legend: { display: false },
-                            tooltip: { enabled: true }
+                            tooltip: { enabled: {% if total_vendidos %}true{% else %}false{% endif %} }
                         },
                         cutout: '75%'
                     }
@@ -780,7 +781,7 @@
                 new Chart(salesCtx, {
                     type: 'bar',
                     data: {
-                        labels: [{% for item in categoria_datos %}'{{ item.label }}'{% if not forloop.last %}, {% endif %}{% empty %}'Ninguna'{% endfor %}],
+                        labels: [{% for item in categoria_datos %}'{{ item.label|escapejs }}'{% if not forloop.last %}, {% endif %}{% empty %}'Ninguna'{% endfor %}],
                         datasets: [{
                             label: 'Vendidos',
                             data: [{% for item in categoria_datos %}{{ item.count }}{% if not forloop.last %}, {% endif %}{% empty %}0{% endfor %}],
@@ -792,13 +793,14 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        layout: { padding: { top: 16 } },
                         scales: {
                             x: { 
                                 display: true, 
                                 grid: { display: false }, 
-                                ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 9, family: 'Outfit' } } 
+                                ticks: { color: 'rgba(255,255,255,0.7)', maxRotation: 0, autoSkip: false, font: { size: 10, family: 'Outfit' } } 
                             },
-                            y: { display: false }
+                            y: { display: false, beginAtZero: true, suggestedMax: 5 }
                         },
                         plugins: {
                             legend: { display: false },
@@ -808,6 +810,10 @@
                 });
             } catch (err) {
                 console.error("Error inicializando gráficos Chart.js:", err);
+                ['checkinChart', 'salesChart'].forEach(id => {
+                    const c = document.getElementById(id);
+                    if (c && c.parentElement) c.parentElement.innerHTML = '<span class="text-white-50 small">Gráfico no disponible</span>';
+                });
             }
         });
     </script>

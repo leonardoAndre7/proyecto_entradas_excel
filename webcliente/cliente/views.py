@@ -3,6 +3,7 @@ import re
 import os
 import csv
 import json
+from django.utils.html import escape
 import unicodedata
 import time
 import logging
@@ -402,12 +403,12 @@ def evento_crear_editar(request, pk=None):
 
             def _precio(lista, campo):
                 # Acepta coma o punto. Un campo en blanco conserva el precio actual (no lo pone en 0).
-                texto = (lista[i] if i < len(lista) else '').strip().replace(',', '.')
+                texto = (lista[i] if i < len(lista) else '').strip()
+                valor = _decimal(texto, None) if texto else None
+                if valor is not None and valor >= 0:
+                    return valor
                 if texto:
-                    try:
-                        return Decimal(texto)
-                    except Exception:
-                        pass
+                    messages.warning(request, f"Precio no válido en «{t_name}»: «{texto}». Se conservó el anterior.")
                 return getattr(t_obj_prev, campo) if t_obj_prev else Decimal(0)
 
             t_p1 = _precio(tariff_p1s, 'preventa_1')
@@ -425,6 +426,10 @@ def evento_crear_editar(request, pk=None):
             t_fdesde = parse_date(tariff_fdesdes[i]) if i < len(tariff_fdesdes) and tariff_fdesdes[i] else None
             t_fhasta = parse_date(tariff_fhastas[i]) if i < len(tariff_fhastas) and tariff_fhastas[i] else None
             vigencia_enviada = i < len(tariff_fdesdes) and i < len(tariff_fhastas)
+            if vigencia_enviada and t_fdesde and t_fhasta and t_fdesde > t_fhasta:
+                messages.error(request, f"Fechas de «{t_name}» al revés (desde {t_fdesde:%d/%m/%Y} es posterior a hasta "
+                                        f"{t_fhasta:%d/%m/%Y}): no se cambiaron. Corrígelas y guarda de nuevo.")
+                vigencia_enviada = False
 
             if t_id:
                 t_obj = Tarifa.objects.filter(pk=t_id, evento=evento).first()
@@ -694,11 +699,12 @@ def enviar_correo_con_smtp(destinatarios, asunto, html_mensaje, cuerpo_texto="",
 
 
 def enviar_correo_con_smtp_evento(participante, asunto, html_mensaje, imagen_final_buffer=None):
-    if not participante.correo:
-        logger.warning(f"Participante {participante.id} ({participante.nombres}) no tiene correo. Email no enviado.")
+    correo = _correo_limpio(participante.correo)
+    if not correo:
+        logger.warning(f"Participante {participante.id} ({participante.nombres}) no tiene un correo válido. Email no enviado.")
         return False
     return enviar_correo_con_smtp(
-        destinatarios=[participante.correo],
+        destinatarios=[correo],
         asunto=asunto,
         html_mensaje=html_mensaje,
         imagen_final_buffer=imagen_final_buffer,
@@ -1101,6 +1107,17 @@ def _enviar_whatsapp_entrada(participante, buffer):
         return "error", str(e)
 
 
+def _acceso_evento(request, evento):
+    """True si el usuario es SUPERADMIN o tiene asignado el evento (igual que la lista de participantes)."""
+    perfil = PerfilUsuario.objects.filter(user=request.user).first()
+    return bool(perfil and (perfil.rol == 'SUPERADMIN' or perfil.eventos.filter(pk=evento.pk).exists()))
+
+
+def _sin_acceso(request, evento_id):
+    messages.error(request, "No tienes acceso a este evento.")
+    return redirect('dashboard_eventos')
+
+
 def enviar_entrada_participante(participante):
     """Compatibilidad: devuelve solo si el correo salió bien."""
     return enviar_entrada_detalle(participante)['email']
@@ -1133,8 +1150,8 @@ def enviar_entrada_detalle(participante):
     asunto = f"🎟️ Tu entrada oficial para {evento.nombre}"
     html_mensaje = f"""
     <html><body>
-        <p>Hola <strong>{participante.nombres}</strong>,</p>
-        <p>Tu pago ha sido confirmado para <strong>{evento.nombre}</strong>.</p>
+        <p>Hola <strong>{escape(participante.nombres)}</strong>,</p>
+        <p>Tu pago ha sido confirmado para <strong>{escape(evento.nombre)}</strong>.</p>
         <p>Cantidad de entradas adquiridas: <strong>{participante.cantidad}</strong>.</p>
         <p>Adjunto encontrarás tu boleto personalizado. Preséntalo impreso o en tu celular para ingresar.</p>
         <br>
@@ -1145,12 +1162,13 @@ def enviar_entrada_detalle(participante):
     """
     
     email_ok = enviar_correo_con_smtp_evento(participante, asunto, html_mensaje, buffer)
+    if email_ok:
+        # se marca YA: si el WhatsApp tarda (hasta 45 s) otra pestaña no debe volver a enviar el correo
+        Participante.objects.filter(pk=participante.pk).update(email_enviado=True)
 
     # 📱 WhatsApp según el proveedor del evento (también lo usa el botón Reenviar)
+    buffer.seek(0)
     wa = enviar_whatsapp_entrada(participante, buffer)
-
-    if email_ok:
-        Participante.objects.filter(pk=participante.pk).update(email_enviado=True)
 
     return {'email': email_ok, 'whatsapp': wa}
 
@@ -1159,15 +1177,31 @@ def confirmar_pago(request, evento_id, pk):
     if request.method != 'POST':
         return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
+    if not _acceso_evento(request, evento):
+        return _sin_acceso(request, evento_id)
     participante = get_object_or_404(Participante, pk=pk, evento=evento)
+    if participante.pago_confirmado and (participante.email_enviado or participante.whatsapp_enviado):
+        messages.info(request, "Este pago ya estaba confirmado y la entrada ya se envió.")
+        return redirect('participante_lista', evento_id=evento.id)
+
     participante.pago_confirmado = True
+    campos = ['pago_confirmado']
     if participante.pagos.exists():
         # Contabilidad la da por pagada: el saldo de la separación queda saldado
         participante.monto_pagado = participante.total_pagar
-    participante.save()
+        campos.append('monto_pagado')
+    participante.save(update_fields=campos)
 
-    enviar_entrada_participante(participante)
-    messages.success(request, "✅ Pago confirmado y notificaciones (Correo / WhatsApp) despachadas.")
+    try:
+        r = enviar_entrada_detalle(participante)
+    except Exception:
+        logger.exception("Error enviando la entrada al confirmar el pago")
+        messages.warning(request, "✅ Pago confirmado, pero la entrada NO se pudo enviar. Usa «Reenviar» o «Enviar tickets pendientes».")
+        return redirect('participante_lista', evento_id=evento.id)
+    if r['email'] or r['whatsapp'][0] == 'ok':
+        messages.success(request, "✅ Pago confirmado y entrada enviada.")
+    else:
+        messages.warning(request, f"✅ Pago confirmado, pero la entrada no salió ({r['whatsapp'][1]}). Usa «Reenviar» cuando corrijas el contacto.")
     return redirect('participante_lista', evento_id=evento.id)
 
 
@@ -1178,6 +1212,8 @@ def confirmar_pagos_masivo(request, evento_id):
     if request.method != 'POST':
         return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
+    if not _acceso_evento(request, evento):
+        return _sin_acceso(request, evento_id)
     pendientes = Participante.objects.filter(evento=evento, pago_confirmado=False)
     confirmados = omitidos = 0
     for p in pendientes:
@@ -1199,43 +1235,10 @@ def confirmar_pagos_masivo(request, evento_id):
 # ==========================================
 @login_required(login_url='/participantes/login/')
 def enviar_masivo(request, evento_id):
-    if request.method != 'POST':
-        return redirect('participante_lista', evento_id=evento_id)
-    evento = get_object_or_404(Evento, pk=evento_id)
-    participantes = Participante.objects.filter(evento=evento, pago_confirmado=True)
-
-    if not participantes.exists():
-        messages.warning(request, "No hay participantes aprobados y con pago confirmado para enviar.")
-        return redirect('participante_lista', evento_id=evento.id)
-
-    enviados = 0
-    for p in participantes:
-        base_url = settings.BASE_URL.rstrip("/")
-        url_val = f"{base_url}/participantes/validar/{p.token}/"
-        qr_img = qrcode.make(url_val).convert("RGB")
-        
-        imagen_final = generar_imagen_personalizada(p, qr_img)
-        if not imagen_final:
-            continue
-            
-        buffer = BytesIO()
-        imagen_final.save(buffer, format='PNG')
-        buffer.seek(0)
-        
-        asunto = f"🎟️ Tu entrada para {evento.nombre}"
-        html_mensaje = f"""
-        <html><body>
-            <p>Hola <strong>{p.nombres}</strong>,</p>
-            <p>Aquí tienes tu entrada personalizada para <strong>{evento.nombre}</strong>.</p>
-            <img src="cid:entrada" style="max-width:100%; height:auto;">
-        </body></html>
-        """
-        
-        if enviar_correo_con_smtp_evento(p, asunto, html_mensaje, buffer):
-            enviados += 1
-
-    messages.success(request, f"¡Despacho masivo finalizado con éxito! {enviados} correos enviados.")
-    return redirect('participante_lista', evento_id=evento.id)
+    """Antigua ruta de envío masivo (reenviaba a TODOS en cada clic y podía colgar el servidor).
+    Ahora solo avisa: el envío seguro es el botón «Enviar tickets pendientes» (uno por uno, sin repetir)."""
+    messages.info(request, "Usa el botón «Enviar tickets pendientes»: envía solo a quienes aún no recibieron su entrada.")
+    return redirect('participante_lista', evento_id=evento_id)
 
 
 # ==========================================
@@ -1501,45 +1504,55 @@ def enviar_siguiente_pendiente(request, evento_id):
     if request.method != 'POST':
         return JsonResponse({'error': 'method not allowed'}, status=405)
     evento = get_object_or_404(Evento, pk=evento_id)
+    if not _acceso_evento(request, evento):
+        return JsonResponse({'status': 'error', 'detalle': 'sin acceso a este evento'}, status=403)
     try:
         cuerpo = json.loads(request.body or b'{}')
         excluir = [int(x) for x in cuerpo.get('excluir', [])][:5000]
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, AttributeError):
         excluir = []
 
     base = Participante.objects.filter(evento=evento, pago_confirmado=True,
                                        email_enviado=False, whatsapp_enviado=False)
     total = Participante.objects.filter(evento=evento, pago_confirmado=True).count()
-    pendiente = base.exclude(id__in=excluir).order_by('id').first()
+    pendiente = None
+    for candidato in base.exclude(id__in=excluir).order_by('id')[:25]:
+        # Reserva 5 min: dos pestañas (o un reintento) nunca envían a la misma persona a la vez
+        if cache.add(f"envio_entrada:{candidato.pk}", 1, 300):
+            pendiente = candidato
+            break
     if not pendiente:
         return JsonResponse({'status': 'done', 'pendientes': 0, 'total': total})
 
-    tiene_correo = bool(_correo_limpio(pendiente.correo))
-    tiene_celular = bool(normalizar_celular(pendiente.celular))
-    respuesta = {'id': pendiente.id, 'nombre': pendiente.nombres, 'total': total,
-                 'pendientes': base.exclude(id__in=excluir + [pendiente.id]).count()}
-    if not (tiene_correo or tiene_celular):
-        respuesta.update({'status': 'sin_contacto', 'detalle': 'sin correo ni celular válido'})
-        return JsonResponse(respuesta)
-
     try:
-        r = enviar_entrada_detalle(pendiente)
-    except Exception as e:
-        logger.exception("Error enviando entrada masiva")
-        respuesta.update({'status': 'error', 'detalle': f'error inesperado: {e}'})
-        return JsonResponse(respuesta)
+        tiene_correo = bool(_correo_limpio(pendiente.correo))
+        tiene_celular = bool(normalizar_celular(pendiente.celular))
+        respuesta = {'id': pendiente.id, 'nombre': pendiente.nombres, 'total': total,
+                     'pendientes': base.exclude(id__in=excluir + [pendiente.id]).count()}
+        if not (tiene_correo or tiene_celular):
+            respuesta.update({'status': 'sin_contacto', 'detalle': 'sin correo ni celular válido'})
+            return JsonResponse(respuesta)
 
-    canales = []
-    if r['email']:
-        canales.append('correo')
-    if r['whatsapp'][0] == 'ok':
-        canales.append('WhatsApp')
-    if canales:
-        respuesta.update({'status': 'ok', 'detalle': 'enviado por ' + ' y '.join(canales)})
-    else:
-        motivo = r['whatsapp'][1]
-        respuesta.update({'status': 'error', 'detalle': f'no se pudo enviar ({motivo})' if motivo else 'no se pudo enviar'})
-    return JsonResponse(respuesta)
+        try:
+            r = enviar_entrada_detalle(pendiente)
+        except Exception as e:
+            logger.exception("Error enviando entrada masiva")
+            respuesta.update({'status': 'error', 'detalle': f'error inesperado: {e}'})
+            return JsonResponse(respuesta)
+
+        canales = []
+        if r['email']:
+            canales.append('correo')
+        if r['whatsapp'][0] == 'ok':
+            canales.append('WhatsApp')
+        if canales:
+            respuesta.update({'status': 'ok', 'detalle': 'enviado por ' + ' y '.join(canales)})
+        else:
+            motivo = r['whatsapp'][1]
+            respuesta.update({'status': 'error', 'detalle': f'no se pudo enviar ({motivo})' if motivo else 'no se pudo enviar'})
+        return JsonResponse(respuesta)
+    finally:
+        cache.delete(f"envio_entrada:{pendiente.pk}")   # la reserva solo dura mientras se envía
 
 
 # ==========================================
@@ -1824,6 +1837,8 @@ def marcar_ingreso(request, evento_id, pk):
     if request.method != 'POST':
         return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
+    if not _acceso_evento(request, evento):
+        return _sin_acceso(request, evento_id)
     participante = get_object_or_404(Participante, pk=pk, evento=evento)
     ok, mensaje = participante.registrar_ingreso()
     if ok:
@@ -1965,12 +1980,17 @@ def reenviar_correo(request, evento_id, pk):
     if request.method != 'POST':
         return redirect('participante_lista', evento_id=evento_id)
     evento = get_object_or_404(Evento, pk=evento_id)
+    if not _acceso_evento(request, evento):
+        return _sin_acceso(request, evento_id)
     participante = get_object_or_404(Participante, pk=pk, evento=evento)
-    
+    if not participante.pago_confirmado:
+        messages.error(request, "El pago de esta persona no está confirmado: confírmalo antes de enviar la entrada.")
+        return redirect('participante_lista', evento_id=evento.id)
+
     base_url = settings.BASE_URL.rstrip("/")
     url_val = f"{base_url}/participantes/validar/{participante.token}/"
     qr_img = qrcode.make(url_val).convert("RGB")
-    
+
     imagen_final = generar_imagen_personalizada(participante, qr_img)
     if not imagen_final:
         messages.error(request, "No se pudo generar la imagen del boleto: falta la imagen de fondo del evento. Vuelve a subirla en Editar evento.")
@@ -1983,16 +2003,17 @@ def reenviar_correo(request, evento_id, pk):
     asunto = f"🎟️ Reenvío de tu entrada oficial para {evento.nombre}"
     html_mensaje = f"""
     <html><body>
-        <p>Hola <strong>{participante.nombres}</strong>,</p>
-        <p>Este es un reenvío de tu entrada oficial para <strong>{evento.nombre}</strong>.</p>
+        <p>Hola <strong>{escape(participante.nombres)}</strong>,</p>
+        <p>Este es un reenvío de tu entrada oficial para <strong>{escape(evento.nombre)}</strong>.</p>
         <img src="cid:entrada" style="max-width:100%; height:auto;">
     </body></html>
     """
     
     if enviar_correo_con_smtp_evento(participante, asunto, html_mensaje, buffer):
+        Participante.objects.filter(pk=participante.pk).update(email_enviado=True)
         messages.success(request, "Boleto reenviado por correo con éxito.")
     else:
-        messages.error(request, "Fallo al enviar el correo.")
+        messages.error(request, "Fallo al enviar el correo (¿la persona tiene un correo válido?).")
 
     # WhatsApp: el reenvío antes solo mandaba correo
     buffer.seek(0)

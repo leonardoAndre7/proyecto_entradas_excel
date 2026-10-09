@@ -13,10 +13,8 @@
  *
  * INSTALACIÓN (una sola vez)
  *  1. En la hoja: Extensiones → Apps Script. Pega todo este archivo (reemplaza lo anterior) y guarda.
- *  2. Propiedades de la secuencia de comandos (engranaje → Configuración del proyecto):
- *       API_URL   = https://ede-evento.com/api/registrar-participante/
- *       API_KEY   = (la clave de la hoja; la misma que está en API_KEYS_EXTRA de Render)
- *       EVENTO_ID = 4
+ *  2. Edita arriba, en CONFIGURACIÓN: API_URL, API_KEY (la misma que está en API_KEYS_EXTRA de Render) y EVENTO_ID.
+ *     Quien pueda editar esta hoja puede ver la clave: compártela solo con quien deba administrarla.
  *  3. Activador (reloj): función alEnviarFormulario · De una hoja de cálculo · Al enviar el formulario.
  *  4. Elige la función  revisarFormulario  y ejecútala (solo lee, no cambia nada): confirma que
  *     encuentra todas las preguntas. Luego ejecuta  modificarFormularioExistente.

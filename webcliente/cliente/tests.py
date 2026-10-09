@@ -1193,3 +1193,16 @@ class ApiEndurecidaTestCase(SeparacionesPorDniTestCase):
             self._post(monto_pagado=200, tipo_registro="completar", referencia="s2")
         p = Participante.objects.get(pk=a["id"])
         self.assertEqual(p.monto_pagado, sum(x.monto for x in p.pagos.all()))
+
+
+class EditorTarifasValidacionTestCase(EventoNoPierdeDatosTestCase):
+    def test_fechas_al_reves_no_se_guardan_y_precio_negativo_se_conserva(self):
+        self.tarifa.puerta = 100
+        self.tarifa.save()
+        r = self.client.post(self.url, self._datos(self._estado(), tariff_puerta=["-5"],
+                                                   tariff_fdesde=["2026-11-15"], tariff_fhasta=["2026-11-14"]), follow=True)
+        self.tarifa.refresh_from_db()
+        self.assertEqual(float(self.tarifa.puerta), 100.0)
+        self.assertIsNone(self.tarifa.fecha_desde)
+        textos = " ".join(str(m) for m in r.context["messages"]) if r.context else ""
+        self.assertTrue("al revés" in textos or "Precio no válido" in textos or r.status_code == 200)

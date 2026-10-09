@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EDE Puerta</string>
+    <!-- Dirección de la app web de puerta (debe ser HTTPS) -->
+    <string name="base_url">https://ede-evento.com/puerta/</string>
+</resources>

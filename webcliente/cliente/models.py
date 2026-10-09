@@ -24,7 +24,7 @@ def ahora_actual():
 def normalizar_celular(valor):
     """Devuelve el celular peruano de 9 dígitos, o '' si no es creíble.
     Descarta vacíos, números sin 9 dígitos, que no empiezan con 9 y los inventados (999999999, 912345678...)."""
-    digitos = "".join(c for c in str(valor or "") if c.isdigit())
+    digitos = "".join(c for c in str(valor or "") if c.isascii() and c.isdecimal())
     if len(digitos) == 11 and digitos.startswith("51"):
         digitos = digitos[2:]
     if len(digitos) != 9 or not digitos.startswith("9"):
@@ -386,12 +386,65 @@ class Participante(models.Model):
     def puede_ingresar_mas(self):
         return self.ingresos_hechos < self.ingresos_limite
 
+    def _rechazo_por_pago(self):
+        if self.en_separacion:
+            return "saldo_pendiente", (f"💰 Pago incompleto: tiene un saldo pendiente de S/ {self.saldo_pendiente:,.2f}. "
+                                       "Debe completar el pago antes de ingresar.")
+        return None
+
+    @staticmethod
+    def _rechazo_por_vigencia(tarifa, hoy):
+        if tarifa.fecha_desde and hoy < tarifa.fecha_desde:
+            return "fuera_de_fecha", f"📅 Esta entrada ({tarifa.tipo_entrada}) todavía no es válida: ingresa desde el {tarifa.fecha_desde:%d/%m/%Y}."
+        if tarifa.fecha_hasta and hoy > tarifa.fecha_hasta:
+            return "fuera_de_fecha", f"📅 Esta entrada ({tarifa.tipo_entrada}) ya venció: era válida hasta el {tarifa.fecha_hasta:%d/%m/%Y}."
+        return None
+
+    @staticmethod
+    def _hora_en_ventana(hora, desde, hasta):
+        """True si la hora está dentro de la ventana. Soporta ventanas que cruzan la medianoche (20:00 → 03:00)."""
+        hora = hora.replace(second=0, microsecond=0)      # "hasta 23:00" incluye 23:00:30
+        if desde and hasta and desde > hasta:
+            return hora >= desde or hora <= hasta
+        if desde and hora < desde:
+            return False
+        if hasta and hora > hasta:
+            return False
+        return True
+
+    def _rechazo_por_horario(self, tarifa, local):
+        if not self._hora_en_ventana(local.time(), tarifa.hora_desde, tarifa.hora_hasta):
+            return "fuera_de_horario", f"⏰ Fuera de horario: esta entrada ({tarifa.tipo_entrada}) ingresa {tarifa.ventana_horaria_texto}."
+        return None
+
+    def _rechazo_por_uso(self, fechas, local, limite):
+        from django.utils import timezone
+        for f in fechas:
+            if f and timezone.localtime(f).date() == local.date():
+                return "duplicado", f"❌ ¡Boleto ya utilizado hoy! Registrado el {timezone.localtime(f).strftime('%d/%m/%Y %I:%M %p')}"
+        if len(fechas) >= limite:
+            ultima = next((f for f in reversed(fechas) if f), None)
+            detalle = f" Último ingreso: {timezone.localtime(ultima).strftime('%d/%m/%Y %I:%M %p')}" if ultima else ""
+            return "agotado", f"❌ ¡Boleto ya utilizado! Agotó sus {limite} día(s) de acceso.{detalle}"
+        return None
+
     def registrar_ingreso(self):
         """
         Intenta registrar un ingreso ahora. Devuelve (ok, mensaje).
-        Reglas: máximo `tarifa.dias_validos` ingresos, uno por día calendario,
-        y dentro de la ventana horaria de la tarifa si está definida.
+        Reglas (en este orden): pago completo, fechas de la tarifa, horario, un ingreso por día
+        y máximo `tarifa.dias_validos`. Va dentro de una transacción con la fila bloqueada: dos
+        escaneos casi simultáneos del mismo QR no pueden registrar dos ingresos.
         """
+        from django.db import transaction
+        with transaction.atomic():
+            bloqueado = Participante.objects.select_for_update().get(pk=self.pk)
+            ok, mensaje = bloqueado._registrar_ingreso_sin_bloqueo()
+            self.ultimo_motivo = bloqueado.ultimo_motivo
+            if ok:
+                self.entrada_usada = True
+            return ok, mensaje
+
+    def _registrar_ingreso_sin_bloqueo(self):
         import datetime
         from django.utils import timezone
 
@@ -401,36 +454,14 @@ class Participante(models.Model):
         local = timezone.localtime(ahora)
 
         self.ultimo_motivo = None   # duplicado | agotado | fuera_de_horario | fuera_de_fecha | saldo_pendiente
-        if self.en_separacion:
-            self.ultimo_motivo = "saldo_pendiente"
-            return False, (f"💰 Pago incompleto: tiene un saldo pendiente de S/ {self.saldo_pendiente:,.2f}. "
-                           "Debe completar el pago antes de ingresar.")
-        if tarifa:
-            hoy = local.date()
-            if tarifa.fecha_desde and hoy < tarifa.fecha_desde:
-                self.ultimo_motivo = "fuera_de_fecha"
-                return False, f"📅 Esta entrada ({tarifa.tipo_entrada}) todavía no es válida: ingresa desde el {tarifa.fecha_desde:%d/%m/%Y}."
-            if tarifa.fecha_hasta and hoy > tarifa.fecha_hasta:
-                self.ultimo_motivo = "fuera_de_fecha"
-                return False, f"📅 Esta entrada ({tarifa.tipo_entrada}) ya venció: era válida hasta el {tarifa.fecha_hasta:%d/%m/%Y}."
-            if tarifa.hora_desde and local.time() < tarifa.hora_desde:
-                self.ultimo_motivo = "fuera_de_horario"
-                return False, f"⏰ Fuera de horario: esta entrada ({tarifa.tipo_entrada}) ingresa {tarifa.ventana_horaria_texto}."
-            if tarifa.hora_hasta and local.time() > tarifa.hora_hasta:
-                self.ultimo_motivo = "fuera_de_horario"
-                return False, f"⏰ Fuera de horario: esta entrada ({tarifa.tipo_entrada}) ingresa {tarifa.ventana_horaria_texto}."
-
+        rechazo = self._rechazo_por_pago()
+        if not rechazo and tarifa:
+            rechazo = self._rechazo_por_vigencia(tarifa, local.date()) or self._rechazo_por_horario(tarifa, local)
         fechas = self.fechas_ingreso()
-        for f in fechas:
-            if f and timezone.localtime(f).date() == local.date():
-                self.ultimo_motivo = "duplicado"
-                return False, f"❌ ¡Boleto ya utilizado hoy! Registrado el {timezone.localtime(f).strftime('%d/%m/%Y %I:%M %p')}"
-
-        if len(fechas) >= limite:
-            self.ultimo_motivo = "agotado"
-            ultima = next((f for f in reversed(fechas) if f), None)
-            detalle = f" Último ingreso: {timezone.localtime(ultima).strftime('%d/%m/%Y %I:%M %p')}" if ultima else ""
-            return False, f"❌ ¡Boleto ya utilizado! Agotó sus {limite} día(s) de acceso.{detalle}"
+        rechazo = rechazo or self._rechazo_por_uso(fechas, local, limite)
+        if rechazo:
+            self.ultimo_motivo, mensaje = rechazo
+            return False, mensaje
 
         # Si venía de un registro histórico sin fila, conservarlo antes de sumar el nuevo
         if not self.ingresos.exists() and self.entrada_usada:

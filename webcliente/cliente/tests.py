@@ -1080,3 +1080,72 @@ class ConfirmarPagosMasivoTestCase(SeparacionesPorDniTestCase):
         self.assertTrue(suelto.pago_confirmado)
         self.assertFalse(sep.pago_confirmado)
         self.assertEqual(envio.call_count, 0)
+
+
+@override_settings(API_KEY="clave-segura-de-prueba-123")
+class EnvioMasivoRobustoTestCase(TestCase):
+    """Una persona sin correo, con celular falso o con error no debe trabar el envío a las demás."""
+
+    def setUp(self):
+        import json
+        self.json = json
+        user = User.objects.create_superuser("adm11", "a11@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm11", password="pass12345")
+        self.evento = Evento.objects.create(nombre="EDE")
+        self.url = reverse("enviar_siguiente_pendiente", kwargs={"evento_id": self.evento.id})
+
+    def _p(self, nombre, correo="", celular=""):
+        return Participante.objects.create(evento=self.evento, nombres=nombre, dni=nombre, correo=correo,
+                                           celular=celular, pago_confirmado=True)
+
+    def _siguiente(self, excluir):
+        return self.client.post(self.url, self.json.dumps({"excluir": excluir}),
+                                content_type="application/json").json()
+
+    def test_celulares_falsos(self):
+        from cliente.models import normalizar_celular as n
+        for falso in ["999999999", "999 999 999", "912345678", "12345", "", "800123456", "00000000"]:
+            self.assertEqual(n(falso), "", falso)
+        self.assertEqual(n("955 060 412"), "955060412")
+        self.assertEqual(n("+51 955060412"), "955060412")
+
+    def test_sin_contacto_y_errores_no_traban_la_cola(self):
+        sin = self._p("sin", correo="00@gmail.com", celular="999999999")
+        falla = self._p("falla", correo="a@test.com")
+        bien = self._p("bien", correo="b@test.com", celular="955060412")
+        respuestas = {}
+        with mock.patch("cliente.views.enviar_entrada_detalle") as envio:
+            envio.side_effect = lambda p: ({"email": False, "whatsapp": ("error", "caído")} if p.pk == falla.pk
+                                           else {"email": True, "whatsapp": ("ok", "enviado")})
+            intentados = []
+            for _ in range(10):
+                r = self._siguiente(intentados)
+                if r["status"] == "done":
+                    break
+                respuestas[r["id"]] = r["status"]
+                intentados.append(r["id"])
+        self.assertEqual(respuestas, {sin.pk: "sin_contacto", falla.pk: "error", bien.pk: "ok"})
+        self.assertEqual(envio.call_count, 2)          # a "sin contacto" ni se le intenta enviar
+
+    def test_whatsapp_ok_marca_enviado_y_no_se_repite(self):
+        p = self._p("solo wa", celular="955060412")
+        with mock.patch("cliente.views._enviar_whatsapp_entrada", return_value=("ok", "enviado")), \
+             mock.patch("cliente.views.generar_imagen_personalizada") as img:
+            from PIL import Image
+            img.return_value = Image.new("RGB", (10, 10))
+            r = self._siguiente([])
+            self.assertEqual(r["status"], "ok")
+            self.assertEqual(self._siguiente([])["status"], "done")
+        p.refresh_from_db()
+        self.assertTrue(p.whatsapp_enviado)
+
+    def test_api_guarda_celular_falso_vacio_con_nota(self):
+        import json
+        with mock.patch("cliente.views.enviar_entrada_participante", return_value=True):
+            r = self.client.post(reverse("api_registrar_participante"), json.dumps({
+                "evento_id": self.evento.id, "nombres": "Ana", "dni": "777", "celular": "999 999 999"}),
+                content_type="application/json", HTTP_X_API_KEY="clave-segura-de-prueba-123").json()
+        p = Participante.objects.get(pk=r["id"])
+        self.assertEqual(p.celular, "")
+        self.assertIn("999999999", (p.notas or "").replace(" ", ""))

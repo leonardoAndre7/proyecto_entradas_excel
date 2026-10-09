@@ -837,6 +837,9 @@
         document.getElementById('envio-log').innerHTML = '';
         document.getElementById('btn-cerrar-envio').disabled = true;
         envioActivo = true;
+        intentados = [];
+        fallosSeguidos = 0;
+        resumenEnvio = {ok: 0, error: 0, sin_contacto: 0};
         enviarSiguiente(modal);
     }
 
@@ -845,17 +848,26 @@
         location.reload();
     }
 
+    let intentados = [];
+    let fallosSeguidos = 0;
+    let resumenEnvio = {ok: 0, error: 0, sin_contacto: 0};
+
     async function enviarSiguiente(modal) {
         if (!envioActivo) return;
         try {
             const resp = await fetch(ENVIAR_URL, {
                 method: 'POST',
                 headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+                body: JSON.stringify({excluir: intentados}),
             });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const data = await resp.json();
+            fallosSeguidos = 0;
 
             if (data.status === 'done') {
-                document.getElementById('envio-status').textContent = '¡Todos los tickets han sido enviados!';
+                const r = resumenEnvio;
+                document.getElementById('envio-status').textContent =
+                    `Listo: ${r.ok} enviadas, ${r.error} con error, ${r.sin_contacto} sin correo/celular válido.`;
                 document.getElementById('envio-barra').style.width = '100%';
                 document.getElementById('envio-barra').classList.remove('progress-bar-animated');
                 document.getElementById('btn-cerrar-envio').disabled = false;
@@ -863,20 +875,36 @@
                 return;
             }
 
-            const enviados = data.total - data.pendientes;
-            const pct = data.total > 0 ? Math.round((enviados / data.total) * 100) : 0;
+            // Cada persona se intenta UNA sola vez por tanda: un error nunca traba a las siguientes
+            if (data.id) intentados.push(data.id);
+            resumenEnvio[data.status] = (resumenEnvio[data.status] || 0) + 1;
+
+            const hechos = intentados.length;
+            const pct = (hechos + data.pendientes) > 0 ? Math.round((hechos / (hechos + data.pendientes)) * 100) : 100;
             document.getElementById('envio-barra').style.width = pct + '%';
             document.getElementById('envio-status').textContent =
-                `Enviando... ${enviados} de ${data.total} (quedan ${data.pendientes})`;
+                `Enviando... ${hechos} de ${hechos + data.pendientes} (quedan ${data.pendientes})`;
 
             const log = document.getElementById('envio-log');
-            const icon = data.status === 'ok' ? '✅' : '⚠️';
-            log.innerHTML += `<div>${icon} ${data.nombre}</div>`;
+            const icon = data.status === 'ok' ? '✅' : (data.status === 'sin_contacto' ? '⏭️' : '⚠️');
+            const fila = document.createElement('div');
+            fila.textContent = `${icon} ${data.nombre}${data.detalle ? ' — ' + data.detalle : ''}`;
+            log.appendChild(fila);
             log.scrollTop = log.scrollHeight;
 
-            setTimeout(() => enviarSiguiente(modal), 300);
+            // Pausa entre envíos: WhatsApp penaliza los mensajes seguidos a muchos números
+            setTimeout(() => enviarSiguiente(modal), data.status === 'sin_contacto' ? 100 : 2500);
         } catch (e) {
-            document.getElementById('envio-status').textContent = 'Error de conexión. Reintentando...';
+            fallosSeguidos++;
+            if (fallosSeguidos >= 4) {
+                // No reintentar para siempre: se detiene y se puede volver a pulsar el botón
+                document.getElementById('envio-status').textContent =
+                    'Se detuvo por errores de conexión repetidos. Cierra esta ventana y vuelve a pulsar el botón (las ya enviadas no se repiten).';
+                document.getElementById('btn-cerrar-envio').disabled = false;
+                envioActivo = false;
+                return;
+            }
+            document.getElementById('envio-status').textContent = `Error de conexión. Reintentando (${fallosSeguidos}/3)...`;
             setTimeout(() => enviarSiguiente(modal), 3000);
         }
     }

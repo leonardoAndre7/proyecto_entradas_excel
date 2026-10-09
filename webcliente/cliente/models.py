@@ -20,6 +20,20 @@ def ahora_actual():
     return timezone.now()
 
 
+
+def normalizar_celular(valor):
+    """Devuelve el celular peruano de 9 dígitos, o '' si no es creíble.
+    Descarta vacíos, números sin 9 dígitos, que no empiezan con 9 y los inventados (999999999, 912345678...)."""
+    digitos = "".join(c for c in str(valor or "") if c.isdigit())
+    if len(digitos) == 11 and digitos.startswith("51"):
+        digitos = digitos[2:]
+    if len(digitos) != 9 or not digitos.startswith("9"):
+        return ""
+    if len(set(digitos)) <= 2 or digitos in ("987654321", "912345678", "923456789", "934567890"):
+        return ""
+    return digitos
+
+
 class Evento(models.Model):
     nombre = models.CharField(max_length=255, verbose_name="Nombre del Evento")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
@@ -263,6 +277,7 @@ class Participante(models.Model):
     validado_admin = models.BooleanField(default=False)
     validado_contabilidad = models.BooleanField(default=False)
     email_enviado = models.BooleanField(default=False)
+    whatsapp_enviado = models.BooleanField(default=False)
 
     # Datos que llegan desde la hoja de ventas (Google Sheets) por la API
     metodo_pago = models.CharField(max_length=60, blank=True, null=True, verbose_name="Método de pago")

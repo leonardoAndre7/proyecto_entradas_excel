@@ -44,7 +44,7 @@ from django.core.paginator import Paginator
 from openpyxl.styles import Font, PatternFill
 
 # Import models & forms
-from .models import Evento, Tarifa, PerfilUsuario, Participante, Voucher, RegistroCorreo, Previaparticipantes, PagoParticipante
+from .models import Evento, Tarifa, PerfilUsuario, Participante, Voucher, RegistroCorreo, Previaparticipantes, PagoParticipante, normalizar_celular
 from .forms import ParticipanteForm
 
 logger = logging.getLogger(__name__)
@@ -947,7 +947,10 @@ def _resumen_cabeceras(headers):
 def enviar_whatsapp_entrada(participante, buffer):
     """Envoltorio seguro: un error inesperado se devuelve como aviso, nunca como error 500."""
     try:
-        return _enviar_whatsapp_entrada(participante, buffer)
+        resultado = _enviar_whatsapp_entrada(participante, buffer)
+        if resultado and resultado[0] == "ok":
+            Participante.objects.filter(pk=participante.pk).update(whatsapp_enviado=True)
+        return resultado
     except Exception as e:
         logger.exception("Error inesperado enviando WhatsApp")
         return "error", f"error inesperado: {e}"
@@ -962,6 +965,8 @@ def _enviar_whatsapp_entrada(participante, buffer):
     evento = participante.evento
     if not participante.celular:
         return "omitido", "el participante no tiene celular"
+    if not normalizar_celular(participante.celular):
+        return "omitido", f"el celular '{participante.celular}' no es válido (9 dígitos y empieza con 9)"
 
     provider = getattr(evento, 'whatsapp_provider', 'INACTIVE')
     twilio_listo = provider == 'TWILIO' and evento.twilio_account_sid and evento.twilio_auth_token
@@ -1003,9 +1008,7 @@ def _enviar_whatsapp_entrada(participante, buffer):
         logger.error(f"WhatsApp no enviado: la entrada no se pudo subir a ImgBB ({imgbb_error})")
         return "error", f"no se pudo subir la entrada a ImgBB ({imgbb_error}). Revisa la ImgBB API Key del evento."
 
-    num_limpio = "".join(filter(str.isdigit, participante.celular))
-    if not num_limpio.startswith("51"):
-        num_limpio = "51" + num_limpio
+    num_limpio = "51" + normalizar_celular(participante.celular)
 
     msg_body = (
         f"¡Hola {participante.nombres}! 👋\n\n"
@@ -1098,9 +1101,15 @@ def _enviar_whatsapp_entrada(participante, buffer):
 
 
 def enviar_entrada_participante(participante):
+    """Compatibilidad: devuelve solo si el correo salió bien."""
+    return enviar_entrada_detalle(participante)['email']
+
+
+def enviar_entrada_detalle(participante):
+    """Envía la entrada por correo y WhatsApp y devuelve {'email': bool, 'whatsapp': (estado, detalle)}."""
     evento = participante.evento
     if not evento:
-        return False
+        return {'email': False, 'whatsapp': ("omitido", "sin evento")}
 
     # Generar QR dinámico
     base_url = settings.BASE_URL.rstrip("/")
@@ -1110,7 +1119,7 @@ def enviar_entrada_participante(participante):
     # Generar imagen combinada del boleto
     imagen_final = generar_imagen_personalizada(participante, qr_img)
     if not imagen_final:
-        return False
+        return {'email': False, 'whatsapp': ("error", "no se pudo generar la imagen del boleto")}
 
     # Nota de seguridad: la entrada ya no se guarda en MEDIA_ROOT como entrada_<id>.png.
     # /media/ es público y los ids son consecutivos, así que cualquiera podía descargar
@@ -1137,12 +1146,12 @@ def enviar_entrada_participante(participante):
     email_ok = enviar_correo_con_smtp_evento(participante, asunto, html_mensaje, buffer)
 
     # 📱 WhatsApp según el proveedor del evento (también lo usa el botón Reenviar)
-    enviar_whatsapp_entrada(participante, buffer)
+    wa = enviar_whatsapp_entrada(participante, buffer)
 
     if email_ok:
         Participante.objects.filter(pk=participante.pk).update(email_enviado=True)
 
-    return email_ok
+    return {'email': email_ok, 'whatsapp': wa}
 
 @login_required(login_url='/participantes/login/')
 def confirmar_pago(request, evento_id, pk):
@@ -1483,27 +1492,53 @@ def importar_excel(request, evento_id):
 # ==========================================
 @login_required(login_url='/participantes/login/')
 def enviar_siguiente_pendiente(request, evento_id):
+    """
+    Envía la siguiente entrada pendiente. Pendiente = pago confirmado y todavía sin correo ni WhatsApp
+    entregado. El navegador manda en 'excluir' los ids que ya intentó en esta tanda, así una persona
+    sin correo, con un celular falso o con un error NUNCA bloquea a las siguientes.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'method not allowed'}, status=405)
     evento = get_object_or_404(Evento, pk=evento_id)
-    pendiente = Participante.objects.filter(
-        evento=evento, pago_confirmado=True, email_enviado=False
-    ).first()
+    try:
+        cuerpo = json.loads(request.body or b'{}')
+        excluir = [int(x) for x in cuerpo.get('excluir', [])][:5000]
+    except (ValueError, TypeError):
+        excluir = []
 
+    base = Participante.objects.filter(evento=evento, pago_confirmado=True,
+                                       email_enviado=False, whatsapp_enviado=False)
+    total = Participante.objects.filter(evento=evento, pago_confirmado=True).count()
+    pendiente = base.exclude(id__in=excluir).order_by('id').first()
     if not pendiente:
-        total = Participante.objects.filter(evento=evento, pago_confirmado=True).count()
         return JsonResponse({'status': 'done', 'pendientes': 0, 'total': total})
 
-    ok = enviar_entrada_participante(pendiente)
+    tiene_correo = bool(_correo_limpio(pendiente.correo))
+    tiene_celular = bool(normalizar_celular(pendiente.celular))
+    respuesta = {'id': pendiente.id, 'nombre': pendiente.nombres, 'total': total,
+                 'pendientes': base.exclude(id__in=excluir + [pendiente.id]).count()}
+    if not (tiene_correo or tiene_celular):
+        respuesta.update({'status': 'sin_contacto', 'detalle': 'sin correo ni celular válido'})
+        return JsonResponse(respuesta)
 
-    pendientes = Participante.objects.filter(evento=evento, pago_confirmado=True, email_enviado=False).count()
-    total = Participante.objects.filter(evento=evento, pago_confirmado=True).count()
-    return JsonResponse({
-        'status': 'ok' if ok else 'error',
-        'nombre': pendiente.nombres,
-        'pendientes': pendientes,
-        'total': total,
-    })
+    try:
+        r = enviar_entrada_detalle(pendiente)
+    except Exception as e:
+        logger.exception("Error enviando entrada masiva")
+        respuesta.update({'status': 'error', 'detalle': f'error inesperado: {e}'})
+        return JsonResponse(respuesta)
+
+    canales = []
+    if r['email']:
+        canales.append('correo')
+    if r['whatsapp'][0] == 'ok':
+        canales.append('WhatsApp')
+    if canales:
+        respuesta.update({'status': 'ok', 'detalle': 'enviado por ' + ' y '.join(canales)})
+    else:
+        motivo = r['whatsapp'][1]
+        respuesta.update({'status': 'error', 'detalle': f'no se pudo enviar ({motivo})' if motivo else 'no se pudo enviar'})
+    return JsonResponse(respuesta)
 
 
 # ==========================================
@@ -2892,7 +2927,8 @@ def api_registrar_participante(request):
 
     apellidos    = _limpiar(data.get('apellidos'))
     dni          = _limpiar(data.get('dni'))
-    celular      = _limpiar(data.get('celular'))
+    celular_original = _limpiar(data.get('celular'))
+    celular      = normalizar_celular(celular_original)
     correo       = _correo_limpio(data.get('correo'))
     tipo_entrada = _limpiar(data.get('tipo_entrada'))
     tipo_tarifa  = _limpiar(data.get('tipo_tarifa') or 'pre1').lower()
@@ -2900,6 +2936,8 @@ def api_registrar_participante(request):
     metodo_pago  = _limpiar(data.get('metodo_pago'))[:60]
     voucher_url  = _limpiar(data.get('voucher_url'))[:500]
     notas        = str(data.get('notas') or '').strip()
+    if celular_original and not celular:
+        notas = (notas + ' | ' if notas else '') + f'Celular no válido en la hoja: {celular_original}'
     referencia   = _limpiar(data.get('referencia'))[:100]
     tipo_registro = _limpiar(data.get('tipo_registro')).lower()
     autorizado_por = _limpiar(data.get('autorizado_por'))[:120]

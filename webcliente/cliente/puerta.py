@@ -6,7 +6,7 @@ App de puerta: escaneo de QR sin login de usuario.
 - Las reglas de ingreso viven en Participante.registrar_ingreso() (única fuente de verdad).
 """
 import json
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -242,15 +242,25 @@ def puerta_panel(request):
                 error = "La fecha de vencimiento ya pasó."
             else:
                 obj, claro = CodigoPuerta.generar(evento, nombre, vence)
-                nuevo = {"obj": obj, "codigo": claro}
+                texto = (f"Hola {nombre}, este es tu código para escanear entradas en {evento.nombre}:\n\n"
+                         f"*{claro}*\n\n"
+                         "1) Instala la app EDE Puerta.\n2) Ábrela, escribe el código y acepta el permiso de cámara.\n"
+                         f"El código vence el {timezone.localtime(vence):%d/%m/%Y %H:%M}. No lo compartas.")
+                nuevo = {"obj": obj, "codigo": claro, "wa": "https://wa.me/?text=" + quote(texto)}
         elif accion in ("revocar", "reactivar"):
             CodigoPuerta.objects.filter(pk=request.POST.get("id")).update(activo=(accion == "reactivar"))
             return redirect("puerta_panel")
 
+    codigos = list(CodigoPuerta.objects.select_related("evento"))
+    ahora = ahora_actual()
+    for c in codigos:
+        c.estado = "revocado" if not c.activo else ("vencido" if c.vence_en <= ahora else "activo")
     return render(request, "cliente/puerta_panel.html", {
         "eventos": Evento.objects.all().order_by("-id"),
-        "codigos": CodigoPuerta.objects.select_related("evento"),
+        "codigos": codigos,
+        "n_activos": sum(c.estado == "activo" for c in codigos),
+        "n_escaneos": sum(c.escaneos for c in codigos),
         "nuevo": nuevo,
         "error": error,
-        "ahora": ahora_actual(),
+        "ahora": ahora,
     })

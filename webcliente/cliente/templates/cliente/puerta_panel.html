@@ -3,70 +3,118 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>Códigos de puerta</title>
 <style>
-  body{font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#f1f5f9;color:#0f172a;margin:0;padding:20px}
-  .wrap{max-width:900px;margin:0 auto}
-  h1{margin:0 0 4px} p.sub{color:#475569;margin-top:0}
-  .card{background:#fff;border-radius:14px;padding:18px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-  label{display:block;font-weight:600;margin:10px 0 4px}
-  input,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}
-  button{padding:10px 16px;border:0;border-radius:8px;font:inherit;font-weight:700;cursor:pointer;background:#2563eb;color:#fff;margin-top:12px}
-  button.rojo{background:#dc2626;margin:0} button.gris{background:#475569;margin:0}
-  table{width:100%;border-collapse:collapse} th,td{text-align:left;padding:8px;border-bottom:1px solid #e2e8f0;font-size:14px}
-  .tag{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
-  .ok{background:#dcfce7;color:#166534}.no{background:#fee2e2;color:#991b1b}.ven{background:#fef3c7;color:#92400e}
-  .nuevo{background:#ecfdf5;border:2px solid #16a34a;text-align:center}
-  .nuevo .cod{font-size:44px;font-weight:800;letter-spacing:6px;font-family:ui-monospace,Consolas,monospace}
-  .err{color:#b91c1c;font-weight:600}
-  .scroll{overflow-x:auto}
+  :root{--bg:#0b1220;--panel:#111a2e;--panel2:#16213a;--line:#233252;--tx:#f1f5f9;--mut:#8ea0bf;
+        --azul:#3b82f6;--verde:#22c55e;--rojo:#ef4444;--ambar:#f59e0b}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 500px at 50% -150px,#1b2a4d 0,var(--bg) 70%) no-repeat,var(--bg);
+       color:var(--tx);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 18px 60px}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+  .logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#22c55e);display:grid;place-items:center;font-size:26px;box-shadow:0 8px 24px rgba(37,99,235,.35)}
+  h1{margin:0;font-size:26px;letter-spacing:-.3px} .sub{margin:2px 0 0;color:var(--mut);font-size:14px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .stat b{display:block;font-size:30px;line-height:1.1} .stat span{color:var(--mut);font-size:13px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:20px}
+  .card h2{margin:0 0 14px;font-size:17px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .full{grid-column:1/-1}
+  label{display:block;font-size:13px;font-weight:600;color:var(--mut);margin:0 0 6px}
+  input,select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font:inherit;outline:none}
+  input:focus,select:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(59,130,246,.25)}
+  ::-webkit-calendar-picker-indicator{filter:invert(.8)}
+  .hint{color:var(--mut);font-size:12px;margin-top:6px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border:0;border-radius:12px;
+       font:inherit;font-weight:700;cursor:pointer;color:#fff;background:var(--azul);text-decoration:none}
+  .btn:hover{filter:brightness(1.1)} .btn.verde{background:#16a34a} .btn.gris{background:var(--panel2);border:1px solid var(--line)}
+  .btn.rojo{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.35);padding:8px 14px;font-size:13px}
+  .btn.ok{background:rgba(34,197,94,.14);color:#86efac;border:1px solid rgba(34,197,94,.35);padding:8px 14px;font-size:13px}
+  .err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#fca5a5;padding:10px 14px;border-radius:12px;margin-bottom:14px;font-weight:600}
+  /* código nuevo */
+  .nuevo{border:2px solid var(--verde);background:linear-gradient(160deg,rgba(34,197,94,.12),var(--panel));text-align:center}
+  .nuevo .quien{color:var(--mut)} .cod{font-family:ui-monospace,Consolas,monospace;font-size:clamp(34px,9vw,56px);font-weight:800;letter-spacing:.14em;margin:10px 0}
+  .acciones{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:14px 0 10px}
+  .aviso{color:#fcd34d;font-size:13px}
+  /* lista */
+  .fila{display:grid;grid-template-columns:1.6fr 1fr 1fr auto;gap:12px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+  .fila:first-of-type{border-top:0}
+  .nom{font-weight:700} .ev{color:var(--mut);font-size:13px}
+  .meta{font-size:13px;color:var(--mut)} .meta b{color:var(--tx);display:block;font-size:14px}
+  .tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:4px}
+  .t-activo{background:rgba(34,197,94,.16);color:#86efac}.t-revocado{background:rgba(239,68,68,.16);color:#fca5a5}.t-vencido{background:rgba(245,158,11,.16);color:#fcd34d}
+  .vacio{color:var(--mut);text-align:center;padding:26px 0}
+  .link{color:#93c5fd;font-size:13px;text-decoration:none}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}.stats{gap:8px}.stat b{font-size:24px}.fila{grid-template-columns:1fr 1fr}.fila>:last-child{grid-column:1/-1}}
 </style>
 </head>
 <body><div class="wrap">
-  <h1>🚪 Códigos de puerta</h1>
-  <p class="sub">Cada dispositivo de puerta usa un código para abrir la app en <b>/puerta/</b>. Solo permite validar entradas del evento elegido.</p>
+  <header>
+    <div class="logo">🚪</div>
+    <div><h1>Códigos de puerta</h1><p class="sub">Da acceso a tu equipo para escanear entradas desde su celular.</p></div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><b>{{ n_activos }}</b><span>Códigos activos</span></div>
+    <div class="stat"><b>{{ codigos|length }}</b><span>Códigos creados</span></div>
+    <div class="stat"><b>{{ n_escaneos }}</b><span>Escaneos realizados</span></div>
+  </div>
 
   {% if nuevo %}
   <div class="card nuevo">
-    <div>Código para <b>{{ nuevo.obj.nombre }}</b> ({{ nuevo.obj.evento.nombre }})</div>
-    <div class="cod">{{ nuevo.codigo }}</div>
-    <div><b>Anótalo ahora:</b> por seguridad no se vuelve a mostrar. Vence el {{ nuevo.obj.vence_en|date:"d/m/Y H:i" }}.</div>
+    <div class="quien">Código para <b>{{ nuevo.obj.nombre }}</b> · {{ nuevo.obj.evento.nombre }}</div>
+    <div class="cod" id="cod">{{ nuevo.codigo }}</div>
+    <div class="acciones">
+      <button class="btn gris" type="button" onclick="copiar()" id="bcopiar">📋 Copiar código</button>
+      <a class="btn verde" href="{{ nuevo.wa }}" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a>
+    </div>
+    <div class="aviso">⚠️ Anótalo o envíalo ahora: por seguridad no se vuelve a mostrar. Vence el {{ nuevo.obj.vence_en|date:"d/m/Y H:i" }}.</div>
   </div>
   {% endif %}
 
   <div class="card">
-    <h3 style="margin-top:0">Crear código</h3>
+    <h2>➕ Nuevo código</h2>
     {% if error %}<div class="err">{{ error }}</div>{% endif %}
     <form method="post">{% csrf_token %}
       <input type="hidden" name="accion" value="crear">
-      <label>Evento</label>
-      <select name="evento" required>{% for e in eventos %}<option value="{{ e.id }}">{{ e.nombre }}</option>{% endfor %}</select>
-      <label>Dispositivo o persona</label>
-      <input name="nombre" maxlength="80" placeholder="Ej. Puerta 1 - Carlos" required>
-      <label>Vence (opcional)</label>
-      <input type="datetime-local" name="vence">
-      <small>Si lo dejas en blanco, vence 6 horas después de terminar el último día del evento.</small><br>
-      <button type="submit">Generar código</button>
+      <div class="grid">
+        <div class="full"><label>Evento</label>
+          <select name="evento" required>{% for e in eventos %}<option value="{{ e.id }}">{{ e.nombre }}</option>{% endfor %}</select></div>
+        <div><label>Persona o puerta</label><input name="nombre" maxlength="80" placeholder="Ej. Puerta 1 - Carlos" required></div>
+        <div><label>Vence (opcional)</label><input type="datetime-local" name="vence">
+          <div class="hint">En blanco: vence 6 horas después de terminar el último día del evento.</div></div>
+      </div>
+      <div style="margin-top:16px"><button class="btn" type="submit">Generar código</button></div>
     </form>
   </div>
 
-  <div class="card scroll">
-    <h3 style="margin-top:0">Códigos creados</h3>
-    <table>
-      <tr><th>Dispositivo</th><th>Evento</th><th>Estado</th><th>Vence</th><th>Último uso</th><th>Escaneos</th><th></th></tr>
-      {% for c in codigos %}
-      <tr>
-        <td>{{ c.nombre }}</td><td>{{ c.evento.nombre }}</td>
-        <td>{% if not c.activo %}<span class="tag no">Revocado</span>{% elif c.vence_en <= ahora %}<span class="tag ven">Vencido</span>{% else %}<span class="tag ok">Activo</span>{% endif %}</td>
-        <td>{{ c.vence_en|date:"d/m/Y H:i" }}</td>
-        <td>{{ c.ultimo_uso|date:"d/m H:i"|default:"—" }}</td>
-        <td>{{ c.escaneos }}</td>
-        <td><form method="post" style="margin:0">{% csrf_token %}<input type="hidden" name="id" value="{{ c.id }}">
-          {% if c.activo %}<input type="hidden" name="accion" value="revocar"><button class="rojo" onclick="return confirm('¿Revocar este código? El dispositivo quedará sin acceso.')">Revocar</button>
-          {% else %}<input type="hidden" name="accion" value="reactivar"><button class="gris">Reactivar</button>{% endif %}
-        </form></td>
-      </tr>
-      {% empty %}<tr><td colspan="7">Aún no hay códigos.</td></tr>{% endfor %}
-    </table>
+  <div class="card">
+    <h2>📱 Códigos creados</h2>
+    {% for c in codigos %}
+    <div class="fila">
+      <div><div class="nom">{{ c.nombre }}</div><div class="ev">{{ c.evento.nombre }}</div></div>
+      <div class="meta"><span class="tag t-{{ c.estado }}">{% if c.estado == "activo" %}Activo{% elif c.estado == "revocado" %}Revocado{% else %}Vencido{% endif %}</span>
+        <b>Vence {{ c.vence_en|date:"d/m H:i" }}</b></div>
+      <div class="meta"><b>{{ c.escaneos }} escaneo{{ c.escaneos|pluralize }}</b>{% if c.ultimo_uso %}último {{ c.ultimo_uso|date:"d/m H:i" }}{% else %}sin uso aún{% endif %}</div>
+      <form method="post" style="margin:0">{% csrf_token %}<input type="hidden" name="id" value="{{ c.id }}">
+        {% if c.activo %}<input type="hidden" name="accion" value="revocar">
+          <button class="btn rojo" onclick="return confirm('¿Revocar el acceso de {{ c.nombre|escapejs }}? Dejará de poder escanear de inmediato.')">Revocar</button>
+        {% else %}<input type="hidden" name="accion" value="reactivar"><button class="btn ok">Reactivar</button>{% endif %}
+      </form>
+    </div>
+    {% empty %}<div class="vacio">Aún no hay códigos. Crea el primero arriba.</div>{% endfor %}
   </div>
-</div></body></html>
+
+  <p class="sub" style="text-align:center">La app de escaneo está en <a class="link" href="/puerta/">/puerta/</a> · Cada código solo valida entradas de su evento.</p>
+</div>
+<script>
+function copiar(){
+  var t = document.getElementById('cod').textContent.trim(), b = document.getElementById('bcopiar');
+  function ok(){ b.textContent = '✅ Copiado'; setTimeout(function(){ b.textContent = '📋 Copiar código'; }, 1800); }
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(ok);
+  else { var r = document.createRange(); r.selectNode(document.getElementById('cod')); getSelection().removeAllRanges(); getSelection().addRange(r); document.execCommand('copy'); ok(); }
+}
+</script>
+</body></html>

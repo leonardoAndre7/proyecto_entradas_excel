@@ -1004,3 +1004,33 @@ class SystemFlowsTestCase(TestCase):
         # Should execute successfully without throwing errors
         success = enviar_entrada_participante(part)
         self.assertTrue(success or not success)  # Expect clean execution regardless of mock SMTP success
+
+
+class PreciosEditorLocalizadosTestCase(TestCase):
+    """Con idioma 'es' los decimales salen con coma y un input number los dejaba vacíos."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser("adm9", "a9@test.com", "pass12345")
+        PerfilUsuario.objects.get_or_create(user=self.user, defaults={"rol": "SUPERADMIN"})
+        self.client.login(username="adm9", password="pass12345")
+        self.evento = Evento.objects.create(nombre="Despertar", aforo_maximo=1000)
+        self.tarifa = Tarifa.objects.create(evento=self.evento, tipo_entrada="VIP", preventa_1=150.5, puerta=300)
+        self.url = reverse("evento_editar", kwargs={"pk": self.evento.pk})
+
+    def test_el_formulario_muestra_precios_con_punto(self):
+        html = self.client.get(self.url).content.decode()
+        self.assertIn('name="tariff_p1" class="form-control form-control-sm text-center text-white bg-dark bg-opacity-50" value="150.50"', html)
+        self.assertNotIn('value="150,50"', html)
+
+    def test_campo_en_blanco_no_borra_el_precio(self):
+        html = self.client.get(self.url).content.decode()
+        import re
+        estado = re.search(r'name="_estado_evento" value="([0-9a-f]{40})"', html).group(1)
+        self.client.post(self.url, {
+            "_estado_evento": estado, "nombre": "Despertar", "aforo_maximo": "1000", "limite_entradas_persona": "5",
+            "color_primario": "#7b1fa2", "tariff_id": [str(self.tarifa.pk)], "tariff_name": ["VIP"],
+            "tariff_p1": [""], "tariff_p2": [""], "tariff_p3": [""], "tariff_puerta": ["350,5"],
+        })
+        self.tarifa.refresh_from_db()
+        self.assertEqual(float(self.tarifa.preventa_1), 150.5)
+        self.assertEqual(float(self.tarifa.puerta), 350.5)

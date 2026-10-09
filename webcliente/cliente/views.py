@@ -397,10 +397,22 @@ def evento_crear_editar(request, pk=None):
                 continue
                 
             t_id = tariff_ids[i] if i < len(tariff_ids) and tariff_ids[i] else None
-            t_p1 = Decimal(tariff_p1s[i] or 0) if i < len(tariff_p1s) else Decimal(0)
-            t_p2 = Decimal(tariff_p2s[i] or 0) if i < len(tariff_p2s) else Decimal(0)
-            t_p3 = Decimal(tariff_p3s[i] or 0) if i < len(tariff_p3s) else Decimal(0)
-            t_puerta = Decimal(tariff_puertas[i] or 0) if i < len(tariff_puertas) else Decimal(0)
+            t_obj_prev = Tarifa.objects.filter(pk=t_id, evento=evento).first() if t_id else None
+
+            def _precio(lista, campo):
+                # Acepta coma o punto. Un campo en blanco conserva el precio actual (no lo pone en 0).
+                texto = (lista[i] if i < len(lista) else '').strip().replace(',', '.')
+                if texto:
+                    try:
+                        return Decimal(texto)
+                    except Exception:
+                        pass
+                return getattr(t_obj_prev, campo) if t_obj_prev else Decimal(0)
+
+            t_p1 = _precio(tariff_p1s, 'preventa_1')
+            t_p2 = _precio(tariff_p2s, 'preventa_2')
+            t_p3 = _precio(tariff_p3s, 'preventa_3')
+            t_puerta = _precio(tariff_puertas, 'puerta')
 
             # Días de acceso y ventana horaria (si el formulario no los envía, se conservan los actuales)
             t_dias = None

@@ -430,19 +430,6 @@ class Participante(models.Model):
 
     def registrar_ingreso(self):
         """
-        Registra un ingreso con la fila bloqueada: así dos puertas (o la puerta y el escaneo
-        con login) no pueden registrar a la vez la misma entrada. Ver _registrar_ingreso.
-        """
-        from django.db import transaction
-        if not self.pk:
-            return self._registrar_ingreso()
-        with transaction.atomic():
-            Participante.objects.select_for_update(of=("self",)).filter(pk=self.pk).first()
-            self.refresh_from_db(fields=['entrada_usada'])
-            return self._registrar_ingreso()
-
-    def _registrar_ingreso(self):
-        """
         Intenta registrar un ingreso ahora. Devuelve (ok, mensaje).
         Reglas (en este orden): pago completo, fechas de la tarifa, horario, un ingreso por día
         y máximo `tarifa.dias_validos`. Va dentro de una transacción con la fila bloqueada: dos

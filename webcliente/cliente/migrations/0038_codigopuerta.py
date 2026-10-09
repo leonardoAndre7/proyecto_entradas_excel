@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('cliente', '0036_pagos_en_partes'),
+        ('cliente', '0037_participante_whatsapp_enviado'),
     ]
 
     operations = [
